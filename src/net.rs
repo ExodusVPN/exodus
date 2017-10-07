@@ -124,27 +124,20 @@ pub enum Kind {
 
 #[derive(Debug, Clone)]
 pub struct Interface {
-    /// The name of this interface.
     pub name: String,
-    /// The kind of interface this is.
     pub kind: Kind,
-    /// The address of this interface, if it has one.
     pub addr: Option<net::SocketAddr>,
-    /// The netmask of this interface, if it has one.
     pub mask: Option<net::SocketAddr>,
-    /// The broadcast address or destination address, if it has one.
     pub hop: Option<NextHop>,
 }
 
 impl Interface {
-    /// Retrieve a list of interfaces on this system.
     pub fn interfaces () -> Result<Vec<Interface>, Error> {
         let mut ifaddrs_ptr: *mut ifaddrs = ptr::null_mut();
         match unsafe { getifaddrs(&mut ifaddrs_ptr as *mut _) } {
             0 => {
                 let mut ret = Vec::new();
                 let mut item: *mut ifaddrs = ifaddrs_ptr;
-                // unsafe { &mut *item }
                 loop {
                     if item.is_null() {
                         break;
