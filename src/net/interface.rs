@@ -7,6 +7,48 @@ use std::ffi::CStr;
 
 use std::net::IpAddr;
 
+// // FreeBSD
+//     IFT_OTHER = 0x1      // none of the following (many entries not listed here)
+//     IFT_ETHER = 0x6      // Ethernet CSMA/CD
+//     IFT_PPP = 0x17       // PPP
+//     IFT_LOOP = 0x18      // loopback
+//     IFT_IEEE1394 = 0x90  // IEEE1394 High Performance SerialBus
+
+//     // Define constants for the most useful interface flags (from if.h).
+//     IFF_UP            = 0x0001
+//     IFF_BROADCAST     = 0x0002
+//     IFF_LOOPBACK      = 0x0008
+//     IFF_POINTTOPOINT  = 0x0010
+//     IFF_RUNNING       = 0x0040
+//     IFF_MULTICAST     = 0x8000
+// // Linux
+//     IFT_OTHER = -1
+//     IFT_ETHER = -1
+//     IFT_PPP = -1
+//     IFT_LOOP = -1
+
+//     // Define constants for the most useful interface flags (from if.h).
+//     IFF_UP            = 0x0001
+//     IFF_BROADCAST     = 0x0002
+//     IFF_LOOPBACK      = 0x0008
+//     IFF_POINTTOPOINT  = 0x0010
+//     IFF_RUNNING       = 0x0040
+//     IFF_MULTICAST = 0x1000
+// // XNU
+//     IFT_OTHER = 0x1      // none of the following (many entries not listed here)
+//     IFT_ETHER = 0x6      // Ethernet CSMA/CD
+//     IFT_PPP = 0x17       // PPP
+//     IFT_LOOP = 0x18      // loopback
+//     IFT_IEEE1394 = 0x90  // IEEE1394 High Performance SerialBus
+
+//     // Define constants for the most useful interface flags (from if.h).
+//     IFF_UP            = 0x0001
+//     IFF_BROADCAST     = 0x0002
+//     IFF_LOOPBACK      = 0x0008
+//     IFF_POINTTOPOINT  = 0x0010
+//     IFF_RUNNING       = 0x0040
+//     IFF_MULTICAST = 0x8000
+
 
 // Linux
 // pub const AF_PACKET: std::os::raw::c_int = 17;
@@ -183,7 +225,7 @@ impl Interface {
                     if kind.is_none() {
                         break;
                     }
-                    
+
                     let addr = nix_socketaddr_to_sockaddr( unsafe { (*item).ifa_addr });
                     let mask = nix_socketaddr_to_sockaddr(unsafe { (*item).ifa_netmask} );
                     let hop =  unsafe { 
