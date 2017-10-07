@@ -1,4 +1,4 @@
-rust-
+rust-netproxy
 =====================
 
 :Date: 10/03 2017
@@ -13,11 +13,11 @@ Build
     
     brew install python3
     brew install rustup-init
-    
+
     rustup install nightly
     rustup default nightly
-    
-    
+
+
 .. code:: bash
     
     python3 scripts/sync.py
