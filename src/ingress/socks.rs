@@ -1,41 +1,3 @@
-//! An example [SOCKSv5] proxy server on top of futures
-//!
-//! [SOCKSv5]: https://www.ietf.org/rfc/rfc1928.txt
-//!
-//! This program is intended to showcase many aspects of the futures crate and
-//! I/O integration, explaining how many of the features can interact with one
-//! another and also provide a concrete example to see how easily pieces can
-//! interoperate with one another.
-//!
-//! A SOCKS proxy is a relatively easy protocol to work with. Each TCP
-//! connection made to a server does a quick handshake to determine where data
-//! is going to be proxied to, another TCP socket is opened up to this
-//! destination, and then bytes are shuffled back and forth between the two
-//! sockets until EOF is reached.
-//!
-//! This server implementation is relatively straightforward, but
-//! architecturally has a few interesting pieces:
-//!
-//! * The entire server only has one buffer to read/write data from. This global
-//!   buffer is shared by all connections and each proxy pair simply reads
-//!   through it. This is achieved by waiting for both ends of the proxy to be
-//!   ready, and then the transfer is done.
-//!
-//! * Initiating a SOCKS proxy connection may involve a DNS lookup, which
-//!   is done with the TRust-DNS futures-based resolver. This demonstrates the
-//!   ease of integrating a third-party futures-based library into our futures
-//!   chain.
-//!
-//! * The entire SOCKS handshake is implemented using the various combinators in
-//!   the `futures` crate as well as the `tokio_core::io` module. The actual
-//!   proxying of data, however, is implemented through a manual implementation
-//!   of `Future`. This shows how it's easy to transition back and forth between
-//!   the two, choosing whichever is the most appropriate for the situation at
-//!   hand.
-//!
-//! You can try out this server with `cargo test` or just `cargo run` and
-//! throwing connections at it yourself, and there should be plenty of comments
-//! below to help walk you through the implementation as well!
 
 #[macro_use]
 extern crate log;
@@ -136,21 +98,6 @@ struct Client {
 }
 
 impl Client {
-    /// This is the main entry point for starting a SOCKS proxy connection.
-    ///
-    /// This function is responsible for constructing the future which
-    /// represents the final result of the proxied connection. In this case
-    /// we're going to return an `IoFuture<T>`, an alias for
-    /// `Future<Item=T, Error=io::Error>`, which indicates how many bytes were
-    /// proxied on each half of the connection.
-    ///
-    /// The first part of the SOCKS protocol with a remote connection is for the
-    /// server to read one byte, indicating the version of the protocol. The
-    /// `read_exact` combinator is used here to entirely fill the specified
-    /// buffer, and we can use it to conveniently read off one byte here.
-    ///
-    /// Once we've got the version byte, we then delegate to the below
-    /// `serve_vX` methods depending on which version we found.
     fn serve(self, conn: TcpStream)
               -> Box<Future<Item=(u64, u64), Error=io::Error>> {
         Box::new(read_exact(conn, [0u8]).and_then(|(conn, buf)| {
@@ -172,33 +119,8 @@ impl Client {
                 -> Box<Future<Item=(u64, u64), Error=io::Error>> {
         ::std::boxed::Box::new(future::err(other("unimplemented")))
     }
-
-    /// The meat of a SOCKSv5 handshake.
-    ///
-    /// This method will construct a future chain that will perform the entire
-    /// suite of handshakes, and at the end if we've successfully gotten that
-    /// far we'll initiate the proxying between the two sockets.
-    ///
-    /// As a side note, you'll notice a number of `.boxed()` annotations here to
-    /// box up intermediate futures. From a library perspective, this is not
-    /// necessary, but without them the compiler is pessimistically slow!
-    /// Essentially, the `.boxed()` annotations here improve compile times, but
-    /// are otherwise not necessary.
     fn serve_v5(self, conn: TcpStream)
                 -> Box<Future<Item=(u64, u64), Error=io::Error>> {
-        // First part of the SOCKSv5 protocol is to negotiate a number of
-        // "methods". These methods can typically be used for various kinds of
-        // proxy authentication and such, but for this server we only implement
-        // the `METH_NO_AUTH` method, indicating that we only implement
-        // connections that work with no authentication.
-        //
-        // First here we do the same thing as reading the version byte, we read
-        // a byte indicating how many methods. Afterwards we then read all the
-        // methods into a temporary buffer.
-        //
-        // Note that we use `and_then` here to chain computations after one
-        // another, but it also serves to simply have fallible computations,
-        // such as checking whether the list of methods contains `METH_NO_AUTH`.
         let num_methods = read_exact(conn, [0u8]);
         let authenticated = ::std::boxed::Box::new(num_methods.and_then(|(conn, buf)| {
             read_exact(conn, vec![0u8; buf[0] as usize])
