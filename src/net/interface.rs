@@ -115,9 +115,9 @@ pub enum NextHop {
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum Kind {
-    Packet,
     Ipv4,
     Ipv6,
+    Unknow(i32)
 }
 
 #[derive(Debug, Clone)]
@@ -128,6 +128,13 @@ pub struct Interface {
     pub mask: Option<net::SocketAddr>,
     pub hop: Option<NextHop>,
 }
+
+// Linux
+// pub const AF_PACKET: std::os::raw::c_int = 17;
+// XNU
+// pub const AF_PACKET: std::os::raw::c_int = 18;
+// socket::AF_PACKET
+// socket::AF_LINK
 
 impl Interface {
     pub fn interfaces () -> Result<Vec<Interface>, Error> {
@@ -147,12 +154,9 @@ impl Interface {
                         }
                     }
                     let kind = match unsafe { (*(*item).ifa_addr).sa_family as i32 } {
-                        // pub const AF_PACKET: ::c_int = 17;
-                        // socket::AF_PACKET
-                        17i32 | 18i32 => Some(Kind::Packet),
                         nix::sys::socket::AF_INET => Some(Kind::Ipv4),
                         nix::sys::socket::AF_INET6 => Some(Kind::Ipv6),
-                        _  => None,
+                        e @ _  => Some(Kind::Unknow(e))
                     };
 
                     if kind.is_none() {
@@ -173,13 +177,23 @@ impl Interface {
                             None => None,
                         }
                     }};
-                    ret.push(Interface {
-                        name: name.unwrap(),
-                        kind: kind.unwrap(),
-                        addr: addr,
-                        mask: mask,
-                        hop: hop,
-                    });
+
+                    match kind {
+                        Some(kind) => match kind {
+                            Kind::Unknow(_) => {},
+                            _ => {
+                                ret.push(Interface {
+                                    name: name.unwrap(),
+                                    kind: kind,
+                                    addr: addr,
+                                    mask: mask,
+                                    hop: hop,
+                                });
+                            }
+                        },
+                        None => {}
+                    };
+                    
                     item = unsafe { (*item).ifa_next };
                 }
                 unsafe { freeifaddrs(ifaddrs_ptr) };
