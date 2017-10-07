@@ -7,6 +7,29 @@ use std::ffi::CStr;
 
 use std::net::IpAddr;
 
+
+// Linux
+// pub const AF_PACKET: std::os::raw::c_int = 17;
+// XNU
+// pub const AF_PACKET: std::os::raw::c_int = 18;
+// socket::AF_PACKET
+// socket::AF_LINK
+pub const AF_INET: i32 = nix::sys::socket::AF_INET;
+pub const AF_INET6: i32 = nix::sys::socket::AF_INET6;
+
+#[cfg(any(target_os = "macos", target_os = "ios", target_os = "freebsd", target_os = "openbsd", target_os = "netbsd"))]
+pub const AF_LINK: i32 = nix::libc::AF_LINK;
+#[cfg(any(target_os = "macos", target_os = "ios", target_os = "freebsd", target_os = "openbsd", target_os = "netbsd"))]
+pub const AF_PACKET: i32 = -1;
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub const AF_LINK: i32 = -1;
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub const AF_PACKET: i32 = nix::libc::AF_PACKET;
+
+
+
+
 #[allow(dead_code, non_camel_case_types)]
 #[repr(C)]
 pub enum SIOCGIFFLAGS {
@@ -32,6 +55,8 @@ pub enum SIOCGIFFLAGS {
     IFF_AUTOMEDIA = 0x4000, /* Auto media select active.  */
     IFF_DYNAMIC = 0x8000    /* Dialup device with changing addresses.  */
 }
+
+
 
 #[repr(C)]
 pub struct union_ifa_ifu {
@@ -115,6 +140,8 @@ pub enum NextHop {
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum Kind {
+    Packet,
+    Link,
     Ipv4,
     Ipv6,
     Unknow(i32)
@@ -128,13 +155,6 @@ pub struct Interface {
     pub mask: Option<net::SocketAddr>,
     pub hop: Option<NextHop>,
 }
-
-// Linux
-// pub const AF_PACKET: std::os::raw::c_int = 17;
-// XNU
-// pub const AF_PACKET: std::os::raw::c_int = 18;
-// socket::AF_PACKET
-// socket::AF_LINK
 
 impl Interface {
     pub fn interfaces () -> Result<Vec<Interface>, Error> {
@@ -154,19 +174,21 @@ impl Interface {
                         }
                     }
                     let kind = match unsafe { (*(*item).ifa_addr).sa_family as i32 } {
-                        nix::sys::socket::AF_INET => Some(Kind::Ipv4),
-                        nix::sys::socket::AF_INET6 => Some(Kind::Ipv6),
-                        e @ _  => Some(Kind::Unknow(e))
+                        AF_INET   => Some(Kind::Ipv4),
+                        AF_INET6  => Some(Kind::Ipv6),
+                        AF_PACKET => Some(Kind::Packet),
+                        AF_LINK   => Some(Kind::Link),
+                        code @ _     => Some(Kind::Unknow(code))
                     };
-
                     if kind.is_none() {
                         break;
                     }
-
+                    
                     let addr = nix_socketaddr_to_sockaddr( unsafe { (*item).ifa_addr });
                     let mask = nix_socketaddr_to_sockaddr(unsafe { (*item).ifa_netmask} );
                     let hop =  unsafe { 
-                        if (*item).ifa_flags & SIOCGIFFLAGS::IFF_BROADCAST as std::os::raw::c_uint == SIOCGIFFLAGS::IFF_BROADCAST as std::os::raw::c_uint {
+                        if (*item).ifa_flags & SIOCGIFFLAGS::IFF_BROADCAST as std::os::raw::c_uint 
+                            == SIOCGIFFLAGS::IFF_BROADCAST as std::os::raw::c_uint {
                         match nix_socketaddr_to_sockaddr((*item).ifa_ifu.ifu_broadaddr()) {
                             Some(x) => Some(NextHop::Broadcast(x)),
                             None => None,
