@@ -12,6 +12,10 @@ name = "dns"
 path = "src/dns.rs"
 
 [[bin]]
+name = "ifaces"
+path = "src/net.rs"
+
+[[bin]]
 name = "ssh"
 path = "src/egress/ssh.rs"
 
