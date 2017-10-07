@@ -1,6 +1,4 @@
 
-
-extern crate libc;
 extern crate nix;
 
 use std::io::{Error, ErrorKind};
@@ -37,7 +35,7 @@ pub enum SIOCGIFFLAGS {
 
 #[repr(C)]
 pub struct union_ifa_ifu {
-    pub data: *mut libc::c_void,
+    pub data: *mut std::os::raw::c_void,
 }
 impl union_ifa_ifu {
     pub fn ifu_broadaddr (&mut self) -> *mut nix::sys::socket::sockaddr {
@@ -51,18 +49,18 @@ impl union_ifa_ifu {
 #[repr(C)]
 pub struct ifaddrs {
     pub ifa_next: *mut ifaddrs,
-    pub ifa_name: *mut libc::c_char,
-    pub ifa_flags: libc::c_uint,
+    pub ifa_name: *mut std::os::raw::c_char,
+    pub ifa_flags: std::os::raw::c_uint,
     pub ifa_addr: *mut nix::sys::socket::sockaddr,
     pub ifa_netmask: *mut nix::sys::socket::sockaddr,
     pub ifa_ifu: union_ifa_ifu,
-    pub ifa_data: *mut libc::c_void,
+    pub ifa_data: *mut std::os::raw::c_void,
 }
 
 
 extern "C" {
-    pub fn getifaddrs (ifap: *mut *mut ifaddrs) -> libc::c_int;
-    pub fn freeifaddrs (ifa: *mut ifaddrs) -> libc::c_void;
+    pub fn getifaddrs (ifap: *mut *mut ifaddrs) -> std::os::raw::c_int;
+    pub fn freeifaddrs (ifa: *mut ifaddrs) -> std::os::raw::c_void;
 }
 
 
@@ -164,7 +162,7 @@ impl Interface {
                     let addr = nix_socketaddr_to_sockaddr( unsafe { (*item).ifa_addr });
                     let mask = nix_socketaddr_to_sockaddr(unsafe { (*item).ifa_netmask} );
                     let hop =  unsafe { 
-                        if (*item).ifa_flags & SIOCGIFFLAGS::IFF_BROADCAST as libc::c_uint == SIOCGIFFLAGS::IFF_BROADCAST as libc::c_uint {
+                        if (*item).ifa_flags & SIOCGIFFLAGS::IFF_BROADCAST as std::os::raw::c_uint == SIOCGIFFLAGS::IFF_BROADCAST as std::os::raw::c_uint {
                         match nix_socketaddr_to_sockaddr((*item).ifa_ifu.ifu_broadaddr()) {
                             Some(x) => Some(NextHop::Broadcast(x)),
                             None => None,
@@ -197,5 +195,4 @@ fn main (){
     for interface in interfaces.into_iter() {
         println!("{:?}", interface);
     }
-    
 }
