@@ -24,9 +24,9 @@ Build
     python3 scripts/parse.py
     python3 scripts/codegen.py
 
-    cargo run --dns
-    cargo run --ifaces
-    
-    cargo run --ssh
-    cargo run --socks
-    cargo run --timezone
+    cargo run --bin dns
+    cargo run --bin ifaces
+
+    cargo run --bin ssh
+    cargo run --bin socks
+    cargo run --bin timezone
