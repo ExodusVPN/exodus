@@ -25,6 +25,8 @@ Build
     python3 scripts/codegen.py
 
     cargo run --dns
+    cargo run --ifaces
+    
     cargo run --ssh
     cargo run --socks
     cargo run --timezone
