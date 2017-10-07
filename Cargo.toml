@@ -13,7 +13,7 @@ path = "src/dns.rs"
 
 [[bin]]
 name = "ifaces"
-path = "src/net.rs"
+path = "src/net/interface.rs"
 
 [[bin]]
 name = "ssh"
