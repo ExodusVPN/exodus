@@ -30,3 +30,6 @@ Build
     cargo run --bin ssh
     cargo run --bin socks
     cargo run --bin timezone
+
+    # Apple XNU libpf
+    cargo run --bin pf
