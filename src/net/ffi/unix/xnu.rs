@@ -1,6 +1,9 @@
 #[macro_use]
 extern crate ioctl_sys;
+extern crate errno;
+extern crate libc;
 
+use std::os::unix::io::{AsRawFd, RawFd};
 
 #[allow(non_camel_case_types)]
 #[allow(non_upper_case_globals)]
@@ -8,6 +11,9 @@ extern crate ioctl_sys;
 #[allow(dead_code)]
 mod pfvar;
 pub use pfvar::*;
+
+pub const PF_DEV_PATH: &'static str = "/dev/pf";
+pub const IOCTL_ERROR: i32 = -1;
 
 // exports from <netinet/tcp.h>
 pub const TH_FIN: ::std::os::raw::c_uint = 0x01;
@@ -19,6 +25,24 @@ pub const TH_URG: ::std::os::raw::c_uint = 0x20;
 pub const TH_ECE: ::std::os::raw::c_uint = 0x40;
 pub const TH_CWR: ::std::os::raw::c_uint = 0x80;
 
+
+macro_rules! ioctl_guard {
+    ($func:expr) => (ioctl_guard!($func, $crate::libc::EEXIST));
+    ($func:expr, $already_active:expr) => {
+        if unsafe { $func } == $crate::IOCTL_ERROR {
+            let ::errno::Errno(error_code) = ::errno::errno();
+            Err(::std::io::Error::from_raw_os_error(error_code))
+            // Err(::std::io::Error::new(::std::io::ErrorKind::Other, "Oh, no ..."))
+            // let mut err = Err($crate::ErrorKind::IoctlError(io_error).into());
+            // if error_code == $already_active {
+            //     err = err.chain_err(|| $crate::ErrorKind::StateAlreadyActive);
+            // }
+            // err
+        } else {
+            Ok(())
+        }
+    }
+}
 
 
 // The definitions of the ioctl calls come from pfvar.h. Look for the comment "ioctl operations"
@@ -55,33 +79,8 @@ ioctl!(readwrite pf_begin_trans with b'D', 81; pfvar::pfioc_trans);
 // DIOCXCOMMIT
 ioctl!(readwrite pf_commit_trans with b'D', 82; pfvar::pfioc_trans);
 
-extern crate errno;
-extern crate libc;
 
 
-pub const IOCTL_ERROR: i32 = -1;
-/// Macro for taking an expression with an ioctl call, perform it and return a Rust ´Result´.
-macro_rules! ioctl_guard {
-    ($func:expr) => (ioctl_guard!($func, $crate::libc::EEXIST));
-    ($func:expr, $already_active:expr) => {
-        if unsafe { $func } == $crate::IOCTL_ERROR {
-            let ::errno::Errno(error_code) = ::errno::errno();
-            Err(::std::io::Error::from_raw_os_error(error_code))
-            // Err(::std::io::Error::new(::std::io::ErrorKind::Other, "Oh, no ..."))
-            // let mut err = Err($crate::ErrorKind::IoctlError(io_error).into());
-            // if error_code == $already_active {
-            //     err = err.chain_err(|| $crate::ErrorKind::StateAlreadyActive);
-            // }
-            // err
-        } else {
-            Ok(())
-        }
-    }
-}
-
-use std::os::unix::io::{AsRawFd, RawFd};
-/// The path to the PF device file this library will use to communicate with PF.
-const PF_DEV_PATH: &'static str = "/dev/pf";
 
 /// Struct communicating with the PF firewall.
 pub struct PfCtl {
@@ -89,7 +88,6 @@ pub struct PfCtl {
 }
 
 impl PfCtl {
-    /// Returns a new `PfCtl` if opening the PF device file succeeded.
     pub fn new() -> Result<Self, ::std::io::Error> {
         match ::std::fs::OpenOptions::new().read(true).write(true).open(PF_DEV_PATH) {
             Ok(file) => Ok(PfCtl {file: file}),
