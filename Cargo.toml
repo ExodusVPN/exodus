@@ -23,6 +23,9 @@ path = "src/egress/ssh.rs"
 name = "timezone"
 path = "src/iana/timezone.rs"
 
+[[bin]]
+name = "pf"
+path = "src/net/ffi/unix/xnu.rs"
 
 [dependencies]
 ssh2 = "0.3.2"
@@ -40,3 +43,9 @@ chrono-tz = "0.4.1"
 
 nix = "0.9.0"
 libc = "0.2.31"
+
+ioctl-sys = "0.5.2"
+errno = "0.2"
+
+[build-dependencies]
+bindgen = "0.30"
