@@ -1,7 +1,9 @@
+#![allow(dead_code)]
+
+extern crate libc;
+// extern crate errno;
 #[macro_use]
 extern crate ioctl_sys;
-extern crate errno;
-extern crate libc;
 
 use std::os::unix::io::{AsRawFd, RawFd};
 
@@ -25,23 +27,23 @@ pub const TH_URG: ::std::os::raw::c_uint = 0x20;
 pub const TH_ECE: ::std::os::raw::c_uint = 0x40;
 pub const TH_CWR: ::std::os::raw::c_uint = 0x80;
 
+#[allow(dead_code)]
+extern {
+    #[cfg_attr(any(target_os = "macos",
+                   target_os = "ios",
+                   target_os = "freebsd"),
+                   link_name = "__error")]
+    #[cfg_attr(target_os = "dragonfly",
+                   link_name = "__dfly_error")]
+    #[cfg_attr(any(target_os = "openbsd", target_os = "bitrig", target_os = "android"),
+                   link_name = "__errno")]
+    #[cfg_attr(target_os = "linux",
+                   link_name = "__errno_location")]
+    fn errno_location() -> *mut libc::c_int;
 
-macro_rules! ioctl_guard {
-    ($func:expr) => (ioctl_guard!($func, $crate::libc::EEXIST));
-    ($func:expr, $already_active:expr) => {
-        if unsafe { $func } == $crate::IOCTL_ERROR {
-            let ::errno::Errno(error_code) = ::errno::errno();
-            Err(::std::io::Error::from_raw_os_error(error_code))
-            // Err(::std::io::Error::new(::std::io::ErrorKind::Other, "Oh, no ..."))
-            // let mut err = Err($crate::ErrorKind::IoctlError(io_error).into());
-            // if error_code == $already_active {
-            //     err = err.chain_err(|| $crate::ErrorKind::StateAlreadyActive);
-            // }
-            // err
-        } else {
-            Ok(())
-        }
-    }
+    #[cfg_attr(target_os = "linux", link_name = "__xpg_strerror_r")]
+    fn strerror_r(errnum: libc::c_int, buf: *mut libc::c_char,
+                  buflen: libc::size_t) -> libc::c_int;
 }
 
 
@@ -80,7 +82,69 @@ ioctl!(readwrite pf_begin_trans with b'D', 81; pfvar::pfioc_trans);
 ioctl!(readwrite pf_commit_trans with b'D', 82; pfvar::pfioc_trans);
 
 
+pub enum Rule {
+    Filter(FilterRule),
+    Redirect(RedirectRule)
+}
 
+pub struct FilterRule {
+
+}
+
+pub enum Address {
+    Any,
+    IP,
+    IPNetwork,
+    Interface
+}
+
+pub enum Action {
+    // FilterRuleAction
+    Pass,
+    Drop,
+    // RedirectRuleAction
+    Redirect,
+    NoRedirect,
+}
+
+pub enum Port {
+    Any,
+    Only(u32),
+    Range(PortRange)
+}
+pub struct PortRange {
+    start: u16,
+    end  : u16,
+    opt  : String,
+}
+
+
+pub struct RedirectRule {
+    source      : Address,
+    destination : Address,
+    to          : Address,
+    action      : Action
+}
+
+impl FilterRule {
+
+}
+
+pub struct Anchor {
+    name: String
+}
+
+impl Anchor {
+    pub fn add_rule(){
+
+    }
+    pub fn remove_rule(){
+
+    }
+    pub fn flush_rules(){
+
+    }
+}
 
 /// Struct communicating with the PF firewall.
 pub struct PfCtl {
@@ -91,7 +155,13 @@ impl PfCtl {
     pub fn new() -> Result<Self, ::std::io::Error> {
         match ::std::fs::OpenOptions::new().read(true).write(true).open(PF_DEV_PATH) {
             Ok(file) => Ok(PfCtl {file: file}),
-            Err(e) => Err(e)
+            Err(e) => match e.kind() {
+                ::std::io::ErrorKind::PermissionDenied => {
+                    println!("[WARN] 请使用 `sudo`  ...");
+                    panic!(e);
+                },
+                _ => Err(e)
+            }
         }
     }
     pub fn get_raw_fd(&self) -> RawFd {
@@ -99,14 +169,45 @@ impl PfCtl {
     }
 
     pub fn enable(&mut self) -> Result<(), ::std::io::Error> {
-        ioctl_guard!(pf_start(self.get_raw_fd()))
+        let ret_code = unsafe { pf_start(self.get_raw_fd()) };
+        if ret_code == -1 {
+            let last_error = ::std::io::Error::last_os_error();
+            if last_error.kind() == ::std::io::ErrorKind::AlreadyExists {
+                Ok(())
+            } else {
+                Err(last_error)
+            }
+        } else {
+            Ok(())
+        }
     }
 
+    pub fn disable(&self) -> Result<(), ::std::io::Error> {
+        let ret_code = unsafe { pf_stop(self.get_raw_fd()) };
+        if ret_code == -1 {
+            let last_error = ::std::io::Error::last_os_error();
+            if last_error.kind() == ::std::io::ErrorKind::NotFound {
+                Ok(())
+            } else {
+                Err(last_error)
+            }
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn add_anchor() {
+
+    }
+
+    pub fn remove_anchor() {
+
+    }
 }
 
 
 fn main (){
     let mut pfctl = PfCtl::new().unwrap();
-    let ret = pfctl.enable();
-    println!("{:?}", ret);
+    println!("{:?}", pfctl.enable());
+    println!("{:?}", pfctl.disable());
 }

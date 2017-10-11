@@ -47,5 +47,8 @@ libc = "0.2.31"
 ioctl-sys = "0.5.2"
 errno = "0.2"
 
+
+ifaces = { git = "https://github.com/LuoZijun/rust-ifaces.git" }
+
 [build-dependencies]
 bindgen = "0.30"
