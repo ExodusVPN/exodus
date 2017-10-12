@@ -27,66 +27,32 @@ use trust_dns::op::{Message, ResponseCode};
 use trust_dns::rr::{DNSClass, Name, RData, RecordType};
 use trust_dns::udp::UdpClientStream;
 
-fn main() {
-    drop(env_logger::init());
 
-    // Take the first command line argument as an address to listen on, or fall
-    // back to just some localhost default.
-    let addr = env::args().nth(1).unwrap_or("127.0.0.1:8080".to_string());
-    let addr = addr.parse::<SocketAddr>().unwrap();
+// Various constants associated with the SOCKS protocol
 
-    // Initialize the various data structures we're going to use in our server.
-    // Here we create the event loop, the global buffer that all threads will
-    // read/write into, and the bound TCP listener itself.
-    let mut lp = Core::new().unwrap();
-    let buffer = Rc::new(RefCell::new(vec![0; 64 * 1024]));
-    let handle = lp.handle();
-    let listener = TcpListener::bind(&addr, &handle).unwrap();
+#[allow(dead_code)]
+mod v5 {
+    pub const VERSION: u8 = 5;
 
-    // This is the address of the DNS server we'll send queries to. If
-    // external servers can't be used in your environment, you can substitue
-    // your own.
-    let dns = "8.8.8.8:53".parse().unwrap();
-    let (stream, sender) = UdpClientStream::new(dns, handle.clone());
-    let client = ClientFuture::new(stream, sender, handle.clone(), None);
+    pub const METH_NO_AUTH: u8 = 0;
+    pub const METH_GSSAPI: u8 = 1;
+    pub const METH_USER_PASS: u8 = 2;
 
-    // Construct a future representing our server. This future processes all
-    // incoming connections and spawns a new task for each client which will do
-    // the proxy work.
-    //
-    // This essentially means that for all incoming connections, those received
-    // from `listener`, we'll create an instance of `Client` and convert it to a
-    // future representing the completion of handling that client. This future
-    // itself is then *spawned* onto the event loop to ensure that it can
-    // progress concurrently with all other connections.
-    println!("Listening for socks5 proxy connections on {}", addr);
-    let clients = listener.incoming().map(move |(socket, addr)| {
-        (Client {
-            buffer: buffer.clone(),
-            dns: client.clone(),
-            handle: handle.clone(),
-        }.serve(socket), addr)
-    });
-    let handle = lp.handle();
-    let server = clients.for_each(|(client, addr)| {
-        handle.spawn(client.then(move |res| {
-            match res {
-                Ok((a, b)) => {
-                    println!("proxied {}/{} bytes for {}", a, b, addr)
-                }
-                Err(e) => println!("error for {}: {}", addr, e),
-            }
-            future::ok(())
-        }));
-        Ok(())
-    });
+    pub const CMD_CONNECT: u8 = 1;
+    pub const CMD_BIND: u8 = 2;
+    pub const CMD_UDP_ASSOCIATE: u8 = 3;
 
-    // Now that we've got our server as a future ready to go, let's run it!
-    //
-    // This `run` method will return the resolution of the future itself, but
-    // our `server` futures will resolve to `io::Result<()>`, so we just want to
-    // assert that it didn't hit an error.
-    lp.run(server).unwrap();
+    pub const ATYP_IPV4: u8 = 1;
+    pub const ATYP_IPV6: u8 = 4;
+    pub const ATYP_DOMAIN: u8 = 3;
+}
+
+#[allow(dead_code)]
+mod v4 {
+    pub const VERSION: u8 = 4;
+
+    pub const CMD_CONNECT: u8 = 1;
+    pub const CMD_BIND: u8 = 2;
 }
 
 // Data used to when processing a client to perform various operations over its
@@ -161,6 +127,7 @@ impl Client {
                 if buf[0] == v5::CMD_CONNECT {
                     Ok(conn)
                 } else {
+                    println!("{:?}", buf[0]);
                     Err(other("unsupported command"))
                 }
             })
@@ -594,29 +561,67 @@ fn get_addr(response: Message, port: u16) -> io::Result<SocketAddr> {
     }
 }
 
-// Various constants associated with the SOCKS protocol
 
-#[allow(dead_code)]
-mod v5 {
-    pub const VERSION: u8 = 5;
 
-    pub const METH_NO_AUTH: u8 = 0;
-    pub const METH_GSSAPI: u8 = 1;
-    pub const METH_USER_PASS: u8 = 2;
 
-    pub const CMD_CONNECT: u8 = 1;
-    pub const CMD_BIND: u8 = 2;
-    pub const CMD_UDP_ASSOCIATE: u8 = 3;
+fn main() {
+    drop(env_logger::init());
 
-    pub const ATYP_IPV4: u8 = 1;
-    pub const ATYP_IPV6: u8 = 4;
-    pub const ATYP_DOMAIN: u8 = 3;
-}
+    // Take the first command line argument as an address to listen on, or fall
+    // back to just some localhost default.
+    let addr = env::args().nth(1).unwrap_or("127.0.0.1:3000".to_string());
+    let addr = addr.parse::<SocketAddr>().unwrap();
 
-#[allow(dead_code)]
-mod v4 {
-    pub const VERSION: u8 = 4;
+    // Initialize the various data structures we're going to use in our server.
+    // Here we create the event loop, the global buffer that all threads will
+    // read/write into, and the bound TCP listener itself.
+    let mut lp = Core::new().unwrap();
+    let buffer = Rc::new(RefCell::new(vec![0; 64 * 1024]));
+    let handle = lp.handle();
+    let listener = TcpListener::bind(&addr, &handle).unwrap();
 
-    pub const CMD_CONNECT: u8 = 1;
-    pub const CMD_BIND: u8 = 2;
+    // This is the address of the DNS server we'll send queries to. If
+    // external servers can't be used in your environment, you can substitue
+    // your own.
+    let dns = "8.8.8.8:53".parse().unwrap();
+    let (stream, sender) = UdpClientStream::new(dns, handle.clone());
+    let client = ClientFuture::new(stream, sender, handle.clone(), None);
+
+    // Construct a future representing our server. This future processes all
+    // incoming connections and spawns a new task for each client which will do
+    // the proxy work.
+    //
+    // This essentially means that for all incoming connections, those received
+    // from `listener`, we'll create an instance of `Client` and convert it to a
+    // future representing the completion of handling that client. This future
+    // itself is then *spawned* onto the event loop to ensure that it can
+    // progress concurrently with all other connections.
+    println!("Listening for socks5 proxy connections on {}", addr);
+    let clients = listener.incoming().map(move |(socket, addr)| {
+        (Client {
+            buffer: buffer.clone(),
+            dns: client.clone(),
+            handle: handle.clone(),
+        }.serve(socket), addr)
+    });
+    let handle = lp.handle();
+    let server = clients.for_each(|(client, addr)| {
+        handle.spawn(client.then(move |res| {
+            match res {
+                Ok((a, b)) => {
+                    println!("proxied {}/{} bytes for {}", a, b, addr)
+                }
+                Err(e) => println!("error for {}: {}", addr, e),
+            }
+            future::ok(())
+        }));
+        Ok(())
+    });
+
+    // Now that we've got our server as a future ready to go, let's run it!
+    //
+    // This `run` method will return the resolution of the future itself, but
+    // our `server` futures will resolve to `io::Result<()>`, so we just want to
+    // assert that it didn't hit an error.
+    lp.run(server).unwrap();
 }
