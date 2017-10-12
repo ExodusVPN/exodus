@@ -1,8 +1,6 @@
 #![feature(lookup_host)]
 #![allow(unused_imports, unreachable_code)]
 
-extern crate ssh2;
-extern crate trust_dns_resolver;
 
 use std::io::{Write, Read};
 
@@ -20,7 +18,7 @@ fn main(){
                                       target_os = "netbsd", target_os = "openbsd")
 ))]
 fn main {
-    
+    println!("im ok, im ok, im ok ...");
 }
 
 
@@ -35,3 +33,5 @@ fn main {
 fn main (){
     unimplemented!();
 }
+
+
