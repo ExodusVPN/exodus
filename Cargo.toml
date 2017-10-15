@@ -6,14 +6,12 @@ authors = ["luozijun <gnulinux@126.com>"]
 [[bin]]
 name = "socks"
 path = "src/ingress/socks.rs"
-
 [[bin]]
 name = "dns"
 path = "src/dns.rs"
-
 [[bin]]
-name = "ifaces"
-path = "src/net/interface.rs"
+name = "tun"
+path = "src//net/tun.rs"
 
 [[bin]]
 name = "ssh"
@@ -22,10 +20,13 @@ path = "src/egress/ssh.rs"
 [[bin]]
 name = "timezone"
 path = "src/iana/timezone.rs"
-
+[[bin]]
+name = "ifaces"
+path = "src/net/interface.rs"
 [[bin]]
 name = "pf"
 path = "src/net/ffi/unix/xnu.rs"
+
 
 [dependencies]
 ssh2 = "0.3.2"
@@ -49,6 +50,9 @@ errno = "0.2"
 
 
 ifaces = { git = "https://github.com/LuoZijun/rust-ifaces.git" }
+
+byteorder = "0.5"
+# mio = "0.6"
 
 [build-dependencies]
 bindgen = "0.30"

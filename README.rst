@@ -33,3 +33,5 @@ Build
 
     # Apple XNU libpf
     cargo run --bin pf
+    # Apple XNU
+    cargo run --bin tun
