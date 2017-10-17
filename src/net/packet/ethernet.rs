@@ -2,11 +2,57 @@
 use std::io::Cursor;
 use byteorder::{BigEndian, ReadBytesExt};
 
+/**
 
-// #[derive(Debug)]
-// pub enum EthernetFrame {
+Ethernet Packet:
+    preamble: 7 bytes,
+    start_of_frame_delimiter: 1 byte,
+    Ethernet Frame:
+        dst_mac:       6 bytes,
+        src_mac:       6 bytes,
+        tag    :   0 - 8 bytes,
+        ethertype:     2 bytes,
+        payload:  46‑1500 bytes {
+            IPv4 Packet:
+                version: u8,         //  4 bits
+                ihl : u8,            //  4 bits
+                dscp: u8,            //  6 bits
+                ecn: u8,             //  2 bits
+                total_length: u16,   // 16 bits
+                identification: u16, // 16 bits
+                flags: u8,           //  3 bits
+                fragment_offset: u16,// 13 bits
+                time_to_live: u8,    //  8 bits
+                protocol: Protocol,  //  8 bits
+                header_checksum: u16,// 16 bits
+                src_ip: Ipv4Addr,    // 32 bits
+                dst_ip: Ipv4Addr,    // 32 bits
+                options: Option<[u8; 12]>    // 0 - 96 bits, start 160, end 256, if IHL >= 5,
+                payload: {
+                    TCP Packet:
+                        src_port: u16,
+                        dst_port: u16,
+                        sequence_number: u32,
+                        acknowledgment_number: u32, // if ACK set
+                        data_offset: u8,  // 4 bits
+                        reserved: u8,     // 3 bits
+                        flags   : u16,    // 9 bits, NS/CWR/ECE/URG/ACK/PSH/RST/SYN/FIN
+                        window_size: u16,
+                        checksum: u16,
+                        urgent_pointer: u16, // if URG set
+                        options: ...         // if data offset > 5. Padded at the end with "0" bytes if necessary
+                        {
+                            HTTP Packet:
+                                ...
+                        }
+                    UDP Packet:
+                        ...
+                }
+        },
+        frame_check_sequence: 4 bytes,
+    interpacket_gap:  12 bytes
 
-// }
+**/
 
 // IEEE 802 Numbers
 // https://www.iana.org/assignments/ieee-802-numbers/ieee-802-numbers.xhtml
@@ -149,25 +195,24 @@ impl EthernetFrameTag {
     }
 }
 
-// https://en.wikipedia.org/wiki/Ethernet_frame#Ethernet_packet_.E2.80.93_physical_layer
-
 
 #[derive(Debug)]
 pub struct EthernetPacket {
     // PhysicalLayer: Layer 1 Ethernet packet & IPG
-    preamble: [u8; 7],             //  7 octets
-    start_of_frame_delimiter: u8,  //  1 octet
+    // https://en.wikipedia.org/wiki/Ethernet_frame#Ethernet_packet_.E2.80.93_physical_layer
+    preamble: [u8; 7],             //  7 bytes
+    start_of_frame_delimiter: u8,  //  1 byte
 
-    // DataLinkLayer: Layer 2 Ethernet frame  64–1522 octets
-    dst_mac:    [u8; 6],           // 6 octets
-    src_mac:    [u8; 6],           // 6 octets
-    ethertype:  EtherType,         // 2 octets NOTE: EtherType(Ethernet II)  or length(IEEE 802.3)
-    tag    :   Option<[Option<EthernetFrameTag>; 2]>,    // 802.1Q tag (4 octets)
-    payload:    Vec<u8>,           // 46‑1500 octets
-    frame_check_sequence: [u8; 4], // 4 octets
+    // DataLinkLayer: Layer 2 Ethernet frame  64–1522 bytes
+    dst_mac:    [u8; 6],           // 6 bytes
+    src_mac:    [u8; 6],           // 6 bytes
+    tag    :   Option<[Option<EthernetFrameTag>; 2]>,    // 802.1Q tag (4 bytes)
+    ethertype:  EtherType,         // 2 bytes NOTE: EtherType(Ethernet II)  or length(IEEE 802.3)
+    payload:    Vec<u8>,           // 46‑1500 bytes
+    frame_check_sequence: [u8; 4], // 4 bytes
 
     // End of frame – physical layer
-    interpacket_gap: [u8; 12]      // 12 octets
+    interpacket_gap: [u8; 12]      // 12 bytes
 }
 
 
@@ -198,7 +243,7 @@ impl EthernetPacket {
         
         
         println!("{:?}", &preamble.into_iter().map(|b: &u8| format!("{:08b}", b)).collect::<Vec<String>>().join(" "));
-        
+
         // Ethernet frame
         let dst_mac: [u8; 6] = [
             bytes.read_u8().unwrap(), bytes.read_u8().unwrap(), bytes.read_u8().unwrap(),
@@ -229,8 +274,11 @@ impl EthernetPacket {
                     ]);
                     ethertype = EtherType::from_u16(bytes.read_u16::<BigEndian>().unwrap()).unwrap();
                 } else {
+                    // WARN: if IEEE 802.3 frame
+                    //          `ethertype` is length of `payload` (unsure.)
                     tag = None;
                     ethertype = ethertype_or_tpid;
+                    
                 }
 
                 loop {
