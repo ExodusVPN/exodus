@@ -1,4 +1,5 @@
 
+
 #[derive(Debug)]
 pub enum Flag {
     NS,
@@ -45,7 +46,8 @@ pub struct TcpPacket {
     window_size: u16,           // 16 bits
     checksum: u16,              // 16 bits
     urgent_pointer: u16,        // 16 bits , if URG set
-    data: Vec<u8>               // .. bits , if data offset > 5. Padded at the end with "0" bytes if necessary
+    options: Option<Vec<u8>>    // .. bits , if data offset > 5. Padded at the end with "0" bytes if necessary
+    data: Vec<u8>,              // .. bits
 }
 
 impl TcpPacket {
@@ -54,6 +56,10 @@ impl TcpPacket {
     }
 
     pub fn as_bytes(&self) -> &[u8] {
+        unimplemented!();
+    }
+
+    pub fn checksum(&self) -> bool {
         unimplemented!();
     }
 }

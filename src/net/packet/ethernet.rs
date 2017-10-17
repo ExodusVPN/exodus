@@ -4,6 +4,12 @@ use byteorder::{BigEndian, ReadBytesExt};
 
 /**
 
+TUN: simulates a network layer device and it operates with layer 3 packets like IP packets.
+TAP: simulates a link layer device and it operates with layer 2 packets like Ethernet frames
+
+TUN is used with routing, while TAP is used for creating a network bridge.
+
+
 Ethernet Packet:
     preamble: 7 bytes,
     start_of_frame_delimiter: 1 byte,
@@ -51,6 +57,32 @@ Ethernet Packet:
         },
         frame_check_sequence: 4 bytes,
     interpacket_gap:  12 bytes
+
+
+pub enum Device {
+    TAP(RawFd),
+    TUN(RawFd)
+}
+
+
+pub trait Layer {
+    fn name(&self) -> String;
+    fn next_layer(&self) -> Option<Layer>;
+}
+
+pub struct InternetProtocolSuite {
+    
+}
+impl InternetProtocolSuite for Layer {
+    
+}
+
+pub struct OSIModel {
+    
+}
+impl OSIModel for Layer {
+    
+}
 
 **/
 
@@ -223,7 +255,7 @@ impl EthernetPacket {
             return Err(::std::io::Error::new(::std::io::ErrorKind::Other, "Oh, no ..."));
         }
         
-        let end_num = 16;
+        let end_num = 4;
         let mut bytes = Cursor::new(&payload[0..payload.len()-end_num]);
 
         let preamble: [u8; 7];
