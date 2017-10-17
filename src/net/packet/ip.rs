@@ -84,7 +84,14 @@ pub struct IPv4Packet {
 // https://en.wikipedia.org/wiki/IPv6_packet
 #[derive(Debug)]
 pub struct IPv6Packet {
-
+    version: u8,         //  4 bits
+    traffic_class: u8,   //  8 bits
+    flow_label: u32,     // 20 bits
+    payload_length: u16, // 16 bits
+    next_header: u8,     //  8 bits
+    hoplimit: u8,        //  8 bits
+    src_ip  : u128,      // 128 bits
+    dst_ip  : u128,      // 128 bits
 }
 
 impl IPv4Packet {
