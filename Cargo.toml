@@ -15,9 +15,6 @@ path = "src/ingress/socks.rs"
 [[bin]]
 name = "dns"
 path = "src/dns.rs"
-[[bin]]
-name = "tun"
-path = "src//net/tun.rs"
 
 [[bin]]
 name = "ssh"
@@ -40,6 +37,7 @@ trust-dns-resolver = "0.6.0"
 
 log = "0.3"
 env_logger = "0.3"
+pretty_env_logger = "0.1.1"
 
 futures = "0.1"
 tokio-core = "0.1.9"

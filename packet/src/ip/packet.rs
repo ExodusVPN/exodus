@@ -71,6 +71,7 @@ impl Relibility {
 }
 
 /// Precedence
+#[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq, Eq)]
 pub enum ServiceKind {
     NetworkControl(Delay, Throughput, Relibility),
