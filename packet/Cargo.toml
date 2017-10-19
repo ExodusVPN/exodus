@@ -1,0 +1,9 @@
+[package]
+name = "packet"
+version = "0.1.0"
+authors = ["luozijun <gnulinux@126.com>"]
+# workspace ="../"
+
+[dependencies]
+log = "0.3"
+byteorder = "0.5"

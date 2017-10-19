@@ -6,5 +6,8 @@ __pycache__
 /target/
 **/*.rs.bk
 Cargo.lock
+taptun/Cargo.lock
+packet/Cargo.lock
 
 data/
+rust-ifaces/

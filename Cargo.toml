@@ -3,6 +3,12 @@ name = "proxy"
 version = "0.1.0"
 authors = ["luozijun <gnulinux@126.com>"]
 
+[workspace]
+members = [
+    "packet",
+    "taptun"
+]
+
 [[bin]]
 name = "socks"
 path = "src/ingress/socks.rs"
@@ -33,10 +39,12 @@ ssh2 = "0.3.2"
 trust-dns-resolver = "0.6.0"
 
 log = "0.3"
-futures = "0.1"
-tokio-core = "0.1"
-tokio-io = "0.1"
 env_logger = "0.3"
+
+futures = "0.1"
+tokio-core = "0.1.9"
+tokio-io = "0.1"
+
 trust-dns = { version = "0.9.2", default-features = false }
 
 chrono = "0.4.0"

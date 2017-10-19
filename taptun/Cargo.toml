@@ -1,0 +1,22 @@
+[package]
+authors = ["realityone <realityone@me.com>"]
+name = "taptun"
+version = "0.1.0"
+
+[target]
+[target."cfg(unix)"]
+
+[dependencies]
+log = "0.3.8"
+pretty_env_logger = "0.1.1"
+
+futures = "0.1.16"
+mio = "0.6.10"
+tokio-core = "0.1.9"
+error-chain = "0.11.0"
+crc = "1.5.0"
+packet = {path = "../packet"}
+
+[target."cfg(unix)".dependencies]
+ioctl-sys = "0.5.2"
+libc = "0.2.31"
