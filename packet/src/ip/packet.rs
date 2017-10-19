@@ -324,7 +324,8 @@ impl <'a, 'b>Ipv4Packet<'a, 'b> {
     pub fn payload(&self) -> &'b [u8] {
         self.payload
     }
-    pub fn checksum(&self) -> bool {
+    
+    pub fn verifying(&self) -> bool {
         unimplemented!();
     }
 }
@@ -340,8 +341,11 @@ impl <'a>Ipv6Packet<'a> {
     pub fn as_bytes(&self) -> &[u8] {
         unimplemented!();
     }
+    pub fn payload(&self) -> &'a [u8] {
+        &self.payload
+    }
 
-    pub fn checksum(&self) -> bool {
+    pub fn verifying(&self) -> bool {
         unimplemented!();
     }
 }
@@ -374,6 +378,13 @@ impl <'a, 'b>Packet<'a, 'b> {
         }
     }
 
+    pub fn payload(&self) -> &[u8] {
+        match *self {
+            Packet::V4(ref packet) => packet.payload(),
+            Packet::V6(ref packet) => packet.payload()
+        }
+    }
+    
     pub fn tcp_ip_checksum(&self) -> bool {
         // https://en.wikipedia.org/wiki/Transmission_Control_Protocol#Checksum_computation
         #[derive(Debug, PartialEq, Eq)]

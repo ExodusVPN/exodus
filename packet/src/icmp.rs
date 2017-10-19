@@ -2,8 +2,8 @@
 
 #![allow(unused_doc_comment, unused_variables)]
 
-use std::fmt;
-
+use std::mem::transmute;
+use super::ip;
 
 /// https://en.wikipedia.org/wiki/Internet_Control_Message_Protocol#Control_messages
 /// 
@@ -96,13 +96,15 @@ pub enum Message {
 
 /// https://en.wikipedia.org/wiki/Internet_Control_Message_Protocol#ICMP_datagram_structure
 #[derive(Debug, PartialEq, Eq)]
-pub struct Packet<'a> {
-    kind: u8,             //   8 bits
-    code: u8,             //   8 bits
-    checksum: u16,        //  16 bits
-    rest_of_header: u32,  //  32 bits
-    data: &'a [u8]        // 320 bits (40 bytes) , IPv4 header and first 8 bytes of original datagram's data
+pub struct Packet<'a, 'b> {
+    kind: u8,              //   8 bits
+    code: u8,              //   8 bits
+    checksum: u16,         //  16 bits
+    rest_of_header: u32,   //  32 bits
+    ip_packet: ip::Packet<'a, 'b> //  00 bits , IPv4 header and first 8 bytes of original datagram's data
 }
+
+
 
 impl Message {
     pub fn new(kind: u8, code: u8) -> Result<Self, ::std::io::Error> {
@@ -373,13 +375,56 @@ impl Message {
 //     }
 // }
 
-impl <'a>Packet<'a> {
+impl <'a, 'b>Packet<'a, 'b> {
     pub fn from_bytes(payload: &[u8]) -> Result<Self, ::std::io::Error> {
-        unimplemented!();
+        if payload.len() < 64 {
+            return Err(::std::io::Error::new(::std::io::ErrorKind::Other, "packet size error ..."));
+        }
+        let kind = payload[0];
+        let code = payload[1];
+        let checksum: u16 = unsafe { transmute([payload[2], payload[3]]) };
+        let rest_of_header: u32 = unsafe { transmute([payload[4], payload[5], payload[6], payload[7]]) };
+
+        match ip::Packet::from_bytes(&payload[8..]) {
+            Ok(ip_packet) => {
+                if ip_packet.payload() == &payload[0..8] {
+                    Ok(Packet{
+                        kind: kind,
+                        code: code,
+                        checksum: checksum,
+                        rest_of_header: rest_of_header,
+                        ip_packet: ip_packet
+                    })
+                } else {
+                    Err(::std::io::Error::new(::std::io::ErrorKind::Other, "packet size error ..."))
+                }
+            },
+            Err(e) => Err(e)
+        }
     }
 
     pub fn as_bytes(&self) -> &[u8] {
         unimplemented!();
+    }
+
+    pub fn payload(&self) -> &[u8] {
+        self.ip_packet.payload()
+    }
+    
+    pub fn kind(&self) -> u8 {
+        self.kind
+    }
+    pub fn code(&self) -> u8 {
+        self.code
+    }
+    pub fn checksum(&self) -> u16 {
+        self.checksum
+    }
+    pub fn rest_of_header(&self) -> u32 {
+        self.rest_of_header
+    }
+    pub fn ip_packet(&self) -> &ip::Packet<'a, 'b> {
+        &self.ip_packet
     }
 }
 
