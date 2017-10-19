@@ -408,7 +408,7 @@ impl <'a, 'b>Packet<'a, 'b> {
     }
 
     pub fn payload(&self) -> &[u8] {
-        self.ip_packet.payload()
+        self.ip_packet.as_bytes()
     }
     
     pub fn kind(&self) -> u8 {
