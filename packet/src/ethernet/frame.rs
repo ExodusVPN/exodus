@@ -285,14 +285,7 @@ impl <'a> Frame <'a>{
     pub fn as_bytes(&self) -> &[u8] {
         unimplemented!();
     }
-
-    // dst_mac: [u8; 6],        //       6 bytes
-    // src_mac: [u8; 6],        //       6 bytes
-    // tag_one: Option<Tag>,    //       4 bytes , IEEE 802.1Q tag
-    // tag_two: Option<Tag>,    //       4 bytes , IEEE 802.ad tag (double tagging)
-    // kind   : Kind,           //       2 bytes , NOTE: EtherType(Ethernet II)  or length(IEEE 802.3)
-    // payload: &'a [u8],       // 46‑1500 bytes , https://en.wikipedia.org/wiki/Maximum_transmission_unit
-    // check_sequence: [u8; 4], //       4 bytes
+    
     pub fn dst_mac(&self) -> [u8; 6]{
         self.dst_mac
     }
