@@ -8,7 +8,8 @@ import signal, logging, json
 logger  = logging.getLogger('codegen')
 
 datadir    = os.path.join(os.getcwd(), "data")
-registries = ('afrinic', 'apnic', 'arin', 'iana', 'ietf', 'lacnic', 'ripencc')
+# registries = ('afrinic', 'apnic', 'arin', 'iana', 'ietf', 'lacnic', 'ripencc')
+registries = ('iana', 'afrinic', 'apnic', 'arin', 'ietf', 'lacnic', 'ripencc')
 
 COUNTRY_CODES = json.loads(open("data/country_codes.json", "rb").read().decode("UTF-8"))
 
@@ -136,10 +137,14 @@ def ipv4_range_block(ipv4_addr, count=None, prefix=None):
     start = ipv4_to_u64(ipv4_addr)
 
     if type(count) == int:
+        end = start+count
+        assert(end <= 4294967295)
         return (start, start+count)
 
     if type(prefix) == int and prefix in ipv4_prefixs:
-        return (start, max(start+2**(32-prefix) -1, 0))
+        end = max(start+2**(32-prefix) -1, 0)
+        assert(end <= 4294967295)
+        return (start, end)
 
     raise ValueError('Ooops ...')
 
@@ -147,10 +152,14 @@ def ipv4_range_block(ipv4_addr, count=None, prefix=None):
 def ipv6_range_block(ipv6_addr, count=None, prefix=None):
     start = ipv6_to_u128(ipv6_addr)
     if type(count) == int:
-        return (start, start+count)
-
+        end = start+count
+        assert(end <= 340282366920938463463374607431768211455)
+        return (start, end)
+    
     if type(prefix) == int and prefix in ipv6_prefixs:
-        return (start, max(start+2**(128-prefix) -1, 0) )
+        end = max(start+2**(128-prefix) -1, 0)
+        assert(end <= 340282366920938463463374607431768211455)
+        return (start, end)
 
     raise ValueError('Ooops ...')
 
@@ -249,6 +258,7 @@ def gen_ip_code(registry_name, ip_version, country, records):
 
         if registry == registry_name and _type == ip_version and country == _c:
             if ip_version == "ipv4":
+                value = value - 1
                 start_ipv4_u64 = ipv4_to_u64(start)
                 if start_ipv4_u64 in data:
                     if counts[start_ipv4_u64] != value:
@@ -258,13 +268,19 @@ def gen_ip_code(registry_name, ip_version, country, records):
                     counts[start_ipv4_u64] = value
                     ext_data[start_ipv4_u64] = (cc, status)
             elif registry == registry_name and ip_version == "ipv6" and country == _c:
-                start_ipv6_u128, _e = ipv6_range_block(start, prefix=value)
+                try:
+                    start_ipv6_u128, end_ipv6_u128 = ipv6_range_block(start, prefix=value)
+                except Exception as e:
+                    logger.error(registry, cc, _type, start, value, date, status, extensions)
+                    raise e
+                end_ipv6_nums = end_ipv6_u128 - start_ipv6_u128
+
                 if start_ipv6_u128 in data:
-                    if counts[start_ipv6_u128] != _e:
+                    if counts[start_ipv6_u128] != end_ipv6_nums:
                         raise ValueError("Ooops ...")
                 else:
                     data.append(start_ipv6_u128)
-                    counts[start_ipv6_u128] = _e
+                    counts[start_ipv6_u128] = end_ipv6_nums
                     ext_data[start_ipv6_u128] = (cc, status)
 
     data.sort()
@@ -284,7 +300,12 @@ def gen_ip_code(registry_name, ip_version, country, records):
     for ip_number in data:
         ip_nums = counts[ip_number]
         cc, status = ext_data[ip_number]
-        res.append((registry_name, COUNTRY_CODES.index(cc), ip_number, ip_nums, status))
+        end_ip = ip_number + ip_nums
+        if ip_version == "ipv4":
+            assert(end_ip <= 4294967295)
+        elif ip_version == "ipv6":
+            assert(end_ip <= 340282366920938463463374607431768211455)
+        res.append((registry_name, COUNTRY_CODES.index(cc), ip_number, end_ip, status))
 
     return res
 

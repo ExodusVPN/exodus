@@ -41,5 +41,6 @@ default: sync parse gen
 
 .PHONY: build
 build:
-	cargo build --release
+	cargo build
+
 
