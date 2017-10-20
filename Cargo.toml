@@ -6,7 +6,8 @@ authors = ["luozijun <gnulinux@126.com>"]
 [workspace]
 members = [
     "packet",
-    "taptun"
+    "taptun",
+    "iana"
 ]
 
 [[bin]]
