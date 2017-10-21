@@ -55,7 +55,7 @@ rust-netproxy
 
 但是，就如电影 `The Matrix <http://www.imdb.com/title/tt0133093/>`_ 里面给我们展示的一样，
 `Agent Smith`_ 跟 `Neo <http://www.imdb.com/character/ch0000741/?ref_=tt_cl_t1>`_ 
-一样，也会进化。只跟 `Agent Smith`_ 打斗，毫无意义，只会让他变得越来越强！
+一样，也会进化。跟 `Agent Smith`_ 打斗，毫无意义，只会让他变得越来越强！
 
 所以，怎么办？我的看法是效仿 `Neo`_ 在 `The Matrix`_
 里面所做的一样， 跟 `The Matrix Host` 谈判，重置 `The Matrix` ，拯救锡安。
