@@ -53,7 +53,7 @@ rust-netproxy
 
 一般来说，就是混淆自己的流量包特征，以达到能规避 `Agent Smith <http://www.imdb.com/character/ch0000745/?ref_=tt_cl_t4>`_ 搜捕的效果。
 
-但是，就如 `The Matrix <http://www.imdb.com/title/tt0133093/>`_ 里面给我们展示的一样，
+但是，就如电影 `The Matrix <http://www.imdb.com/title/tt0133093/>`_ 里面给我们展示的一样，
 `Agent Smith`_ 跟 `Neo <http://www.imdb.com/character/ch0000741/?ref_=tt_cl_t1>`_ 
 一样，也会进化。只跟 `Agent Smith`_ 打斗，毫无意义，只会让他变得越来越强！
 
