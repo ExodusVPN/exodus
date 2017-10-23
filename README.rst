@@ -89,7 +89,7 @@ rust-netproxy
 我很欣赏前辈们所作出的那么多努力，虽然没有一个是成功的 ...
 
 
-另外提一个案例， `lantern(蓝灯) <https://github.com/getlantern/lantern>`_ 项目在开始时也尝试了去中心化，最终以失败收场。
+另外提一个案例， `Lantern(蓝灯) <https://github.com/getlantern/lantern>`_ 项目在开始时也尝试了去中心化，最终以失败收场。
 
 
 最后，综上所述，为什么不考虑 对抗网络封锁 和 去中心化，原因是 很显然技术无法解决现实世界里面的政治问题。
