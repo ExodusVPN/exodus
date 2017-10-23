@@ -72,7 +72,7 @@ impl <'a, 'b>Packet<'a, 'b> {
     #[allow(unused_variables)]
     pub fn from_bytes(payload: &[u8]) -> Result<Self, ::std::io::Error> {
         
-        println!("tcp payload length: {:?}", payload.len());
+        println!("\nTCP packet length: {:?}", payload.len());
         println!("{:?}", payload);
 
 
@@ -104,10 +104,14 @@ impl <'a, 'b>Packet<'a, 'b> {
         let urgent_pointer = (payload[18] as u16) << 8 | (payload[19] as u16);
         
         // if data_offset > 5 {
-        
+
         // }
+        println!("TCP data offset: {:?}", data_offset);
         let options_end = (data_offset * 4) as usize;
 
+        if payload.len() < (20 + options_end) {
+            return Err(::std::io::Error::new(::std::io::ErrorKind::Other, "size error ..."));
+        }
         Ok(Packet{
             src_port: src_port,
             dst_port: dst_port,
@@ -119,8 +123,8 @@ impl <'a, 'b>Packet<'a, 'b> {
             window_size: window_size,
             checksum: checksum,
             urgent_pointer: urgent_pointer,
-            options: unsafe {transmute(&payload[20..options_end])},
-            payload: unsafe {transmute(&payload[20+options_end..])}
+            options: unsafe {transmute(&payload[20..(20+options_end)])},
+            payload: unsafe {transmute(&payload[(20+options_end)..])}
         })
     }
     
