@@ -1,5 +1,7 @@
 #![feature(i128_type)]
 
+extern crate byteorder;
+
 /// OSI Model Layer 1 & 2
 pub mod ethernet;
 

@@ -69,11 +69,12 @@ pub enum Ipv4OptionClass {
     EXP2, // RFC3692-style Experiment [2], [RFC4727]
     EXP3, // RFC3692-style Experiment [2], [RFC4727]
     EXP4, // RFC3692-style Experiment [2], [RFC4727]
+    Unknow(u8, u8)
 }
 
 impl Ipv4OptionClass {
     pub fn new(ccn: u8, value: u8) -> Result<Self, ::std::io::Error> {
-        println!("ccn: {:?}  value: {:?}", ccn, value);
+        // println!("ccn: {:?}  value: {:?}", ccn, value);
         match (ccn, value) {
             (0, 0) => Ok(Ipv4OptionClass::EOOL),
             (1, 1) => Ok(Ipv4OptionClass::NOP),
@@ -104,7 +105,8 @@ impl Ipv4OptionClass {
             (94, 94) => Ok(Ipv4OptionClass::EXP2),
             (158, 158) => Ok(Ipv4OptionClass::EXP3),
             (222, 222) => Ok(Ipv4OptionClass::EXP4),
-            (_, _) => Err(::std::io::Error::new(::std::io::ErrorKind::Other, "IPv4 Options value error (copy/class/number/value) ..."))
+            // (_, _) => Err(::std::io::Error::new(::std::io::ErrorKind::Other, "IPv4 Options value error (copy/class/number/value) ..."))
+            (_, _) => Ok(Ipv4OptionClass::Unknow(ccn, value))
         }
     }
 
@@ -140,6 +142,7 @@ impl Ipv4OptionClass {
             Ipv4OptionClass::EXP2 => 0,
             Ipv4OptionClass::EXP3 => 1,
             Ipv4OptionClass::EXP4 => 1,
+            Ipv4OptionClass::Unknow(ccn, _) => ccn >> 7
         }
     }
 
@@ -175,6 +178,7 @@ impl Ipv4OptionClass {
             Ipv4OptionClass::EXP2 => 2,
             Ipv4OptionClass::EXP3 => 0,
             Ipv4OptionClass::EXP4 => 2,
+            Ipv4OptionClass::Unknow(ccn, _) => (ccn >> 5) & 0b011
         }
     }
 
@@ -210,6 +214,7 @@ impl Ipv4OptionClass {
             Ipv4OptionClass::EXP2 => 30,
             Ipv4OptionClass::EXP3 => 30,
             Ipv4OptionClass::EXP4 => 30,
+            Ipv4OptionClass::Unknow(ccn, _) => ccn & 0b_0001_1111
         }
     }
 
@@ -245,12 +250,13 @@ impl Ipv4OptionClass {
             Ipv4OptionClass::EXP2 => 94, // 0b1011110
             Ipv4OptionClass::EXP3 => 158, // 0b10011110
             Ipv4OptionClass::EXP4 => 222, // 0b11011110
+            Ipv4OptionClass::Unknow(ccn, _) => ccn
         }
     }
 
     /// Option value(length) field
     pub fn length(&self) -> u8 {
-        match *self {
+        let n = match *self {
             Ipv4OptionClass::EOOL => 0,
             Ipv4OptionClass::NOP => 1,
             Ipv4OptionClass::SEC => 130,
@@ -280,7 +286,9 @@ impl Ipv4OptionClass {
             Ipv4OptionClass::EXP2 => 94,
             Ipv4OptionClass::EXP3 => 158,
             Ipv4OptionClass::EXP4 => 222,
-        }
+            Ipv4OptionClass::Unknow(_, value) => value
+        };
+        (n + (8 - (n % 8))) / 8
     }
     pub fn description(&self) -> &'static str {
         match *self {
@@ -313,6 +321,7 @@ impl Ipv4OptionClass {
             Ipv4OptionClass::EXP2 => "RFC3692-style Experiment [2] , [RFC4727]",
             Ipv4OptionClass::EXP3 => "RFC3692-style Experiment [2] , [RFC4727]",
             Ipv4OptionClass::EXP4 => "RFC3692-style Experiment [2] , [RFC4727]",
+            Ipv4OptionClass::Unknow(_, _) => "Unknow ..."
         }
     }
 }

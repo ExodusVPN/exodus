@@ -1,4 +1,6 @@
 
+use byteorder::{BigEndian, ReadBytesExt};
+
 pub use super::ipv4_options::{Ipv4Option, Ipv4OptionClass};
 
 use std::mem::transmute;
@@ -206,6 +208,7 @@ pub enum Packet<'a, 'b> {
     V6(Ipv6Packet<'a>)
 }
 
+
 impl <'a, 'b>Ipv4Packet<'a, 'b> {
     #[allow(unused_variables)]
     pub fn from_bytes(payload: &[u8]) -> Result<Self, ::std::io::Error> {
@@ -221,14 +224,24 @@ impl <'a, 'b>Ipv4Packet<'a, 'b> {
 
         let dscp_ecn    = payload[1];
 
-        let total_length: u16          = unsafe { transmute([payload[2], payload[3]]) };
-        let identification: u16        = unsafe { transmute([payload[4], payload[5]]) };
-        let flags_fragment_offset: u16 = unsafe { transmute([payload[6], payload[7]]) };
+        let mut total_length_bytes = &payload[2..4];
+        let total_length: u16          = total_length_bytes.read_u16::<BigEndian>().unwrap();
+        let mut identification_bytes = &payload[4..6];
+        let identification: u16        = identification_bytes.read_u16::<BigEndian>().unwrap();
+
+        let mut flags_fragment_offset_bytes = &payload[6..8];
+        let flags_fragment_offset: u16 = flags_fragment_offset_bytes.read_u16::<BigEndian>().unwrap();
+
         let time_to_live = payload[8];
         let protocol     = payload[9];
-        let header_checksum: u16 = unsafe { transmute([payload[10], payload[11]]) };
-        let src_ip: u32 = unsafe { transmute([payload[12], payload[13], payload[14], payload[15]]) };
-        let dst_ip: u32 = unsafe { transmute([payload[16], payload[17], payload[18], payload[19]]) };
+
+        let mut header_checksum = &payload[10..12];
+        let header_checksum: u16 = header_checksum.read_u16::<BigEndian>().unwrap();
+
+        let mut src_ip_bytes = &[payload[12], payload[13], payload[14], payload[15]][..];
+        let src_ip: u32 = src_ip_bytes.read_u32::<BigEndian>().unwrap();
+        let mut dst_ip_bytes = &[payload[16], payload[17], payload[18], payload[19]][..];
+        let dst_ip: u32 = dst_ip_bytes.read_u32::<BigEndian>().unwrap();
         
         let options: Option<Ipv4Option<'a>>;
         let header_length: usize;
@@ -239,7 +252,9 @@ impl <'a, 'b>Ipv4Packet<'a, 'b> {
             match Ipv4OptionClass::new(payload[20], payload[21]) {
                 Ok(ip_v4_class) => {
                     let ip_v4_options_data_length = ip_v4_class.length() as usize;
-                    if payload.len() < (Ipv4Packet::min_size() + 2 + ip_v4_options_data_length) {
+                    println!("Ipv4 Header Options payload length: {:?}", ip_v4_options_data_length);
+
+                    if payload.len() < (Ipv4Packet::min_size() + 2 + ip_v4_options_data_length) {    
                         return Err(::std::io::Error::new(::std::io::ErrorKind::Other, "size error ..."));
                     }
                     options = Some(Ipv4Option::new(ip_v4_class, unsafe { transmute(&payload[22..(22+ip_v4_options_data_length)])}).unwrap());
@@ -255,7 +270,7 @@ impl <'a, 'b>Ipv4Packet<'a, 'b> {
         if payload.len() != total_length as usize {
             return Err(::std::io::Error::new(::std::io::ErrorKind::Other, "size error ..."));
         }
-        
+        println!("Ipv4 Header length: {:?}", header_length);
         Ok(Ipv4Packet {
             version_ihl   : version_ihl,
             dscp_ecn      : dscp_ecn,
@@ -268,7 +283,7 @@ impl <'a, 'b>Ipv4Packet<'a, 'b> {
             src_ip: src_ip,
             dst_ip: dst_ip,
             options: options,
-            payload: unsafe {transmute(&payload[header_length..total_length as usize])}
+            payload: unsafe {transmute(&payload[header_length..])}
         })
     }
 
