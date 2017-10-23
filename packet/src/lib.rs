@@ -17,7 +17,7 @@ pub mod tcp;
 /// OSI Model Layer 4
 pub mod udp;
 /// OSI Model Layer 4
-pub mod icmp;
+pub mod icmpv4;
 /// OSI Model Layer 4
 pub mod icmpv6;
 

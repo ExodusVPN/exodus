@@ -9,6 +9,8 @@
 /// 
 ///     In Internet Protocol Version 6 (IPv6) networks, 
 ///     the functionality of ARP is provided by the Neighbor Discovery Protocol (NDP).
+/// 
+/// Packet size : https://supportforums.cisco.com/t5/lan-switching-and-routing/arp-packet-size/td-p/1551467
 #[derive(Debug, PartialEq, Eq)]
 pub struct Packet {
     hardware_type: u16,           // 16 bits
@@ -28,7 +30,7 @@ impl Packet {
     pub fn from_bytes(payload: &[u8]) -> Result<Self, ::std::io::Error> {
         unimplemented!();
     }
-
+    
     pub fn as_bytes(&self) -> &[u8] {
         unimplemented!();
     }
