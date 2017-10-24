@@ -1,8 +1,13 @@
 
 
 mod packet;
+
 mod protocol;
-mod ipv4_options;
+mod options;
+mod dscp_ecn;
 
 pub use self::packet::*;
+
 pub use self::protocol::Protocol;
+pub use self::options::Options;
+pub use self::dscp_ecn::{DifferentiatedServicesCodePointice, Relibility, Throughput, Delay, };
