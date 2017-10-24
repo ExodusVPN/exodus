@@ -33,7 +33,7 @@ net packet decode and encode.
 *OSI Model Layer 4*
 
 *   TCP
-*   [TODO] UDP
+*   UDP
 
 *OSI Model Layer 5*
 
