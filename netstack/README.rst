@@ -14,4 +14,5 @@ netstack
 *   `m-labs/smoltcp <https://github.com/m-labs/smoltcp>`_
 *   `redox-os/netstack <https://github.com/redox-os/netstack>`_
 *   `fuchsia-mirror/third_party-netstack <https://github.com/fuchsia-mirror/third_party-netstack>`_
-
+*   `faern/rips <https://github.com/faern/rips>`_
+*   `QuiltOS/QuiltNet <https://github.com/QuiltOS/QuiltNet>`_
