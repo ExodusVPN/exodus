@@ -11,21 +11,34 @@ net packet decode and encode.
 
 *OSI Model Layer 1*
 
+*   Ethernet II Packet
 
 
 *OSI Model Layer 2*
 
 *   Regular Ethernet II frames
 *   [TODO] ARP
+*   [TODO] NDP
+
 
 *OSI Model Layer 3*
 
-*   IP(V4/V6)
+*   IPv4
+*   [TODO] IPv6
+*   ICMPv4
+*   [TODO] ICMPv6
+*   [TODO] IGMP
 
 
 *OSI Model Layer 4*
 
-*   TCP/UDP
+*   TCP
+*   [TODO] UDP
+
+*OSI Model Layer 5*
+
+*   [TODO] DHCP
+*   [TODO] DNS
 
 
 参考

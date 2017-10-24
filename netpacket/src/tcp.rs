@@ -3,6 +3,38 @@ use std::mem::transmute;
 
 use byteorder::{BigEndian, ReadBytesExt};
 
+// TCP Header Format
+//
+//
+//    0                   1                   2                   3
+//    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |          Source Port          |       Destination Port        |
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |                        Sequence Number                        |
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |                    Acknowledgment Number                      |
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |  Data |           |U|A|P|R|S|F|                               |
+//   | Offset| Reserved  |R|C|S|S|Y|I|            Window             |
+//   |       |           |G|K|H|T|N|N|                               |
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |           Checksum            |         Urgent Pointer        |
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |                    Options                    |    Padding    |
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |                             data                              |
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+// TCP Flags:
+//    URG:  Urgent Pointer field significant
+//    ACK:  Acknowledgment field significant
+//    PSH:  Push Function
+//    RST:  Reset the connection
+//    SYN:  Synchronize sequence numbers
+//    FIN:  No more data from sender
+
+
 // #[derive(Debug, PartialEq, Eq)]
 // #[allow(non_camel_case_types)]
 // pub enum Flag {
