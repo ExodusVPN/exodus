@@ -15,7 +15,7 @@ mio = "0.6.10"
 tokio-core = "0.1.9"
 error-chain = "0.11.0"
 crc = "1.5.0"
-packet = {path = "../packet"}
+netpacket = { path = "../netpacket" }
 
 [target."cfg(unix)".dependencies]
 ioctl-sys = "0.5.2"

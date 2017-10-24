@@ -6,7 +6,7 @@ extern crate pretty_env_logger;
 
 
 extern crate taptun;
-extern crate packet;
+extern crate netpacket;
 
 use std::io::Read;
 use std::net::Ipv4Addr;
@@ -46,7 +46,7 @@ fn main (){
     
     match tun::create(&config) {
         Ok(mut dev) => {
-            warn!("TUN 创建成功: {:?}", dev);
+            println!("TUN 创建成功: {:?}", dev);
             loop {
                 let amount = dev.read(&mut buf).unwrap();
                 let data: &[u8] = &buf[4 .. amount];
@@ -54,18 +54,22 @@ fn main (){
                 println!("");
 
                 // // Test Ethernet Packet
-                // let packet = packet::ethernet::Packet::from_bytes(data).unwrap();
-                // let ip = packet::ip::Packet::from_bytes(packet.frame().payload());
+                // let packet = netpacket::ethernet::Packet::from_bytes(data).unwrap();
+                // let ip = netpacket::ip::Packet::from_bytes(packet.frame().payload());
                 // info!("{:?}", ip);
 
                 // // Test Ethernet Frame
-                // let frame = packet::ethernet::Frame::from_bytes(data).unwrap();
-                // let ip    = packet::ip::Packet::from_bytes(frame.payload());
+                // let frame = netpacket::ethernet::Frame::from_bytes(data).unwrap();
+                // let ip    = netpacket::ip::Packet::from_bytes(frame.payload());
                 // info!("{:?}", ip);
 
                 // Test Ethernet TCP Packet
-                let ip    = packet::ip::Packet::from_bytes(data);
-                info!("{:?}", ip);
+                let ip    = netpacket::ip::Packet::from_bytes(data);
+                println!("{:?}", ip);
+                if ip.is_ok() {
+                    let tcp = netpacket::tcp::Packet::from_bytes(ip.unwrap().payload());
+                    println!("{:?}", tcp);
+                }
             }
         },
         Err(e) => error!("TUN 创建失败: {:?}", e)

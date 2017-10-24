@@ -1,6 +1,8 @@
 
 use std::mem::transmute;
 
+use byteorder::{BigEndian, ReadBytesExt};
+
 // #[derive(Debug, PartialEq, Eq)]
 // #[allow(non_camel_case_types)]
 // pub enum Flag {
@@ -79,9 +81,14 @@ impl <'a, 'b>Packet<'a, 'b> {
         if payload.len() < 20 {
             return Err(::std::io::Error::new(::std::io::ErrorKind::Other, "size error ..."));
         }
+        let mut src_port_bytes = &payload[0..2];
+        let src_port: u16 = src_port_bytes.read_u16::<BigEndian>().unwrap();
+
+        let mut dst_port_bytes = &payload[2..4];
+        let dst_port: u16 = dst_port_bytes.read_u16::<BigEndian>().unwrap();
         
-        let src_port: u16 = (payload[0] as u16) << 8 | (payload[1] as u16);
-        let dst_port: u16 = (payload[2] as u16) << 8 | (payload[3] as u16);
+        // let src_port: u16 = (payload[0] as u16) << 8 | (payload[1] as u16);
+        // let dst_port: u16 = (payload[2] as u16) << 8 | (payload[3] as u16);
         let sequence_number: u32 = (payload[4] as u32) << 24 | (payload[5] as u32) << 16 | (payload[6] as u32) << 8 | (payload[7] as u32);
         let acknowledgment_number: u32 = (payload[8] as u32) << 24 | (payload[9] as u32) << 16 | (payload[10] as u32) << 8 | (payload[11] as u32);
         let data_offset = payload[12] >> 4;

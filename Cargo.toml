@@ -5,7 +5,8 @@ authors = ["luozijun <gnulinux@126.com>"]
 
 [workspace]
 members = [
-    "packet",
+    "netpacket",
+    "netstack",
     "taptun",
     "iana"
 ]
