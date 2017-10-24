@@ -17,7 +17,7 @@ net packet decode and encode.
 *OSI Model Layer 2*
 
 *   Regular Ethernet II frames
-*   [TODO] ARP
+*   ARP
 *   [TODO] NDP
 
 
