@@ -104,23 +104,23 @@ impl <'a>Options<'a> {
         // copied(copy), class, number
         self.ccn
     }
-
     pub fn value(&self) -> u8 {
         // value(length)
         self.value
     }
-
     pub fn length(&self) -> u8 {
         self.value()
     }
-    pub fn len(&self) -> usize {
-        self.length() as usize + 2
-    }
-
     pub fn data(&self) -> Option<&'a [u8]> {
         self.data
     }
 
+
+    pub fn len(&self) -> usize {
+        self.length() as usize + 2
+    }
+
+    
     pub fn copied(&self) -> u8 {
         self.ccn >> 7
     }

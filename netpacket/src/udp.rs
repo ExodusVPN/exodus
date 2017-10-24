@@ -45,8 +45,22 @@ impl <'a>Packet<'a> {
         })
     }
 
-    pub fn as_bytes(&self) -> &[u8] {
-        unimplemented!()
+    pub fn as_bytes(&self) -> Vec<u8> {
+        let mut bytes: Vec<u8> = vec![];
+        
+        bytes.push( (self.src_port >> 8) as u8 );
+        bytes.push( (self.src_port & 0xff) as u8 );
+        bytes.push( (self.dst_port >> 8) as u8 );
+        bytes.push( (self.dst_port & 0xff) as u8 );
+        
+        bytes.push( (self.length >> 8) as u8 );
+        bytes.push( (self.length & 0xff) as u8 );
+
+        bytes.push( (self.checksum >> 8) as u8 );
+        bytes.push( (self.checksum & 0xff) as u8 );
+        
+        bytes.extend_from_slice(self.payload);
+        bytes
     }
     
     pub fn src_port(&self) -> u16 {
