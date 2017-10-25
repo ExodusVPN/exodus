@@ -23,6 +23,15 @@ rust-netproxy
 最后 通过 `SSH` 协议转发出去。
 
 
+优先级
+----------
+
+*   [高] `socks2ssh <https://github.com/LuoZijun/rust-netproxy/tree/master/socks2ssh>`_
+*   [高] `vpn <https://github.com/LuoZijun/rust-netproxy/tree/master/vpn>`_
+*   [中] `tun2ssh <https://github.com/LuoZijun/rust-netproxy/tree/master/tun2ssh>`_
+*   [低] `tun2shadowsocks <https://github.com/LuoZijun/rust-netproxy/tree/master/tun2shadowsocks>`_
+
+
 快速问答
 ----------
 
