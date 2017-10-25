@@ -50,6 +50,7 @@ impl <'a>Packet<'a> {
         
         bytes.push( (self.src_port >> 8) as u8 );
         bytes.push( (self.src_port & 0xff) as u8 );
+        
         bytes.push( (self.dst_port >> 8) as u8 );
         bytes.push( (self.dst_port & 0xff) as u8 );
         

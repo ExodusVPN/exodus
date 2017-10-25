@@ -95,7 +95,7 @@ impl <'a>Options<'a> {
         bytes.push(self.ccn);
         bytes.push(self.value);
         if self.data.is_some(){
-            bytes.extend_from_slice(self.data.unwrap())
+            bytes.extend_from_slice(self.data.unwrap());
         }
         bytes
     }

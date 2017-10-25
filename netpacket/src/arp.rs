@@ -1,5 +1,6 @@
 
 use byteorder::{BigEndian, ReadBytesExt};
+use std::mem::transmute;
 
 /// Address Resolution Protocol (ARP)
 /// 
@@ -171,8 +172,32 @@ impl Packet {
         })
     }
 
-    pub fn as_bytes(&self) -> &[u8] {
-        unimplemented!()
+    pub fn as_bytes(&self) -> Vec<u8> {
+        let mut bytes: Vec<u8> = Vec::with_capacity(28);
+        
+        bytes.push( (self.hardware_type >> 8) as u8 );
+        bytes.push( (self.hardware_type & 0xff) as u8 );
+
+        bytes.push( (self.protocol_type >> 8) as u8 );
+        bytes.push( (self.protocol_type & 0xff) as u8 );
+
+        bytes.push(self.hardware_address_length);
+        bytes.push(self.protocol_address_length);
+
+        bytes.push( (self.operation >> 8) as u8 );
+        bytes.push( (self.operation & 0xff) as u8 );
+
+        bytes.extend_from_slice(&self.sender_hardware_address);
+        
+        let sender_protocol_address_bytes: [u8; 4] = unsafe { transmute(self.sender_protocol_address.to_be()) };
+        bytes.extend_from_slice(&sender_protocol_address_bytes);
+        
+
+        bytes.extend_from_slice(&self.target_hardware_address);
+        let target_protocol_address_bytes: [u8; 4] = unsafe { transmute(self.target_protocol_address.to_be()) };
+        bytes.extend_from_slice(&target_protocol_address_bytes);
+        
+        bytes
     }
 
     pub fn hardware_type(&self) -> u16 {
