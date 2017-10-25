@@ -65,7 +65,7 @@ pub struct Flags {
 
 #[allow(non_camel_case_types)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-enum State {
+pub enum State {
     Listen,
     SynSent,
     SynReceived,
