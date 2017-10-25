@@ -171,22 +171,28 @@ impl <'a, 'b>Ipv4Packet<'a, 'b> {
         self.version_ihl >> 4
     }
     pub fn ihl(&self) -> u8 {
-        u8::from_str_radix(&format!("{:08b}", self.version_ihl)[4..8], 2).unwrap()
+        // u8::from_str_radix(&format!("{:08b}", self.version_ihl)[4..8], 2).unwrap()
+        self.version_ihl & 0b_0000_1111
     }
     pub fn dscp(&self) -> u8 {
-        u8::from_str_radix(&format!("{:08b}", self.dscp_ecn)[0..6], 2).unwrap()
+        // u8::from_str_radix(&format!("{:08b}", self.dscp_ecn)[0..6], 2).unwrap()
+        (self.dscp_ecn >> 2) as u8
     }
     pub fn ecn(&self) -> u8 {
-        u8::from_str_radix(&format!("{:08b}", self.dscp_ecn)[6..8], 2).unwrap()
+        // u8::from_str_radix(&format!("{:08b}", self.dscp_ecn)[6..8], 2).unwrap()
+        self.dscp_ecn & 0b_0000_0011
     }
     pub fn total_length(&self) -> u16 {
         self.total_length
     }
     pub fn flags(&self) -> u8 {
-        u8::from_str_radix(&format!("{:016b}", self.flags_fragment_offset)[0..3], 2).unwrap()
+        // u8::from_str_radix(&format!("{:016b}", self.flags_fragment_offset)[0..3], 2).unwrap()
+        (self.flags_fragment_offset >> 13) as u8
     }
     pub fn fragment_offset(&self) -> u16 {
         u16::from_str_radix(&format!("{:016b}", self.flags_fragment_offset)[3..16], 2).unwrap()
+        // ((self.flags_fragment_offset << 8) >> 5) + ((self.flags_fragment_offset & 0xff) << 0)
+        // (self.flags_fragment_offset & 0b_0001_1111) + (self.flags_fragment_offset & 0xff)
     }
     pub fn time_to_live(&self) -> u8 {
         self.time_to_live

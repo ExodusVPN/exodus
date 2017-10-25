@@ -24,8 +24,8 @@ net packet decode and encode.
 *OSI Model Layer 3*
 
 *   IPv4
-*   [TODO] IPv6
 *   ICMPv4
+*   [TODO] IPv6
 *   [TODO] ICMPv6
 *   [TODO] IGMP
 
