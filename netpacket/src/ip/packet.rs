@@ -3,7 +3,7 @@ use byteorder::{BigEndian, ReadBytesExt};
 
 use std::mem::transmute;
 
-use super::Options;
+use super::{Options, Codepoint, ToS};
 
 /// [RFC-791](https://tools.ietf.org/html/rfc791#page-11) , September 1981
 ///
@@ -171,15 +171,12 @@ impl <'a, 'b>Ipv4Packet<'a, 'b> {
         self.version_ihl >> 4
     }
     pub fn ihl(&self) -> u8 {
-        // u8::from_str_radix(&format!("{:08b}", self.version_ihl)[4..8], 2).unwrap()
         self.version_ihl & 0b_0000_1111
     }
     pub fn dscp(&self) -> u8 {
-        // u8::from_str_radix(&format!("{:08b}", self.dscp_ecn)[0..6], 2).unwrap()
         (self.dscp_ecn >> 2) as u8
     }
     pub fn ecn(&self) -> u8 {
-        // u8::from_str_radix(&format!("{:08b}", self.dscp_ecn)[6..8], 2).unwrap()
         self.dscp_ecn & 0b_0000_0011
     }
     pub fn total_length(&self) -> u16 {
@@ -218,7 +215,7 @@ impl <'a, 'b>Ipv4Packet<'a, 'b> {
         self.payload
     }
     
-    pub fn verifying(&self) -> bool {
+    pub fn verify_checksum(&self) -> bool {
         unimplemented!();
     }
 }
@@ -238,7 +235,7 @@ impl <'a>Ipv6Packet<'a> {
         &self.payload
     }
 
-    pub fn verifying(&self) -> bool {
+    pub fn verify_checksum(&self) -> bool {
         unimplemented!();
     }
 }
