@@ -169,14 +169,14 @@ impl ToS {
 
 /// Differentiated Services Code Point (DSCP)
 /// 
-/// > Originally defined as the Type of service (ToS) field. 
+/// Originally defined as the Type of service (ToS) field. 
 /// This field is now defined by RFC 2474 (updated by RFC 3168 and RFC 3260) for Differentiated services (DiffServ). 
 /// New technologies are emerging that require real-time data streaming and therefore make use of the DSCP field. 
 /// An example is Voice over IP (VoIP), which is used for interactive data voice exchange.
 /// 
 /// Explicit Congestion Notification (ECN)
 /// 
-/// > This field is defined in RFC 3168 and allows end-to-end notification of network congestion without dropping packets. 
+/// This field is defined in RFC 3168 and allows end-to-end notification of network congestion without dropping packets. 
 /// ECN is an optional feature that is only used when both endpoints support it and are willing to use it. 
 /// It is only effective when supported by the underlying network.
 ///
@@ -187,9 +187,9 @@ impl ToS {
 ///
 /// The RECOMMENDED values of the AF codepoints are as follows:
 ///
-///     AF11 = '001010', AF21 = '010010', AF31 = '011010', AF41 = '100010',
-///     AF12 = '001100', AF22 = '010100', AF32 = '011100', AF42 = '100100',
-///     AF13 = '001110', AF23 = '010110', AF33 = '011110', AF43 = '100110'
+///     AF11 = "001010", AF21 = "010010", AF31 = "011010", AF41 = "100010",
+///     AF12 = "001100", AF22 = "010100", AF32 = "011100", AF42 = "100100",
+///     AF13 = "001110", AF23 = "010110", AF33 = "011110", AF43 = "100110"
 ///
 ///                         Class 1    Class 2    Class 3    Class 4
 ///                      +----------+----------+----------+----------+
