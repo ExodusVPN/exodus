@@ -63,20 +63,20 @@ pub struct Flags {
     pub fin: bool,
 }
 
-#[derive(Debug, PartialEq, Eq)]
 #[allow(non_camel_case_types)]
-pub enum Operation {
-    LISTEN,
-    SYN_SENT,
-    SYN_RECEIVED,
-    ESTABLISHED,
-    FIN_WAIT_1,
-    FIN_WAIT_2,
-    CLOSE_WAIT,
-    CLOSING,
-    LAST_ACK,
-    TIME_WAIT,
-    CLOSED
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+enum State {
+    Listen,
+    SynSent,
+    SynReceived,
+    Established,
+    FinWait1,
+    FinWait2,
+    CloseWait,
+    Closing,
+    LastAck,
+    TimeWait,
+    Closed
 }
 
 /// Connection establishment
