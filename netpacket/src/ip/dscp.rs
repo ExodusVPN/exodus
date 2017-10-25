@@ -50,6 +50,8 @@
 ///
 ///    The fragment offset is measured in units of 8 octets (64 bits).  The
 ///    first fragment has offset zero.
+
+/// Type of Service: precedence
 #[allow(non_camel_case_types, dead_code)]
 #[derive(Debug, PartialEq, Eq)]
 pub enum Precedence {
@@ -71,6 +73,7 @@ pub enum Precedence {
     Routine
 }
 
+/// Type of Service: value
 #[allow(non_camel_case_types, dead_code)]
 #[derive(Debug, PartialEq, Eq)]
 pub enum Parameter {
@@ -90,6 +93,7 @@ pub enum Parameter {
     Custom(u8)
 }
 
+/// Type of Service
 #[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq, Eq)]
 pub struct ToS {
