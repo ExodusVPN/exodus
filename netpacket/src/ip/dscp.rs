@@ -200,6 +200,8 @@ impl ToS {
 ///
 /// The table below summarizes the recommended AF codepoint values.
 ///
+/// https://www.cisco.com/MT/eval/zh/105/dscpvalues.html#dscpandassuredforwardingclasses
+///
 #[derive(Debug, PartialEq, Eq)]
 pub enum Codepoint {
     AF11,
