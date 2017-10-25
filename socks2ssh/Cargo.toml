@@ -1,5 +1,5 @@
 [package]
-name = "socks5"
+name = "socks2ssh"
 version = "0.1.0"
 authors = ["luozijun <gnulinux@126.com>"]
 
