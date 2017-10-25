@@ -63,28 +63,46 @@ pub struct Flags {
     pub fin: bool,
 }
 
+/// [TCP/IP State Transition Diagram (RFC793) ](http://www.cs.northwestern.edu/~agupta/cs340/project2/TCPIP_State_Transition_Diagram.pdf)
+/// 
+/// A connection progresses through a series of states during its lifetime. The states are: LISTEN, SYN-SENT, SYN-
+/// RECEIVED, ESTABLISHED, FIN-WAIT-1, FIN-WAIT-2, CLOSE-WAIT, CLOSING, LAST-ACK, TIME-WAIT, and 
+/// the  fictional state CLOSED. CLOSED is fictional because it represents the state when there is no TCB, and therefore, no connection. 
+/// 
+/// A TCP connection progresses from one state to another in response to events. The events are the user calls, 
+/// OPEN, SEND, RECEIVE, CLOSE, ABORT, and STATUS; the incoming segments, particularly those containing 
+/// the SYN, ACK, RST and FIN flags; and timeouts. 
+/// 
 #[allow(non_camel_case_types)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum State {
+    /// represents waiting for a connection request from any remote TCP and port. 
     Listen,
+    /// represents waiting for a matching connection request after having sent a connection request. 
     SynSent,
+    /// represents  waiting for a confirming  connection request acknowledgment after having both received and sent a connection request. 
     SynReceived,
+    /// represents an open connection, data received can be delivered to the user. The normal state for the data transfer phase of the connection. 
     Established,
+    /// represents waiting for a connection termination  request  from  the  remote  TCP,  
+    /// or  an acknowledgment of the connection termination request previously sent. 
     FinWait1,
+    /// represents waiting for a connection termination request from the remote TCP. 
     FinWait2,
+    /// represents waiting for a connection termination request from the local user. 
     CloseWait,
+    /// represents waiting for a connection termination request acknowledgment from the remote TCP. 
     Closing,
+    /// represents  waiting  for  an  acknowledgment of the connection termination request previously 
+    /// sent to the remote TCP (which includes an acknowledgment of its connection termination request). 
     LastAck,
+    /// represents waiting for enough time to pass to be sure the remote TCP received the acknowledgment of its connection termination request. 
     TimeWait,
+    /// represents no connection state at all. 
     Closed
 }
 
-/// Connection establishment
-/// 
-/// * SYN
-/// * SYN-ACK
-/// * ACK
-/// 
+
 /// https://en.wikipedia.org/wiki/Transmission_Control_Protocol#TCP_segment_structure
 #[derive(Debug, PartialEq, Eq)]
 pub struct Packet<'a, 'b> {
