@@ -1,0 +1,10 @@
+[package]
+name = "logging"
+version = "0.1.0"
+authors = ["luozijun <gnulinux@126.com>"]
+
+[dependencies]
+log  = "0.3"
+time = "0.1"
+env_logger = "0.3"
+ansi_term  = "0.9"
