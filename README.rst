@@ -13,3 +13,9 @@ rust-netproxy
 *   `nettunnel <https://github.com/LuoZijun/exodus/tree/master/nettunnel>`_ , 一个 VPN 实现
 
 
+组件
+---------
+
+*   `iana <https://github.com/LuoZijun/exodus/tree/master/iana>`_ , IANA IP/DOMAIN 数据库实现
+*   `netpacket <https://github.com/LuoZijun/exodus/tree/master/netpacket>`_, 一个网络包解析器实现
+*   `netstack <https://github.com/LuoZijun/exodus/tree/master/netstack>`_ , 一个简单的网络栈实现
