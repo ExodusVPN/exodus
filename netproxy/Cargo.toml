@@ -1,0 +1,63 @@
+[package]
+name = "netproxy"
+version = "0.1.0"
+authors = ["luozijun <gnulinux@126.com>"]
+
+[[bin]]
+name = "socks"
+path = "src/ingress/socks.rs"
+[[bin]]
+name = "dns"
+path = "src/dns.rs"
+
+[[bin]]
+name = "ssh"
+path = "src/egress/ssh.rs"
+
+[[bin]]
+name = "timezone"
+path = "src/iana/timezone.rs"
+[[bin]]
+name = "ifaces"
+path = "src/net/interface.rs"
+[[bin]]
+name = "pf"
+path = "src/net/ffi/unix/xnu.rs"
+
+[dependencies]
+log = "0.3"
+env_logger = "0.3"
+pretty_env_logger = "0.1.1"
+byteorder = "1.1.0"
+
+
+ssh2 = "0.3.2"
+trust-dns-resolver = "0.6.0"
+
+log = "0.3"
+env_logger = "0.3"
+pretty_env_logger = "0.1.1"
+
+futures = "0.1"
+tokio-core = "0.1.9"
+tokio-io = "0.1"
+
+trust-dns = { version = "0.9.2", default-features = false }
+
+chrono = "0.4.0"
+chrono-tz = "0.4.1"
+
+nix = "0.9.0"
+libc = "0.2.31"
+
+ioctl-sys = "0.5.2"
+errno = "0.2"
+
+
+ifaces = { git = "https://github.com/LuoZijun/rust-ifaces.git" }
+
+byteorder = "0.5"
+# mio = "0.6"
+
+[build-dependencies]
+bindgen = "0.30"
