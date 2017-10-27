@@ -3,8 +3,25 @@ name = "nettunnel"
 version = "0.1.0"
 authors = ["luozijun <gnulinux@126.com>"]
 
+
+[[bin]]
+name = "nettunnel-server"
+path = "src/bin/server.rs"
+
+[[bin]]
+name = "nettunnel-client"
+path = "src/bin/client.rs"
+
+
 [dependencies]
-log = "0.3"
-env_logger = "0.3"
-pretty_env_logger = "0.1.1"
 byteorder = "1.1.0"
+
+logging   = { path = "../logging" }
+taptun    = { path = "../taptun" }
+netpacket = { path = "../netpacket" }
+
+rust-crypto = "0.2.36"
+
+futures    = "0.1.16"
+tokio-core = "0.1.10"
+tokio-io   = "0.1.3"

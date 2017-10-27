@@ -20,8 +20,10 @@ pub mod platform {
     }
 }
 
-pub use self::platform::create;
+pub use self::platform::{create, Device, tokio};
+
 pub use self::configuration::Configuration;
+
 
 use std::fmt::Debug;
 use std::io::{Read, Write};
