@@ -15,6 +15,7 @@ path = "src/bin/client.rs"
 
 [dependencies]
 byteorder = "1.1.0"
+libc      = "0.2.31"
 
 logging   = { path = "../logging" }
 taptun    = { path = "../taptun" }
