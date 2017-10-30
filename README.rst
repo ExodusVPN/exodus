@@ -20,3 +20,20 @@ Exodus: Ciphertext and plaintext
 *   `netpacket <https://github.com/LuoZijun/exodus/tree/master/netpacket>`_ , 一个简单的网络包解析器实现
 *   `netstack <https://github.com/LuoZijun/exodus/tree/master/netstack>`_ , 一个简单的网络栈实现
 *   `taptun <https://github.com/LuoZijun/exodus/tree/master/taptun>`_ , 一个跨平台的 TAP/TUN 实现
+
+编译
+---------
+
+.. code:: bash
+    
+    cd nettunnel
+    cargo build
+    cd ../
+
+    # Run VPN server
+    target/debug/nettunnel-server
+    # Run VPN Client
+    target/debug/nettunnel-client
+
+    ifconfig
+    
