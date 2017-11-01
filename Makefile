@@ -5,8 +5,9 @@ default: netproxy nettunnel
 
 .PHONY: netproxy
 netproxy:
-	echo "[TODO] ..."
+	cd netproxy && cargo build
+
 
 .PHONY: nettunnel
 nettunnel:
-	echo "[TODO] ..."
+	cd nettunnel && cargo build
