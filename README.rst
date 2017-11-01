@@ -26,6 +26,22 @@ Exodus: Ciphertext and plaintext
 
 .. code:: bash
     
+    brew install rustup-init
+
+    rustup-init --default-toolchain nightly -y
+    rustup toolchain install nightly
+    rustup default nightly
+    rustup show
+
+    rustup target list
+    rustup target add x86_64-apple-darwin
+    rustup target add x86_64-unknown-linux-gnu
+    rustup target add x86_64-pc-windows-gnu
+    rustup target add armv7-apple-ios
+    rustup target add aarch64-apple-ios
+    rustup target add aarch64-linux-android
+    rustup target add armv7-linux-androideabi
+
     cd nettunnel
     cargo build
     cd ../
@@ -36,4 +52,6 @@ Exodus: Ciphertext and plaintext
     target/debug/nettunnel-client
 
     ifconfig
+    
+
     
