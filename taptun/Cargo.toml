@@ -7,8 +7,8 @@ version = "0.1.0"
 [target."cfg(unix)"]
 
 [dependencies]
-log = "0.3"
-pretty_env_logger = "0.1.1"
+netpacket = { path = "../netpacket" }
+logging   = { path = "../logging" }
 
 futures    = "0.1.16"
 tokio-core = "0.1.10"
@@ -22,7 +22,6 @@ mio = "0.6.10"
 error-chain = "0.11.0"
 crc = "1.5.0"
 
-netpacket = { path = "../netpacket" }
 
 [target."cfg(unix)".dependencies]
 ioctl-sys = "0.5.2"

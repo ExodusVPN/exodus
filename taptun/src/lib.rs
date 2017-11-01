@@ -1,9 +1,8 @@
 #[allow(dead_code)]
 
-// unused_imports
-// #[macro_use]
-extern crate log;
-extern crate pretty_env_logger;
+#[allow(unused_imports)]
+#[macro_use(trace, debug, info, warn, error, log)]
+extern crate logging;
 
 #[macro_use]
 extern crate error_chain;
