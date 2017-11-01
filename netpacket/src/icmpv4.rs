@@ -1,7 +1,6 @@
-
-
 #![allow(unused_doc_comment, unused_variables)]
 
+use byteorder::{BigEndian, ByteOrder};
 use std::mem::transmute;
 use super::ip;
 
@@ -382,9 +381,9 @@ impl <'a, 'b>Packet<'a, 'b> {
         }
         let kind = payload[0];
         let code = payload[1];
-        let checksum: u16 = unsafe { transmute([payload[2], payload[3]]) };
-        let rest_of_header: u32 = unsafe { transmute([payload[4], payload[5], payload[6], payload[7]]) };
-
+        let checksum: u16 = BigEndian::read_u16(&payload[2..4]);
+        let rest_of_header: u32 = BigEndian::read_u32(&payload[4..8]);
+        
         match ip::Packet::from_bytes(&payload[8..]) {
             Ok(ip_packet) => {
                 if ip_packet.payload() == &payload[0..8] {

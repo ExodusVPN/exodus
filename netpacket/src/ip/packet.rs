@@ -1,5 +1,5 @@
 
-use byteorder::{BigEndian, ReadBytesExt, ByteOrder};
+use byteorder::{BigEndian, ByteOrder};
 
 use std::mem::transmute;
 
@@ -230,7 +230,7 @@ impl <'a>Ipv6Packet<'a> {
         if version != 6 {
             return Err(::std::io::Error::new(::std::io::ErrorKind::Other, "ipv6 packet version != 6 !"));
         }
-        
+
         let traffic_class = (payload[0] & 0b_0000_1111) | (payload[1] >> 4);
         let flow_label    = (((payload[1] & 0b_0000_1111) as u32) << 16) | ((payload[2] as u32) << 8) | (payload[3] as u32);
         let payload_length: u16 = BigEndian::read_u16(&payload[4..6]);

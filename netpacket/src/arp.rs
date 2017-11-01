@@ -1,5 +1,5 @@
 
-use byteorder::{BigEndian, ReadBytesExt};
+use byteorder::{BigEndian, ByteOrder};
 use std::mem::transmute;
 
 /// Address Resolution Protocol (ARP)
@@ -141,24 +141,16 @@ impl Packet {
         if payload.len() < 28 {
             return Err(::std::io::Error::new(::std::io::ErrorKind::Other, "size error ..."));
         }
-        let mut hardware_type_bytes = &payload[0..2];
-        let hardware_type: u16 = hardware_type_bytes.read_u16::<BigEndian>().unwrap();
-        let mut protocol_type_bytes = &payload[2..4];
-        let protocol_type: u16 = protocol_type_bytes.read_u16::<BigEndian>().unwrap();
-
+        let hardware_type: u16 = BigEndian::read_u16(&payload[0..2]);
+        let protocol_type: u16 = BigEndian::read_u16(&payload[2..4]);
         let hardware_address_length = payload[4];
         let protocol_address_length = payload[5];
-
-        let mut operation_bytes = &payload[6..8];
-        let operation: u16 = operation_bytes.read_u16::<BigEndian>().unwrap();
-
+        let operation: u16 = BigEndian::read_u16(&payload[6..8]);
         let sender_hardware_address: [u8; 6] = [payload[8], payload[9], payload[10], payload[11], payload[12], payload[13]];
-        let mut sender_protocol_address_bytes = &payload[14..18];
-        let sender_protocol_address: u32 = sender_protocol_address_bytes.read_u32::<BigEndian>().unwrap();
-
+        let sender_protocol_address: u32 = BigEndian::read_u32(&payload[14..18]);
+        
         let target_hardware_address: [u8; 6] = [payload[18], payload[19], payload[20], payload[21], payload[22], payload[23]];
-        let mut target_protocol_address_bytes = &payload[24..28];
-        let target_protocol_address: u32 = target_protocol_address_bytes.read_u32::<BigEndian>().unwrap();
+        let target_protocol_address: u32 = BigEndian::read_u32(&payload[24..28]);
         Ok(Packet {
             hardware_type: hardware_type,
             protocol_type: protocol_type,

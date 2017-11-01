@@ -1,6 +1,5 @@
 
-use byteorder::{BigEndian, ReadBytesExt};
-
+use byteorder::{BigEndian, ByteOrder};
 use std::mem::transmute;
 
 
@@ -21,17 +20,11 @@ impl <'a>Packet<'a> {
             return Err(::std::io::Error::new(::std::io::ErrorKind::Other, "size error ..."));
         }
 
-        let mut src_port_bytes = &payload[0..2];
-        let src_port: u16 = src_port_bytes.read_u16::<BigEndian>().unwrap();
-        let mut dst_port_bytes = &payload[2..4];
-        let dst_port: u16 = dst_port_bytes.read_u16::<BigEndian>().unwrap();
-
-        let mut length_bytes = &payload[4..6];
-        let length: u16 = length_bytes.read_u16::<BigEndian>().unwrap();
-
-        let mut checksum_bytes = &payload[6..8];
-        let checksum: u16 = checksum_bytes.read_u16::<BigEndian>().unwrap();
-
+        let src_port: u16 = BigEndian::read_u16(&payload[0..2]);
+        let dst_port: u16 = BigEndian::read_u16(&payload[2..4]);
+        let length: u16 = BigEndian::read_u16(&payload[4..6]);
+        let checksum: u16 = BigEndian::read_u16(&payload[6..8]);
+        
         if payload.len() != length as usize {
             return Err(::std::io::Error::new(::std::io::ErrorKind::Other, "size error ..."));
         }

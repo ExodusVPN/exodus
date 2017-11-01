@@ -1,7 +1,7 @@
 
 use std::mem::transmute;
 
-use byteorder::{BigEndian, ReadBytesExt, ByteOrder};
+use byteorder::{BigEndian, ByteOrder};
 
 // TCP Header Format
 //
@@ -143,7 +143,7 @@ impl <'a, 'b>Packet<'a, 'b> {
                                         | (payload[11] as u32);
         let data_offset = payload[12] >> 4;
         let reserved = payload[12] >> 3;
-        
+
         let flags = Flags {
             ns: (payload[12] & 0b00000001) != 0,
             cwr: (payload[13] >> 7 & 0b00000001) != 0,
