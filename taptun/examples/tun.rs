@@ -44,14 +44,23 @@ fn main (){
             warn!("$ sudo route add {}/32 -interface {}", gw, name);
             warn!("$ curl {}:80", gw);
             warn!("$ ping {}", gw);
-            
+
             loop {
                 let amount = dev.read(&mut buf).unwrap();
-                
                 info!("Raw Packet: {:?}", &buf[..amount]);
 
-                let data: &[u8] = &buf[4 .. amount];
-                info!("macOS Packet: {:?}", data);
+                let offset: usize = if cfg!(target_os = "macOS") {
+                    4
+                } else {
+                    0
+                };
+                
+                let data: &[u8] = &buf[offset .. amount];
+                
+                if offset == 4 {
+                    info!("macOS Packet: {:?}", data);
+                }
+                
                 match netpacket::ip::Packet::from_bytes(data) {
                     Ok(ip_packet) => {
                         info!("IP Packet: {:?}", ip_packet);
