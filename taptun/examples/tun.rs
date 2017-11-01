@@ -48,8 +48,9 @@ fn main (){
             loop {
                 let amount = dev.read(&mut buf).unwrap();
                 info!("Raw Packet: {:?}", &buf[..amount]);
-
                 let offset: usize = if cfg!(target_os = "macOS") {
+                    // IPv4 Prefix: [0, 0, 0, 2];
+                    // IPv6 Prefix: [0, 0, 0, 10];
                     4
                 } else {
                     0
