@@ -5,6 +5,7 @@ use std::mem::transmute;
 
 use super::{Options, Codepoint, ToS};
 
+
 /// [RFC-791](https://tools.ietf.org/html/rfc791#page-11) , September 1981
 ///
 /// 3.1.  Internet Header Format
@@ -307,15 +308,26 @@ impl <'a>Ipv6Packet<'a> {
 
 impl <'a, 'b>Packet<'a, 'b> {
     pub fn from_bytes(payload: &[u8]) -> Result<Self, ::std::io::Error> {
-        // let ver = u8::from_str_radix(&format!("{:08b}", payload[0])[0..4], 2).unwrap();
-        let ver = payload[0] >> 4;
+        const XNU_IPV4_EXTRA_HEADER: [u8; 4] = [0, 0, 0, 2];
+        const XNU_IPV6_EXTRA_HEADER: [u8; 4] = [0, 0, 0, 10];
+
+        let offset: usize;
+        if cfg!(target_os = "macos") 
+            && (&payload[0..4] == &[0, 0, 0, 2] || &payload[0..4] == &[0, 0, 0, 10]) {
+            // macOS TUN 4 bytes of extra heade
+            offset = 4;
+        } else {
+            offset = 0;
+        }
+        
+        let ver = payload[offset] >> 4;
         match ver {
             // TODO: TCP/IP/ICMPv6 checksum
-            4u8 => match Ipv4Packet::from_bytes(payload) {
+            4u8 => match Ipv4Packet::from_bytes(&payload[offset..]) {
                 Ok(packet) => Ok(Packet::V4(packet)),
                 Err(e)     => Err(e)
             },
-            6u8 => match Ipv6Packet::from_bytes(payload) {
+            6u8 => match Ipv6Packet::from_bytes(&payload[offset..]) {
                 Ok(packet) => Ok(Packet::V6(packet)),
                 Err(e)     => Err(e)
             },

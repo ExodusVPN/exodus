@@ -1,8 +1,4 @@
 
-pub mod sockaddr;
-pub mod configuration;
-
-
 #[cfg(target_os = "macos")]
 pub mod macos;
 #[cfg(target_os = "macos")]
@@ -20,8 +16,10 @@ pub mod platform {
     }
 }
 
-pub use self::platform::{create, Device, tokio};
+pub mod sockaddr;
+pub mod configuration;
 
+pub use self::platform::{create, Device, tokio};
 pub use self::configuration::Configuration;
 
 

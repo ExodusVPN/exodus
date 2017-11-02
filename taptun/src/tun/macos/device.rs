@@ -77,7 +77,25 @@ impl Device {
 
 impl Read for Device {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.tun.read(buf)
+        match self.tun.read(buf) {
+            Ok(size) => {
+                if size > IP_HEADER_LEN {
+                    unsafe {
+                        let buf_copy: &mut [u8] = ::std::mem::transmute_copy(&buf);
+                        let mut idx = IP_HEADER_LEN;
+                        while idx < buf.len() {
+                            buf[idx-IP_HEADER_LEN] = buf_copy[idx];
+                            idx += 1;
+                        }
+                        ::std::mem::forget(buf_copy);
+                    }
+                    Ok(size-IP_HEADER_LEN)
+                } else {
+                    Ok(size)
+                }
+            },
+            Err(e) => Err(e)
+        }
     }
 }
 
@@ -86,27 +104,19 @@ impl Write for Device {
         if !buf.len() > 0 {
             return Ok(0);
         };
-        // let mut data = Vec::with_capacity(buf.len() + IP_HEADER_LEN);
 
-        // match buf[0] & 0xF {
-        //     IPV4 => {
-        //         data.extend_from_slice(&IPV4_HEADER);
-        //     }
-        //     IPV6 => data.extend_from_slice(&IPV6_HEADER),
-        //     _ => {}
-        // };
+        let mut data = Vec::with_capacity(buf.len() + IP_HEADER_LEN);
+        match buf[0] >> 4 {
+            IPV4 => data.extend_from_slice(&IPV4_HEADER),
+            IPV6 => data.extend_from_slice(&IPV6_HEADER),
+            _    => {}
+        };
+        data.extend_from_slice(&buf);
 
-        // match self.tun.write(&data) {
-        //     Ok(len) => {
-        //         Ok(if len > IP_HEADER_LEN {
-        //                len - IP_HEADER_LEN
-        //            } else {
-        //                0
-        //            })
-        //     }
-        //     Err(e) => Err(e),
-        // }
-        self.tun.write(buf)
+        match self.tun.write(&data) {
+            Ok(len) => Ok(if len > IP_HEADER_LEN { len - IP_HEADER_LEN } else { 0 }),
+            Err(e)  => Err(e),
+        }
     }
 
     fn flush(&mut self) -> io::Result<()> {
