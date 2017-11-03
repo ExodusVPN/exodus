@@ -69,8 +69,19 @@ impl <'a>Options<'a> {
             return Err(::std::io::Error::new(::std::io::ErrorKind::Other, "size error ..."));
         }
 
-        let ccn   = payload[0];
-        let value = (payload[1] + (8 - (payload[1] % 8))) / 8;  // in bytes
+        let ccn: u8   = payload[0];
+
+        let _value = payload[1] as i16;
+        // in bytes
+        let value: u8 = if _value > 0 {
+            if _value % 8 > 0 {
+                ((_value + (8 - (_value % 8)) ) / 8 ) as u8
+            } else {
+                _value as u8
+            }
+        } else {
+            0
+        };
         
         if payload.len() < (2 + value) as usize {
             return Err(::std::io::Error::new(::std::io::ErrorKind::Other, "size error ..."));

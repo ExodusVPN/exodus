@@ -77,6 +77,11 @@ pub struct Ipv6Packet<'a> {
     /// The size of the payload in octets, including any extension headers. 
     /// The length is set to zero when a Hop-by-Hop extension header carries a Jumbo Payload option.
     payload_length: u16, //  16 bits
+    /// Specifies the type of the next header. 
+    /// This field usually specifies the transport layer protocol used by a packet's payload. 
+    /// When extension headers are present in the packet this field indicates which extension header follows. 
+    /// The values are shared with those used for the IPv4 protocol field, 
+    /// as both fields have the same function (see List of IP protocol numbers).
     next_header: u8,     //   8 bits
     hoplimit: u8,        //   8 bits
     src_ip  : u128,      // 128 bits
@@ -144,7 +149,7 @@ impl <'a, 'b>Ipv4Packet<'a, 'b> {
         if payload.len() != total_length as usize {
             return Err(::std::io::Error::new(::std::io::ErrorKind::Other, "size error ..."));
         }
-        println!("Ipv4 Header length: {:?}", header_length);
+
         Ok(Ipv4Packet {
             version_ihl   : version_ihl,
             dscp_ecn      : dscp_ecn,
@@ -308,9 +313,6 @@ impl <'a>Ipv6Packet<'a> {
 
 impl <'a, 'b>Packet<'a, 'b> {
     pub fn from_bytes(payload: &[u8]) -> Result<Self, ::std::io::Error> {
-        const XNU_IPV4_EXTRA_HEADER: [u8; 4] = [0, 0, 0, 2];
-        const XNU_IPV6_EXTRA_HEADER: [u8; 4] = [0, 0, 0, 10];
-
         let offset: usize;
         if cfg!(target_os = "macos") 
             && (&payload[0..4] == &[0, 0, 0, 2] || &payload[0..4] == &[0, 0, 0, 10]) {
@@ -344,7 +346,7 @@ impl <'a, 'b>Packet<'a, 'b> {
             Packet::V6(ref packet) => packet.as_bytes()
         }
     }
-
+    
     pub fn payload(&self) -> &[u8] {
         match *self {
             Packet::V4(ref packet) => packet.payload(),
