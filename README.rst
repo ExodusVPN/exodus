@@ -24,9 +24,12 @@ Exodus: Ciphertext and plaintext
 编译
 ---------
 
+macOS:
+
 .. code:: bash
     
     brew install rustup-init
+    brew install FiloSottile/musl-cross/musl-cross
 
     rustup-init --default-toolchain nightly -y
     rustup toolchain install nightly
@@ -34,13 +37,30 @@ Exodus: Ciphertext and plaintext
     rustup show
 
     rustup target list
+    # Unix
     rustup target add x86_64-apple-darwin
-    rustup target add x86_64-unknown-linux-gnu
-    rustup target add x86_64-pc-windows-gnu
+    rustup target add x86_64-apple-ios
     rustup target add armv7-apple-ios
+    rustup target add armv7s-apple-ios
     rustup target add aarch64-apple-ios
-    rustup target add aarch64-linux-android
+    rustup target add x86_64-sun-solaris
+    rustup target add x86_64-unknown-freebsd
+    rustup target add x86_64-unknown-netbsd
+
+    # Linux
+    rustup target add x86_64-unknown-linux-gnu
+    rustup target add x86_64-unknown-linux-musl
+    rustup target add x86_64-linux-android
+    rustup target add x86_64-unknown-fuchsia
     rustup target add armv7-linux-androideabi
+    rustup target add aarch64-linux-android
+    
+    # Windows
+    rustup target add x86_64-pc-windows-gnu
+
+    # Other
+    rustup target add x86_64-unknown-redox
+
 
     cd nettunnel
     cargo build
@@ -53,5 +73,23 @@ Exodus: Ciphertext and plaintext
 
     ifconfig
     
+
+Debian 9:
+
+.. code:: bash
+    
+    sudo apt install build-essential libssl-dev make cmake clang gcc
+
+    wget https://static.rust-lang.org/rustup.sh
+    chmod +x rustup.sh
+    ./rustup.sh --channel=nightly
+
+    git clone https://github.com/LuoZijun/exodus.git
+    cd exodus
+    cargo build
+    
+    ip addr
+
+
 
     
