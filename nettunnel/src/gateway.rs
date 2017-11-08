@@ -182,6 +182,13 @@ impl SystemGateway {
         self.add_route("-host", "default", &gateway.to_string())
     }
 
+    pub fn ifname(&self) -> &str {
+        &self.ifname
+    }
+    pub fn ipv4_addr(&self) -> Ipv4Addr {
+        self.ipv4_addr
+    }
+
     pub fn mac_address(&self) -> MacAddr {
         MacAddr::new(
             self.ether_addr[0],

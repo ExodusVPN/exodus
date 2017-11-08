@@ -29,6 +29,23 @@ fn get_interface_by_name(interface_name: &str) -> Option<pnet::datalink::Network
         .next()
 }
 
+fn find_ipv4_addr_from_interface(interface: &pnet::datalink::NetworkInterface) -> Option<Ipv4Addr> {
+    let addrs = interface
+        .ips
+        .iter()
+        .filter(|ipnetwork| ipnetwork.ip().is_ipv4())
+        .map(|ipnetwork| match ipnetwork.ip() {
+            IpAddr::V4(ipv4_addr) => ipv4_addr,
+            _ => unreachable!(),
+        })
+        .collect::<Vec<Ipv4Addr>>();
+    if addrs.len() > 0 {
+        Some(addrs[0])
+    } else {
+        None
+    }
+}
+
 fn dhcp_request(udp_socket: &::std::net::UdpSocket, buf: &mut [u8]) -> (Ipv4Addr, Ipv4Addr, Ipv4Addr) {
     let msg = [1];
     let size = udp_socket.send(&msg).expect("couldn't send message");
@@ -66,7 +83,12 @@ pub fn main(server_socket_addr: SocketAddr) {
         IpAddr::V4(a) => a,
         _ => unreachable!(),
     };
-    let local_udp_socket_addr = "0.0.0.0:9251".parse::<SocketAddr>().unwrap();
+    let mut sys_gw = SystemGateway::new().unwrap();
+
+    let interface = get_interface_by_name(sys_gw.ifname()).unwrap();
+    let interface_ip = find_ipv4_addr_from_interface(&interface).expect("...");
+
+    let local_udp_socket_addr = SocketAddr::new(IpAddr::V4(interface_ip), 9251);
     let udp_socket = ::std::net::UdpSocket::bind(&local_udp_socket_addr).expect("couldn't bind to address");
     info!("UDP Socket Listening at: {:?} ...", local_udp_socket_addr);
 
@@ -87,9 +109,9 @@ pub fn main(server_socket_addr: SocketAddr) {
         server_gateway_ip
     );
 
-    let mut sys_gw = SystemGateway::new().unwrap();
     sys_gw.set_default(&internal_ip).unwrap();
     warn!("系统默认路由已设置为: {}", internal_ip);
+
 
     let udp_socket_raw_fd = mio::net::UdpSocket::from_socket(udp_socket).unwrap();
     udp_socket_raw_fd.connect(server_socket_addr).unwrap();
@@ -115,7 +137,6 @@ pub fn main(server_socket_addr: SocketAddr) {
 
     let tun_device_mutex: Arc<Mutex<tun::Device>> = Arc::new(Mutex::new(raw_tun_device));
 
-    let interface = get_interface_by_name("en0").unwrap();
     let (mut tx, mut rx) = match pnet::datalink::channel(&interface, Default::default()) {
         Ok(pnet::datalink::Channel::Ethernet(tx, rx)) => (tx, rx),
         Ok(_) => panic!("Unhandled channel type"),
@@ -138,14 +159,12 @@ pub fn main(server_socket_addr: SocketAddr) {
             let myip: Ipv4Addr = Ipv4Addr::new(192, 168, 0, 103);
 
             if _ip4p.get_destination() == myip || _ip4p.get_destination() == internal_ip {
-                println!("\n[RX] Next: {:?}", _ip4p);
                 if _ip4p.get_source() != server_public_ip {
                     _ip4p.set_destination(internal_ip);
                     let imm_header = pnet::packet::ipv4::checksum(&_ip4p.to_immutable());
                     _ip4p.set_checksum(imm_header);
                     let _ = _ip4p.packet().to_vec();
-                    println!("[REBUILD] {:?}", _ip4p);
-
+                    println!("[NAT] {:?}", _ip4p);
                     let mut tun_device = tun_device_clone1.lock().unwrap();
                     (*tun_device).write(_ip4p.packet()).unwrap();
                 }
@@ -169,30 +188,27 @@ pub fn main(server_socket_addr: SocketAddr) {
                 UDP_TOKEN => {
                     let size = udp_socket_raw_fd.recv(&mut buf).unwrap();
                     let cmd = buf[0];
-                    debug!("CMD: {}", cmd);
-                    match cmd {
-                        2 => {
-                            match netpacket::ip::Packet::from_bytes(&buf[1..size]) {
-                                Ok(ip_packet) => {
-                                    match ip_packet {
-                                        netpacket::ip::Packet::V4(ipv4_packet) => {
-                                            if ipv4_packet.dst_ip() == u32::from(internal_ip) {
-                                                let mut tun_device = tun_device_clone2.lock().unwrap();
-                                                match (*tun_device).write(&buf[1..size]) {
-                                                    Ok(_) => {}
-                                                    Err(e) => {
-                                                        debug!("虚拟网络设备写入数据失败: {:?}", e);
-                                                    }
-                                                };
+                    if cmd != 2 {
+                        continue;
+                    }
+                    match netpacket::ip::Packet::from_bytes(&buf[1..size]) {
+                        Ok(ip_packet) => {
+                            match ip_packet {
+                                netpacket::ip::Packet::V4(ipv4_packet) => {
+                                    if ipv4_packet.dst_ip() == u32::from(internal_ip) {
+                                        let mut tun_device = tun_device_clone2.lock().unwrap();
+                                        match (*tun_device).write(&buf[1..size]) {
+                                            Ok(_) => {}
+                                            Err(e) => {
+                                                debug!("虚拟网络设备写入数据失败: {:?}", e);
                                             }
-                                        }
-                                        netpacket::ip::Packet::V6(_) => {}
+                                        };
                                     }
                                 }
-                                Err(_) => {}
-                            };
+                                netpacket::ip::Packet::V6(_) => {}
+                            }
                         }
-                        _ => continue,
+                        Err(_) => {}
                     };
                 }
                 TUN_TOKEN => {
@@ -208,7 +224,7 @@ pub fn main(server_socket_addr: SocketAddr) {
                         let imm_header = pnet::packet::ipv4::checksum(&ip_v4_header.to_immutable());
                         ip_v4_header.set_checksum(imm_header);
                         let bb = ip_v4_header.packet().to_vec();
-                        println!("Ipv4 New Header: {:?}", bb);
+                        println!("Ipv4 New Header: {:?}", ip_v4_header);
                         bb
                     };
 
