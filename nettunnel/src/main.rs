@@ -12,6 +12,7 @@ extern crate taptun;
 extern crate clap;
 extern crate ctrlc;
 extern crate mio;
+extern crate mio_more;
 extern crate byteorder;
 
 pub extern crate pnet;
@@ -22,7 +23,6 @@ pub mod signal;
 pub mod server;
 pub mod client;
 
-// pub use pnet;
 
 fn main() {
     signal::init();
@@ -61,11 +61,14 @@ fn main() {
         None => "debug",
     };
     logging::init(Some(logging_level)).unwrap();
-    assert!(sysctl::enable_ipv4_forwarding());
 
-    // Server
-    match matches.subcommand_matches("listen") {
-        Some(sub_matches) => {
+    match (
+        matches.subcommand_matches("listen"),
+        matches.subcommand_matches("connect"),
+    ) {
+        (Some(sub_matches), None) => {
+            assert!(sysctl::enable_ipv4_forwarding());
+
             let addr_val = sub_matches.value_of("socket_addr").unwrap();
             let gateway_val = sub_matches.value_of("gateway").unwrap();
 
@@ -80,12 +83,8 @@ fn main() {
 
             server::main(socket_addr, gateway_addr);
         }
-        None => {}
-    }
-
-    // Client
-    match matches.subcommand_matches("connect") {
-        Some(sub_matches) => {
+        (None, Some(sub_matches)) => {
+            assert!(sysctl::enable_ipv4_forwarding());
             let socket_addr: ::std::net::SocketAddr = sub_matches
                 .value_of("socket_addr")
                 .unwrap()
@@ -98,6 +97,8 @@ fn main() {
             );
             client::main(socket_addr);
         }
-        None => {}
-    }
+        _ => {
+            println!("{}", matches.usage());
+        }
+    };
 }
