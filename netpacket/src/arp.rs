@@ -1,36 +1,41 @@
-
 use byteorder::{BigEndian, ByteOrder};
 use std::mem::transmute;
 
 /// Address Resolution Protocol (ARP)
-/// 
+///
 /// Spec:
-/// 
-/// *   https://en.wikipedia.org/wiki/Address_Resolution_Protocol#Packet_structure
+///
+/// *   https://en.wikipedia.
+/// org/wiki/Address_Resolution_Protocol#Packet_structure
 /// *   https://www.iana.org/assignments/arp-parameters/arp-parameters.xhtml
-/// 
+///
 /// *NOTE:*
-/// 
-///     In Internet Protocol Version 6 (IPv6) networks, 
-///     the functionality of ARP is provided by the Neighbor Discovery Protocol (NDP).
-/// 
-/// Packet size : https://supportforums.cisco.com/t5/lan-switching-and-routing/arp-packet-size/td-p/1551467
+///
+///     In Internet Protocol Version 6 (IPv6) networks,
+/// the functionality of ARP is provided by the Neighbor Discovery Protocol
+/// (NDP).
+///
+/// Packet size :
+/// https://supportforums.cisco.
+/// com/t5/lan-switching-and-routing/arp-packet-size/td-p/1551467
 #[derive(Debug, PartialEq, Eq)]
 pub struct Packet {
-    hardware_type: u16,               // 16 bits
-    protocol_type: u16,               // 16 bits , EtherType (These numbers share the Ethertype space. See: <http://www.iana.org/assignments/ethernet-numbers>)
-    hardware_address_length: u8,      //  8 bits
-    protocol_address_length: u8,      //  8 bits
-    operation: u16,                   // 16 bits
+    hardware_type: u16, // 16 bits
+    protocol_type: u16, /* 16 bits , EtherType (These numbers share the Ethertype space. See:
+                         * <http://www.iana.org/assignments/ethernet-numbers>) */
+    hardware_address_length: u8, //  8 bits
+    protocol_address_length: u8, //  8 bits
+    operation: u16, // 16 bits
     sender_hardware_address: [u8; 6], // 48 bits , MacAddr
-    sender_protocol_address: u32,     // 32 bits , Ipv4Addr
+    sender_protocol_address: u32, // 32 bits , Ipv4Addr
     target_hardware_address: [u8; 6], // 48 bits , MacAddr
-    target_protocol_address: u32      // 32 bits , Ipv4Addr
+    target_protocol_address: u32, // 32 bits , Ipv4Addr
 }
 
 /// Operation Codes
-/// 
-/// https://www.iana.org/assignments/arp-parameters/arp-parameters.xhtml#arp-parameters-1
+///
+/// https://www.iana.org/assignments/arp-parameters/arp-parameters.
+/// xhtml#arp-parameters-1
 #[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq, Eq)]
 pub enum Operation {
@@ -84,19 +89,23 @@ pub enum Operation {
     OpExp1,
     /// 25  OP_EXP2     [RFC5494]
     OpExp2,
-    Unknow(u16)
+    Unknow(u16),
 }
 
 /// Hardware Types
-/// 
-///     Range                                       Registration Procedures      Note 
-///     ------------------------------------------  -----------------------     -------
-///     requests for values below 256                    Expert Review   
-///     requests for more than one value                 Expert Review   
-///     requests for one value greater than 255       First Come First Served     
-///     requests for one value, no value specified    First Come First Served     can only be assigned a two-octet value (i.e., a value greater than 255)
-/// 
-/// https://www.iana.org/assignments/arp-parameters/arp-parameters.xhtml#arp-parameters-1
+///
+/// Range                                       Registration Procedures
+/// Note
+/// ------------------------------------------  -----------------------
+/// -------
+///     requests for values below 256                    Expert Review
+///     requests for more than one value                 Expert Review
+///     requests for one value greater than 255       First Come First Served
+/// requests for one value, no value specified    First Come First Served
+/// can only be assigned a two-octet value (i.e., a value greater than 255)
+///
+/// https://www.iana.org/assignments/arp-parameters/arp-parameters.
+/// xhtml#arp-parameters-1
 #[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq, Eq)]
 pub enum HardwareType {
@@ -132,24 +141,41 @@ pub enum HardwareType {
     PureIP,
     /// 257 AEthernet   [Geoffroy_Gramaize]
     AEthernet,
-    Unknow(u16)
+    Unknow(u16),
 }
 
 
 impl Packet {
     pub fn from_bytes(payload: &[u8]) -> Result<Self, ::std::io::Error> {
         if payload.len() < 28 {
-            return Err(::std::io::Error::new(::std::io::ErrorKind::Other, "size error ..."));
+            return Err(::std::io::Error::new(
+                ::std::io::ErrorKind::Other,
+                "size error ...",
+            ));
         }
         let hardware_type: u16 = BigEndian::read_u16(&payload[0..2]);
         let protocol_type: u16 = BigEndian::read_u16(&payload[2..4]);
         let hardware_address_length = payload[4];
         let protocol_address_length = payload[5];
         let operation: u16 = BigEndian::read_u16(&payload[6..8]);
-        let sender_hardware_address: [u8; 6] = [payload[8], payload[9], payload[10], payload[11], payload[12], payload[13]];
+        let sender_hardware_address: [u8; 6] = [
+            payload[8],
+            payload[9],
+            payload[10],
+            payload[11],
+            payload[12],
+            payload[13],
+        ];
         let sender_protocol_address: u32 = BigEndian::read_u32(&payload[14..18]);
-        
-        let target_hardware_address: [u8; 6] = [payload[18], payload[19], payload[20], payload[21], payload[22], payload[23]];
+
+        let target_hardware_address: [u8; 6] = [
+            payload[18],
+            payload[19],
+            payload[20],
+            payload[21],
+            payload[22],
+            payload[23],
+        ];
         let target_protocol_address: u32 = BigEndian::read_u32(&payload[24..28]);
         Ok(Packet {
             hardware_type: hardware_type,
@@ -160,35 +186,35 @@ impl Packet {
             sender_hardware_address: sender_hardware_address,
             sender_protocol_address: sender_protocol_address,
             target_hardware_address: target_hardware_address,
-            target_protocol_address: target_protocol_address
+            target_protocol_address: target_protocol_address,
         })
     }
 
     pub fn as_bytes(&self) -> Vec<u8> {
         let mut bytes: Vec<u8> = Vec::with_capacity(28);
-        
-        bytes.push( (self.hardware_type >> 8) as u8 );
-        bytes.push( (self.hardware_type & 0xff) as u8 );
 
-        bytes.push( (self.protocol_type >> 8) as u8 );
-        bytes.push( (self.protocol_type & 0xff) as u8 );
+        bytes.push((self.hardware_type >> 8) as u8);
+        bytes.push((self.hardware_type & 0xff) as u8);
+
+        bytes.push((self.protocol_type >> 8) as u8);
+        bytes.push((self.protocol_type & 0xff) as u8);
 
         bytes.push(self.hardware_address_length);
         bytes.push(self.protocol_address_length);
 
-        bytes.push( (self.operation >> 8) as u8 );
-        bytes.push( (self.operation & 0xff) as u8 );
+        bytes.push((self.operation >> 8) as u8);
+        bytes.push((self.operation & 0xff) as u8);
 
         bytes.extend_from_slice(&self.sender_hardware_address);
-        
+
         let sender_protocol_address_bytes: [u8; 4] = unsafe { transmute(self.sender_protocol_address.to_be()) };
         bytes.extend_from_slice(&sender_protocol_address_bytes);
-        
+
 
         bytes.extend_from_slice(&self.target_hardware_address);
         let target_protocol_address_bytes: [u8; 4] = unsafe { transmute(self.target_protocol_address.to_be()) };
         bytes.extend_from_slice(&target_protocol_address_bytes);
-        
+
         bytes
     }
 
@@ -226,7 +252,7 @@ impl Operation {
     pub fn from_u16(n: u16) -> Result<Self, ::std::io::Error> {
         use self::Operation::*;
         match n {
-            0 | 26 ... 65534 | 65535 => Ok(Unknow(n)),
+            0 | 26...65534 | 65535 => Ok(Unknow(n)),
             1 => Ok(Request),
             2 => Ok(Reply),
             3 => Ok(RequestReverse),
@@ -252,7 +278,7 @@ impl Operation {
             23 => Ok(MaposUNARP),
             24 => Ok(OpExp1),
             25 => Ok(OpExp2),
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 
@@ -260,9 +286,9 @@ impl Operation {
         use self::Operation::*;
         match *self {
             Request => 1,
-            Reply   => 2,
+            Reply => 2,
             RequestReverse => 3,
-            ReplyReverse   => 4,
+            ReplyReverse => 4,
             DrarpRequest => 5,
             DrarpReply => 6,
             DrarpError => 7,
@@ -284,31 +310,30 @@ impl Operation {
             MaposUNARP => 23,
             OpExp1 => 24,
             OpExp2 => 25,
-            Unknow(n) => n
+            Unknow(n) => n,
         }
     }
 
     pub fn is_assigned(&self) -> bool {
-        match self.to_u16(){
-            1 ... 25 => true,
-            _ => false
+        match self.to_u16() {
+            1...25 => true,
+            _ => false,
         }
     }
 
     pub fn is_unassigned(&self) -> bool {
-        match self.to_u16(){
-            0 | 26 ... 65534 | 65535 => true,
-            _ => false
+        match self.to_u16() {
+            0 | 26...65534 | 65535 => true,
+            _ => false,
         }
     }
 
     pub fn is_reserved(&self) -> bool {
-        match self.to_u16(){
+        match self.to_u16() {
             0 | 65535 => true,
-            _ => false
+            _ => false,
         }
     }
-
 }
 
 impl HardwareType {
@@ -332,7 +357,7 @@ impl HardwareType {
             35 => Ok(PureIP),
             257 => Ok(AEthernet),
             0 | 38...255 | 258...65534 | 65535 => Ok(Unknow(n)),
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 
@@ -343,9 +368,9 @@ impl HardwareType {
             ExperimentalEthernet => 2,
             IEEE802Networks => 6,
             LocalTalk => 11,
-            LocalNet  => 12,
+            LocalNet => 12,
             UltraLink => 13,
-            FrameRelay=> 15,
+            FrameRelay => 15,
             FibreChannel => 18,
             SerialLine => 20,
             IEEE1394_1995 => 24,
@@ -355,30 +380,29 @@ impl HardwareType {
             InfiniBand => 32,
             PureIP => 35,
             AEthernet => 257,
-            Unknow(n) => n
+            Unknow(n) => n,
 
         }
     }
 
     pub fn is_assigned(&self) -> bool {
-        match self.to_u16(){
-            1 ... 37 | 256 | 257 => true,
-            _ => false
+        match self.to_u16() {
+            1...37 | 256 | 257 => true,
+            _ => false,
         }
     }
 
     pub fn is_unassigned(&self) -> bool {
-        match self.to_u16(){
-            0 | 38 ... 255 | 258 ... 65534 | 65535 => true,
-            _ => false
+        match self.to_u16() {
+            0 | 38...255 | 258...65534 | 65535 => true,
+            _ => false,
         }
     }
 
     pub fn is_reserved(&self) -> bool {
-        match self.to_u16(){
+        match self.to_u16() {
             0 | 65535 => true,
-            _ => false
+            _ => false,
         }
     }
-
 }

@@ -1,5 +1,5 @@
 
-/// OSI Model Layer 4 
+/// OSI Model Layer 4
 // https://en.wikipedia.org/wiki/List_of_IP_protocol_numbers
 // https://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml
 #[derive(Debug, PartialEq, Eq)]
@@ -9,7 +9,7 @@ pub enum Protocol {
     ICMP,
     /// Internet Group Management
     IGMP,
-    
+
     IPv6,
     /// Routing Header for IPv6
     IPv6Route,
@@ -29,7 +29,7 @@ pub enum Protocol {
     /// User Datagram
     UDP,
 
-    Unknow(u8)
+    Unknow(u8),
 }
 
 impl Protocol {
@@ -48,7 +48,7 @@ impl Protocol {
             0x00 => Ok(HopOpt),
             0x06 => Ok(TCP),
             0x11 => Ok(UDP),
-            _ => Ok(Unknow(n))
+            _ => Ok(Unknow(n)),
         }
     }
 
@@ -60,14 +60,14 @@ impl Protocol {
             IGMP => 0x02,
             IPv6 => 0x29,
             IPv6Route => 0x2B,
-            IPv6Frag  => 0x2C,
-            IPv6ICMP  => 0x3A,
+            IPv6Frag => 0x2C,
+            IPv6ICMP => 0x3A,
             IPv6NoNxt => 0x3B,
-            IPv6Opts  => 0x3C,
-            HopOpt    => 0x00,
-            TCP  => 0x06,
-            UDP  => 0x11,
-            Unknow(n) => n
+            IPv6Opts => 0x3C,
+            HopOpt => 0x00,
+            TCP => 0x06,
+            UDP => 0x11,
+            Unknow(n) => n,
         }
     }
 }

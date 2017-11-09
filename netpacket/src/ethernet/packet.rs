@@ -1,13 +1,5 @@
 use super::Frame;
 
-// pub enum Frame {
-//     EthernetV1,                  // Ethernet I frame
-//     EthernetV2(EthernetV2Frame), // Ethernet II frame
-//     NovellRawIEEE8023,           // Novell raw IEEE 802.3 frame
-//     IEEE8022LLC,                 // IEEE 802.2 LLC frame
-//     IEEE8022SNAP,                // IEEE 802.2 SNAP frame
-// }
-
 /// PhysicalLayer: Layer 1 Ethernet packet & IPG
 ///
 /// https://en.wikipedia.org/wiki/Ethernet_frame#Ethernet_packet_.E2.80.

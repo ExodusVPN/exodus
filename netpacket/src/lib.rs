@@ -52,10 +52,6 @@ pub mod icmpv6;
 //                 ip::Protocol::DHCP
 //                 ip::Protocol::NTP
 
-pub fn crc_32_checksum(){
+pub fn crc_32_checksum() {}
 
-}
-
-pub fn crc_64_checksum(){
-
-}
+pub fn crc_64_checksum() {}

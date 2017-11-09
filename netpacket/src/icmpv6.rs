@@ -2,29 +2,31 @@
 #![allow(unused_doc_comment, unused_variables)]
 
 ///                Internet Control Message Protocol (ICMPv6)
-/// 
+///
 ///        for the Internet Protocol Version 6 (IPv6) Specification
-/// 
+///
 /// https://tools.ietf.org/html/rfc4443
-/// 
-/// https://en.wikipedia.org/wiki/Internet_Control_Message_Protocol_version_6#Packet_format
-/// 
+///
+/// https://en.wikipedia.
+/// org/wiki/Internet_Control_Message_Protocol_version_6#Packet_format
+///
 /// https://www.iana.org/assignments/icmpv6-parameters/icmpv6-parameters.xhtml
 #[derive(Debug, PartialEq, Eq)]
 pub struct Pakcet<'a> {
-    kind    : u8,    //  8 bits
-    code    : u8,    //  8 bits
-    checksum: u16,   // 16 bits
-    message : u16,   // 16 bits
-    data: &'a [u8]   // ???
+    kind: u8, //  8 bits
+    code: u8, //  8 bits
+    checksum: u16, // 16 bits
+    message: u16, // 16 bits
+    data: &'a [u8], // ???
 }
 
 
-/// https://en.wikipedia.org/wiki/Internet_Control_Message_Protocol_version_6#Message_types
+/// https://en.wikipedia.
+/// org/wiki/Internet_Control_Message_Protocol_version_6#Message_types
 #[derive(Debug, PartialEq, Eq)]
 pub enum Message {
     /// ICMPv6 Error Messages
-    
+
     /// Destination Unreachable
     NoRouteToDestination,
     CommunicationWithDestinationAdministrativelyProhibited,
@@ -45,15 +47,12 @@ pub enum Message {
     UnrecognizedNextHeaderTypeEncountered,
     UnrecognizedIPv6OptionEncountered,
 
-
     /// ICMPv6 Informational Messages
 
     /// Echo Request
     EchoRequest,
     /// Echo Reply
-    EchoReply,
-    // Multicast Listener Query (MLD)
-
+    EchoReply, // Multicast Listener Query (MLD)
 }
 
 impl Message {
@@ -88,7 +87,7 @@ impl Message {
     }
 }
 
-impl <'a>Pakcet<'a> {
+impl<'a> Pakcet<'a> {
     #[allow(unused_variables)]
     pub fn from_bytes(payload: &[u8]) -> Result<Self, ::std::io::Error> {
         unimplemented!();

@@ -70,7 +70,7 @@ pub enum Precedence {
     /// Precedence 1
     Priority,
     /// Precedence 0
-    Routine
+    Routine,
 }
 
 /// Type of Service: value
@@ -90,7 +90,7 @@ pub enum Parameter {
     /// 1111
     MaximizeSecurity,
 
-    Custom(u8)
+    Custom(u8),
 }
 
 /// Type of Service
@@ -98,7 +98,7 @@ pub enum Parameter {
 #[derive(Debug, PartialEq, Eq)]
 pub struct ToS {
     precedence: Precedence,
-    values    : Parameter
+    values: Parameter,
 }
 
 impl Precedence {
@@ -112,7 +112,10 @@ impl Precedence {
             2 => Ok(Precedence::Immediate),
             1 => Ok(Precedence::Priority),
             0 => Ok(Precedence::Routine),
-            _ => Err(::std::io::Error::new(::std::io::ErrorKind::Other, "precedence error ..."))
+            _ => Err(::std::io::Error::new(
+                ::std::io::ErrorKind::Other,
+                "precedence error ...",
+            )),
         }
     }
     pub fn to_u8(&self) -> u8 {
@@ -124,7 +127,7 @@ impl Precedence {
             Precedence::Flash => 3,
             Precedence::Immediate => 2,
             Precedence::Priority => 1,
-            Precedence::Routine => 0
+            Precedence::Routine => 0,
         }
     }
 }
@@ -138,7 +141,7 @@ impl Parameter {
             0b_0100 => Ok(Parameter::MaximizeThroughput),
             0b_1000 => Ok(Parameter::MinimizeDelay),
             0b_1111 => Ok(Parameter::MaximizeSecurity),
-            _      => Ok(Parameter::Custom(n))
+            _ => Ok(Parameter::Custom(n)),
         }
     }
     pub fn to_u8(&self) -> u8 {
@@ -149,7 +152,7 @@ impl Parameter {
             Parameter::MaximizeThroughput => 0b_0100,
             Parameter::MinimizeDelay => 0b_1000,
             Parameter::MaximizeSecurity => 0b_1111,
-            Parameter::Custom(n) => n
+            Parameter::Custom(n) => n,
         }
     }
 }
@@ -161,27 +164,35 @@ impl ToS {
         let p1 = Precedence::from_u8(precedence);
         let p2 = Parameter::from_u8(parameter);
         if p1.is_err() || p2.is_err() {
-            return Err(::std::io::Error::new(::std::io::ErrorKind::Other, "tos number error ..."));
+            return Err(::std::io::Error::new(
+                ::std::io::ErrorKind::Other,
+                "tos number error ...",
+            ));
         }
 
         Ok(ToS {
             precedence: p1.unwrap(),
-            values    : p2.unwrap()
+            values: p2.unwrap(),
         })
     }
 }
 
 /// Differentiated Services Code Point (DSCP)
-/// 
-/// Originally defined as the Type of service (ToS) field. 
-/// This field is now defined by RFC 2474 (updated by RFC 3168 and RFC 3260) for Differentiated services (DiffServ). 
-/// New technologies are emerging that require real-time data streaming and therefore make use of the DSCP field. 
-/// An example is Voice over IP (VoIP), which is used for interactive data voice exchange.
-/// 
+///
+/// Originally defined as the Type of service (ToS) field.
+/// This field is now defined by RFC 2474 (updated by RFC 3168 and RFC 3260)
+/// for Differentiated services (DiffServ).
+/// New technologies are emerging that require real-time data streaming and
+/// therefore make use of the DSCP field.
+/// An example is Voice over IP (VoIP), which is used for interactive data
+/// voice exchange.
+///
 /// Explicit Congestion Notification (ECN)
-/// 
-/// This field is defined in RFC 3168 and allows end-to-end notification of network congestion without dropping packets. 
-/// ECN is an optional feature that is only used when both endpoints support it and are willing to use it. 
+///
+/// This field is defined in RFC 3168 and allows end-to-end notification of
+/// network congestion without dropping packets.
+/// ECN is an optional feature that is only used when both endpoints support it
+/// and are willing to use it.
 /// It is only effective when supported by the underlying network.
 ///
 ///
@@ -200,11 +211,12 @@ impl ToS {
 ///     Low Drop Prec    |  001010  |  010010  |  011010  |  100010  |
 ///     Medium Drop Prec |  001100  |  010100  |  011100  |  100100  |
 ///     High Drop Prec   |  001110  |  010110  |  011110  |  100110  |
-///                      +----------+----------+----------+----------+ 
+///                      +----------+----------+----------+----------+
 ///
 /// The table below summarizes the recommended AF codepoint values.
 ///
-/// https://www.cisco.com/MT/eval/zh/105/dscpvalues.html#dscpandassuredforwardingclasses
+/// https://www.cisco.com/MT/eval/zh/105/dscpvalues.
+/// html#dscpandassuredforwardingclasses
 ///
 #[derive(Debug, PartialEq, Eq)]
 pub enum Codepoint {
@@ -223,7 +235,7 @@ pub enum Codepoint {
     AF41,
     AF42,
     AF43,
-    Custom(u8)
+    Custom(u8),
 }
 
 impl Codepoint {
@@ -246,7 +258,7 @@ impl Codepoint {
             36 => Ok(AF42),
             38 => Ok(AF43),
 
-            _ => Ok(Custom(n))
+            _ => Ok(Custom(n)),
         }
     }
 
@@ -268,10 +280,7 @@ impl Codepoint {
             AF41 => 34,
             AF42 => 36,
             AF43 => 38,
-            Custom(n) => n
+            Custom(n) => n,
         }
     }
 }
-
-
-

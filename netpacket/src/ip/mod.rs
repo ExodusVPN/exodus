@@ -8,6 +8,6 @@ mod dscp;
 
 pub use self::packet::*;
 
-pub use self::protocol::Protocol;
+pub use self::dscp::{Codepoint, Parameter, Precedence, ToS};
 pub use self::options::Options;
-pub use self::dscp::{Codepoint, ToS, Precedence, Parameter};
+pub use self::protocol::Protocol;

@@ -1,4 +1,3 @@
-
 use byteorder::{BigEndian, ByteOrder};
 use std::mem::transmute;
 
@@ -8,55 +7,60 @@ use std::mem::transmute;
 pub struct Packet<'a> {
     src_port: u16,
     dst_port: u16,
-    length  : u16,     // specifies the length in bytes of the UDP header and UDP data
+    length: u16, // specifies the length in bytes of the UDP header and UDP data
     checksum: u16,
-    payload : &'a [u8]
+    payload: &'a [u8],
 }
 
-impl <'a>Packet<'a> {
-
+impl<'a> Packet<'a> {
     pub fn from_bytes(payload: &[u8]) -> Result<Self, ::std::io::Error> {
         if payload.len() < 8 {
-            return Err(::std::io::Error::new(::std::io::ErrorKind::Other, "size error ..."));
+            return Err(::std::io::Error::new(
+                ::std::io::ErrorKind::Other,
+                "size error ...",
+            ));
         }
 
         let src_port: u16 = BigEndian::read_u16(&payload[0..2]);
         let dst_port: u16 = BigEndian::read_u16(&payload[2..4]);
         let length: u16 = BigEndian::read_u16(&payload[4..6]);
         let checksum: u16 = BigEndian::read_u16(&payload[6..8]);
-        
+
         if payload.len() != length as usize {
-            return Err(::std::io::Error::new(::std::io::ErrorKind::Other, "size error ..."));
+            return Err(::std::io::Error::new(
+                ::std::io::ErrorKind::Other,
+                "size error ...",
+            ));
         }
-        
+
         Ok(Packet {
             src_port: src_port,
             dst_port: dst_port,
-            length  : length,
+            length: length,
             checksum: checksum,
-            payload : unsafe { transmute(&payload[8..]) }
+            payload: unsafe { transmute(&payload[8..]) },
         })
     }
 
     pub fn as_bytes(&self) -> Vec<u8> {
         let mut bytes: Vec<u8> = vec![];
-        
-        bytes.push( (self.src_port >> 8) as u8 );
-        bytes.push( (self.src_port & 0xff) as u8 );
-        
-        bytes.push( (self.dst_port >> 8) as u8 );
-        bytes.push( (self.dst_port & 0xff) as u8 );
-        
-        bytes.push( (self.length >> 8) as u8 );
-        bytes.push( (self.length & 0xff) as u8 );
 
-        bytes.push( (self.checksum >> 8) as u8 );
-        bytes.push( (self.checksum & 0xff) as u8 );
-        
+        bytes.push((self.src_port >> 8) as u8);
+        bytes.push((self.src_port & 0xff) as u8);
+
+        bytes.push((self.dst_port >> 8) as u8);
+        bytes.push((self.dst_port & 0xff) as u8);
+
+        bytes.push((self.length >> 8) as u8);
+        bytes.push((self.length & 0xff) as u8);
+
+        bytes.push((self.checksum >> 8) as u8);
+        bytes.push((self.checksum & 0xff) as u8);
+
         bytes.extend_from_slice(self.payload);
         bytes
     }
-    
+
     pub fn src_port(&self) -> u16 {
         self.src_port
     }
@@ -72,5 +76,4 @@ impl <'a>Packet<'a> {
     pub fn payload(&self) -> &'a [u8] {
         self.payload
     }
-    
 }

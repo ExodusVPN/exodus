@@ -1,4 +1,3 @@
-
 use byteorder::{BigEndian, ByteOrder};
 
 /// IEEE 802 Numbers
