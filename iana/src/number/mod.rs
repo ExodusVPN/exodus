@@ -20,6 +20,3 @@ pub mod db;
 
 pub use self::registry::Registry;
 pub use self::status::Status;
-
-
-

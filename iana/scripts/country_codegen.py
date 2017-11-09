@@ -295,8 +295,8 @@ impl Country {
 for i in range(len(codes)):
     code = codes[i]
     name = names[i]
-    rust_code += "            %d => Ok(Country::%s), \n" % (i, code)
-rust_code += "            _ => Err(\"Oh, no ...\") \n"
+    rust_code += "            %d => Ok(Country::%s),\n" % (i, code)
+rust_code += "            _ => Err(\"Oh, no ...\")\n"
 rust_code += "        }\n"
 rust_code += "    }\n"
 
@@ -307,8 +307,8 @@ rust_code += """
 for i in range(len(codes)):
     code = codes[i]
     name = names[i]
-    rust_code += "            \"%s\" => Ok(Country::%s), \n" % (code, code)
-rust_code += "            _ => Err(\"Oh, no ...\") \n"
+    rust_code += "            \"%s\" => Ok(Country::%s),\n" % (code, code)
+rust_code += "            _ => Err(\"Oh, no ...\")\n"
 rust_code += "        }\n"
 rust_code += "    }\n"
 
@@ -319,7 +319,7 @@ rust_code += """
 for i in range(len(codes)):
     code = codes[i]
     name = names[i]
-    rust_code += "            Country::%s => %d, \n" % (code, i)
+    rust_code += "            Country::%s => %d,\n" % (code, i)
 rust_code += "        }\n"
 rust_code += "    }\n"
 
@@ -330,7 +330,7 @@ rust_code += """
 for i in range(len(codes)):
     code = codes[i]
     name = names[i]
-    rust_code += "            Country::%s => \"%s\", \n" % (code, code)
+    rust_code += "            Country::%s => \"%s\",\n" % (code, code)
 rust_code += "        }\n"
 rust_code += "    }\n"
 
@@ -341,7 +341,7 @@ rust_code += """
 for i in range(len(codes)):
     code = codes[i]
     name = names[i]
-    rust_code += "            Country::%s => \"%s\", \n" % (code, name)
+    rust_code += "            Country::%s => \"%s\",\n" % (code, name)
 rust_code += "        }\n"
 rust_code += "    }\n"
 

@@ -26,7 +26,7 @@ impl Status {
 for i in range(len(status_set)):
     name_l = status_set[i]
     name_u = name_l[0].upper()+name_l[1:]
-    rust_code += "            %d => Ok(Status::%s), \n" % (i, name_u)
+    rust_code += "            %d => Ok(Status::%s),\n" % (i, name_u)
 rust_code += "            _ => Err(\"Oh, no ...\")\n"
 rust_code += "        }\n"
 rust_code += "    }\n"
@@ -44,7 +44,7 @@ rust_code += """
 for i in range(len(status_set)):
     name_l = status_set[i]
     name_u = name_l[0].upper()+name_l[1:]
-    rust_code += "            Status::%s => %d, \n" % (name_u, i)
+    rust_code += "            Status::%s => %d,\n" % (name_u, i)
 rust_code += "        }\n"
 rust_code += "    }\n"
 
@@ -56,7 +56,7 @@ rust_code += """
 for i in range(len(status_set)):
     name_l = status_set[i]
     name_u = name_l[0].upper()+name_l[1:]
-    rust_code += "            \"%s\" => Ok(Status::%s), \n" % (name_l, name_u)
+    rust_code += "            \"%s\" => Ok(Status::%s),\n" % (name_l, name_u)
 rust_code += "            _ => Err(\"Oh, no ...\")\n"
 rust_code += "        }\n"
 rust_code += "    }\n"
@@ -69,7 +69,7 @@ rust_code += """
 for i in range(len(status_set)):
     name_l = status_set[i]
     name_u = name_l[0].upper()+name_l[1:]
-    rust_code += "            Status::%s => \"%s\", \n" % (name_u, name_l)
+    rust_code += "            Status::%s => \"%s\",\n" % (name_u, name_l)
 rust_code += "        }\n"
 rust_code += "    }\n"
 
@@ -81,7 +81,7 @@ rust_code += """
 for i in range(len(status_set)):
     name_l = status_set[i]
     name_u = name_l[0].upper()+name_l[1:]
-    rust_code += "            Status::%s => %s, \n" % (name_u, str(name_l in registry_list).lower() )
+    rust_code += "            Status::%s => %s,\n" % (name_u, str(name_l in registry_list).lower() )
 rust_code += "        }\n"
 rust_code += "    }\n"
 

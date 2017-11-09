@@ -30,7 +30,8 @@ parse:
 	python3 scripts/parse.py
 
 .PHONY: gen
-gen: 
+gen:
+	python3 scripts/country_codegen.py > src/country.rs
 	python3 scripts/ipn_status_codegen.py > src/number/status.rs
 	python3 scripts/registry_codegen.py > src/number/registry.rs
 	python3 scripts/ipdb_codegen.py
