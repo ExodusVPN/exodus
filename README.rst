@@ -1,6 +1,9 @@
 Exodus: Ciphertext and plaintext
 ====================================
 
+.. image:: assets/logo.jpg
+
+
 :Date: 10/03 2017
 
 .. contents::
