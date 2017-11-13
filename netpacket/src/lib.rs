@@ -52,6 +52,37 @@ pub mod icmpv6;
 //                 ip::Protocol::DHCP
 //                 ip::Protocol::NTP
 
-pub fn crc_32_checksum() {}
+pub mod checksum {
+    use ::byteorder::{ByteOrder, NetworkEndian};
 
-pub fn crc_64_checksum() {}
+    fn propagate_carries(word: u32) -> u16 {
+        let sum = (word >> 16) + (word & 0xffff);
+        let nword = ((sum >> 16) as u16) + (sum as u16);
+        println!("Word: {} Nword: {}", word, nword);
+        nword
+    }
+
+    pub fn combine(checksums: &[u16]) -> u16 {
+        let mut accum: u32 = 0;
+        for &word in checksums {
+            accum += word as u32;
+        }
+        propagate_carries(accum)
+    }
+
+    pub fn data(data: &[u8]) -> u16 {
+        let mut accum: u32 = 0;
+        let mut i = 0;
+        while i < data.len() {
+            let word;
+            if i + 2 <= data.len() {
+                word = NetworkEndian::read_u16(&data[i..i + 2]) as u32
+            } else {
+                word = (data[i] as u32) << 8
+            }
+            accum += word;
+            i += 2;
+        }
+        propagate_carries(accum)
+    }
+}

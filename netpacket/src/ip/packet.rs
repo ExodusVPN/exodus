@@ -59,52 +59,16 @@ pub struct Ipv4Packet<'a, 'b> {
     /// Fragmentation in IPv4 is handled in either the host or in routers.
     total_length: u16, // 16 bits
     identification: u16, // 16 bits
-    flags_fragment_offset: u16, //  3 bits, 13 bits
-    time_to_live: u8, //  8 bits
-    protocol: u8, //  8 bits
-    header_checksum: u16, // 16 bits
+    flags_fragment_offset: u16, // 3 bits, 13 bits
+    time_to_live: u8, // 8 bits
+    protocol: u8, // 8 bits
+    /// The 16-bit checksum field is used for error-checking of the header.
+    checksum: u16, // 16 bits
     src_ip: u32, // 32 bits
     dst_ip: u32, // 32 bits
     options: Option<Options<'a>>, // 0 - 96 bits, start 160, end 256, if IHL >= 5
     payload: &'b [u8],
 }
-
-/// Internet Protocol version 6 (IPv6)
-///
-/// https://en.wikipedia.org/wiki/IPv6_packet
-#[derive(Debug, PartialEq, Eq)]
-pub struct Ipv6Packet<'a> {
-    version: u8, //   4 bits
-    traffic_class: u8, //   8 bits
-    flow_label: u32, //  20 bits
-    /// The size of the payload in octets, including any extension headers.
-    /// The length is set to zero when a Hop-by-Hop extension header carries a
-    /// Jumbo Payload option.
-    payload_length: u16, //  16 bits
-    /// Specifies the type of the next header.
-    /// This field usually specifies the transport layer protocol used by a
-    /// packet's payload.
-    /// When extension headers are present in the packet this field indicates
-    /// which extension header follows.
-    /// The values are shared with those used for the IPv4 protocol field,
-    /// as both fields have the same function (see List of IP protocol numbers).
-    next_header: u8, //   8 bits
-    /// Replaces the `time to live` field of IPv4. This value is decremented by
-    /// one at each intermediate node visited by the packet. When the counter
-    /// reaches 0 the packet is discarded.
-    hoplimit: u8, //   8 bits
-    src_ip: u128, // 128 bits
-    dst_ip: u128, // 128 bits
-    payload: &'a [u8],
-}
-
-/// OSI Model Layer 4
-#[derive(Debug, PartialEq, Eq)]
-pub enum Packet<'a, 'b> {
-    V4(Ipv4Packet<'a, 'b>),
-    V6(Ipv6Packet<'a>),
-}
-
 
 impl<'a, 'b> Ipv4Packet<'a, 'b> {
     #[allow(unused_variables)]
@@ -133,7 +97,7 @@ impl<'a, 'b> Ipv4Packet<'a, 'b> {
 
         let time_to_live = payload[8];
         let protocol = payload[9];
-        let header_checksum: u16 = BigEndian::read_u16(&payload[10..12]);
+        let checksum: u16 = BigEndian::read_u16(&payload[10..12]);
 
         let src_ip: u32 = BigEndian::read_u32(&payload[12..16]);
         let dst_ip: u32 = BigEndian::read_u32(&payload[16..20]);
@@ -182,7 +146,7 @@ impl<'a, 'b> Ipv4Packet<'a, 'b> {
             flags_fragment_offset: flags_fragment_offset,
             time_to_live: time_to_live,
             protocol: protocol,
-            header_checksum: header_checksum,
+            checksum: checksum,
             src_ip: src_ip,
             dst_ip: dst_ip,
             options: options,
@@ -229,8 +193,8 @@ impl<'a, 'b> Ipv4Packet<'a, 'b> {
     pub fn protocol(&self) -> u8 {
         self.protocol
     }
-    pub fn header_checksum(&self) -> u16 {
-        self.header_checksum
+    pub fn checksum(&self) -> u16 {
+        self.checksum
     }
     pub fn src_ip(&self) -> u32 {
         self.src_ip
@@ -245,9 +209,47 @@ impl<'a, 'b> Ipv4Packet<'a, 'b> {
         self.payload
     }
 
+    pub fn set_checksum(&mut self, value: u16) {
+
+    }
+    pub fn fill_checksum(&mut self) {
+        self.set_checksum(0);
+    }
+
     pub fn verify_checksum(&self) -> bool {
         unimplemented!();
     }
+
+}
+
+
+/// Internet Protocol version 6 (IPv6)
+///
+/// https://en.wikipedia.org/wiki/IPv6_packet
+#[derive(Debug, PartialEq, Eq)]
+pub struct Ipv6Packet<'a> {
+    version: u8, //   4 bits
+    traffic_class: u8, //   8 bits
+    flow_label: u32, //  20 bits
+    /// The size of the payload in octets, including any extension headers.
+    /// The length is set to zero when a Hop-by-Hop extension header carries a
+    /// Jumbo Payload option.
+    payload_length: u16, //  16 bits
+    /// Specifies the type of the next header.
+    /// This field usually specifies the transport layer protocol used by a
+    /// packet's payload.
+    /// When extension headers are present in the packet this field indicates
+    /// which extension header follows.
+    /// The values are shared with those used for the IPv4 protocol field,
+    /// as both fields have the same function (see List of IP protocol numbers).
+    next_header: u8, //   8 bits
+    /// Replaces the `time to live` field of IPv4. This value is decremented by
+    /// one at each intermediate node visited by the packet. When the counter
+    /// reaches 0 the packet is discarded.
+    hoplimit: u8, //   8 bits
+    src_ip: u128, // 128 bits
+    dst_ip: u128, // 128 bits
+    payload: &'a [u8],
 }
 
 impl<'a> Ipv6Packet<'a> {
@@ -356,6 +358,14 @@ impl<'a> Ipv6Packet<'a> {
     }
 }
 
+
+/// OSI Model Layer 4
+#[derive(Debug, PartialEq, Eq)]
+pub enum Packet<'a, 'b> {
+    V4(Ipv4Packet<'a, 'b>),
+    V6(Ipv6Packet<'a>),
+}
+
 impl<'a, 'b> Packet<'a, 'b> {
     pub fn from_bytes(payload: &[u8]) -> Result<Self, ::std::io::Error> {
         let offset: usize;
@@ -414,8 +424,7 @@ impl<'a, 'b> Packet<'a, 'b> {
             dst_ip: u32,
             zeroes: u8,
             protocol: u8,
-            tcp_length: u16, /* TCP Packet
-                              * ... */
+            tcp_length: u16
         }
 
         #[derive(Debug, PartialEq, Eq)]
@@ -424,8 +433,7 @@ impl<'a, 'b> Packet<'a, 'b> {
             dst_ip: u128,
             tcp_length: u32,
             zeroes: u32, // 24 bits
-            next_header: u8, /* TCP Packet
-                              * ... */
+            next_header: u8
         }
         unimplemented!();
     }
@@ -437,8 +445,7 @@ impl<'a, 'b> Packet<'a, 'b> {
             dst_ip: u32,
             zeroes: u8,
             protocol: u8,
-            udp_length: u16, /* UDP Packet
-                              * ... */
+            udp_length: u16,
         }
 
         #[derive(Debug, PartialEq, Eq)]
@@ -447,8 +454,7 @@ impl<'a, 'b> Packet<'a, 'b> {
             dst_ip: u128,
             udp_length: u32,
             zeroes: u32, // 24 bits
-            next_header: u8, /* UDP Packet
-                              * ... */
+            next_header: u8,
         }
         unimplemented!();
     }
