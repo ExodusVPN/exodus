@@ -110,6 +110,8 @@ pub fn main(server_socket_addr: SocketAddr) {
     );
 
     sys_gw.set_default(&internal_ip).unwrap();
+    sys_gw.add_route("-host", &server_public_ip.to_string(), &sys_gw.ipv4_addr().to_string() ).unwrap();
+
     warn!("系统默认路由已设置为: {}", internal_ip);
 
 
@@ -149,32 +151,32 @@ pub fn main(server_socket_addr: SocketAddr) {
     };
 
     let tun_device_clone1 = tun_device_mutex.clone();
-
     ::std::thread::spawn(move || loop {
         let p = rx.next().unwrap();
         let packet = pnet::packet::ethernet::EthernetPacket::new(p).unwrap();
         {
             let mut ip_payload = packet.payload().to_vec();
             let mut _ip4p = pnet::packet::ipv4::MutableIpv4Packet::new(&mut ip_payload[..]).unwrap();
-            let myip: Ipv4Addr = Ipv4Addr::new(192, 168, 0, 103);
 
-            if _ip4p.get_destination() == myip || _ip4p.get_destination() == internal_ip {
+            if _ip4p.get_destination() == interface_ip || _ip4p.get_destination() == internal_ip {
                 if _ip4p.get_source() != server_public_ip {
+                    let origin_dst = _ip4p.get_destination();
                     _ip4p.set_destination(internal_ip);
                     let imm_header = pnet::packet::ipv4::checksum(&_ip4p.to_immutable());
                     _ip4p.set_checksum(imm_header);
-                    let _ = _ip4p.packet().to_vec();
-                    println!("[NAT] {:?}", _ip4p);
+                    println!("[ IN-NAT] {:?} -> {:?} TO {:?} -> {:?}  Lan: {:?} -> {:?}", 
+                        _ip4p.get_source(), origin_dst, _ip4p.get_source(), _ip4p.get_destination(), 
+                        packet.get_source(), packet.get_destination());
                     let mut tun_device = tun_device_clone1.lock().unwrap();
                     (*tun_device).write(_ip4p.packet()).unwrap();
                 }
             }
         }
-    });
+    }); 
+        
 
     info!("Ready for transmission.");
     let tun_device_clone2 = tun_device_mutex.clone();
-
     loop {
         if !signal::is_running() {
             warn!("Shutdown ...");
@@ -217,15 +219,16 @@ pub fn main(server_socket_addr: SocketAddr) {
                     if size == 0 {
                         continue;
                     }
+                    let origin_src;
+                    let origin_dst;
                     let ip_v4_packet = {
                         let mut ip_v4_header = pnet::packet::ipv4::MutableIpv4Packet::new(&mut buf[..size]).unwrap();
-                        // println!("IPv4 Header: {:?}", ip_v4_header);
-                        ip_v4_header.set_source(Ipv4Addr::new(192, 168, 0, 103));
+                        origin_src = ip_v4_header.get_source();
+                        origin_dst = ip_v4_header.get_destination();
+                        ip_v4_header.set_source(interface_ip);
                         let imm_header = pnet::packet::ipv4::checksum(&ip_v4_header.to_immutable());
                         ip_v4_header.set_checksum(imm_header);
-                        let bb = ip_v4_header.packet().to_vec();
-                        println!("Ipv4 New Header: {:?}", ip_v4_header);
-                        bb
+                        ip_v4_header.packet().to_vec()
                     };
 
                     let ethernet_packet_size = size + 14;
@@ -239,7 +242,10 @@ pub fn main(server_socket_addr: SocketAddr) {
                     ethernet_packet.set_payload(&ip_v4_packet[..size]);
 
                     let p_buf = ethernet_packet.packet();
-                    tx.send_to(p_buf, Some(interface.clone())).unwrap().unwrap();
+                    println!("[OUT-NAT] {:?} -> {:?} TO {:?} -> {:?}  Lan: {:?} -> {:?}", origin_src, origin_dst, 
+                                interface_ip, origin_dst, interface.mac_address(), sys_gw.mac_address());
+                    let _ = tx.send_to(p_buf, Some(interface.clone())).unwrap();
+                    // println!("SendTO: {:?}\n{:?}", p_buf, s);
                 }
                 _ => unreachable!(),
             }
