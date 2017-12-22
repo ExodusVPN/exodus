@@ -8,7 +8,11 @@ use std::ffi::CString;
 use std::io;
 
 
-// macOS
+// macOS:
+//     https://developer.apple.com/legacy/library/documentation/Darwin/Reference/ManPages/man4/bpf.4.html
+// FreeBSD:
+//     https://www.freebsd.org/cgi/man.cgi?query=bpf&sektion=9
+
 pub const SIOCGIFMTU: libc::c_ulong = 0xc0206933;
 pub const SIOCSIFMTU: libc::c_ulong = 0x80206934;
 pub const SIOCGIFMETRIC: libc::c_ulong = 0xc0206917;
