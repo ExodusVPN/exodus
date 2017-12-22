@@ -1,0 +1,23 @@
+[package]
+name = "netif"
+version = "0.1.0"
+authors = ["luozijun <gnulinux@126.com>"]
+
+[[bin]]
+name = "interfaces"
+path = "src/main.rs"
+
+[[bin]]
+name = "bpf"
+path = "src/bpf.rs"
+
+
+
+
+[dependencies]
+libc = ">=0.2.34"
+ipnetwork = "0.12"
+nix = { path = "../../nix" }
+
+[target.'cfg(windows)'.dependencies]
+winapi  = "0.2.8"
