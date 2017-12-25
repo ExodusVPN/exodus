@@ -4,6 +4,7 @@
 #![cfg(any(target_os = "macos", target_os = "freebsd"))]
 
 extern crate libc;
+extern crate ipnetwork;
 
 use std::ffi::CStr;
 use std::io;
@@ -13,23 +14,36 @@ use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::string::ToString;
 
+use ipnetwork::IpNetwork;
 
-pub struct HwAddr(u8, u8, u8, u8, u8, u8, u16);
 
-impl fmt::Debug for HwAddr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "HwAddr {{ LINK{} {:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x} }}",
-            self.6,
-            self.0,
-            self.1,
-            self.2,
-            self.3,
-            self.4,
-            self.5)
+#[derive(Eq, PartialEq)]
+pub struct HwAddr(pub [u8; 6]);
+
+impl HwAddr {
+    pub fn is_empty(&self) -> bool {
+        self.0[0] == 0
+        && self.0[1] == 0
+        && self.0[2] == 0
+        && self.0[3] == 0
+        && self.0[4] == 0
+        && self.0[5] == 0
     }
 }
 
-pub struct UnixAddr([u8; 104]);
+impl fmt::Debug for HwAddr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+            self.0[0],
+            self.0[1],
+            self.0[2],
+            self.0[3],
+            self.0[4],
+            self.0[5])
+    }
+}
+
+pub struct UnixAddr(pub [u8; 104]);
 
 impl ToString for UnixAddr {
     fn to_string(&self) -> String {
@@ -38,19 +52,43 @@ impl ToString for UnixAddr {
     }
 }
 
+impl PartialEq for UnixAddr {
+    fn eq(&self, other: &UnixAddr) -> bool {
+        &self.0[..] == &other.0[..]
+    }
+}
+
+impl Eq for UnixAddr {}
+
 impl fmt::Debug for UnixAddr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "UnixAddr {{ {} }}", self.to_string())
+        write!(f, "UnixAddr({})", self.to_string())
     }
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
+pub struct DataLink {
+    index: u32,
+    name: String,
+    hwaddr: Option<HwAddr>
+}
+
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum RouteAddr {
+    IpNetwork(IpNetwork),
+    IpAddress(::std::net::IpAddr),
+    DataLink(DataLink)
+}
+
+#[derive(Debug, Eq, PartialEq)]
 pub enum SockAddr {
     IpAddr(::std::net::IpAddr),
     UnixAddr(UnixAddr),
     HwAddr(HwAddr),
 }
+// impl Eq
 
 impl SockAddr {
     pub fn from_libc_sockaddr_bytes(sa: &[u8]) -> Option<SockAddr> {
@@ -85,9 +123,11 @@ impl SockAddr {
                 let mut e = 0;
                 let mut f = 0;
 
-                // if sdl_nlen > 0 {
-                if sa.len() > 13 {
-                    
+                if sa.len() < 14 {
+                    return None;
+                }
+
+                if sa.len() > 13 {    
                     a = sa[8];
                     b = sa[8+1];
                     c = sa[8+2];
@@ -95,10 +135,9 @@ impl SockAddr {
                     e = sa[8+4];
                     f = sa[8+5];
                 }
-
-                Some(SockAddr::HwAddr(HwAddr(a, b, c, d, e, f, 
-                                            (sa[2] as u16) | (sa[3] as u16) )))
-                
+                let sdl_index: u16 = (sa[2] as u16) | (sa[3] as u16);
+                // println!("AF_LINK sdl_index: {:?}", sdl_index);
+                Some(SockAddr::HwAddr(HwAddr([a, b, c, d, e, f])))
             }
             _ => None
         }
@@ -168,26 +207,54 @@ pub fn rtable(){
                 break;
             }
             let rtm_bytes = &buf[start..end];
-            let rtm_msglen = rtm_bytes[0] as usize;
+            let rtm_msglen = ((rtm_bytes[0] as u16) | (rtm_bytes[1] as u16)) as usize;
+            let rtm_type = rtm_bytes[3];
+            let rtm_index = (rtm_bytes[4] as u16) | (rtm_bytes[5] as u16);
+            let rtm_flags = (rtm_bytes[6] as i32)
+                            | (rtm_bytes[6+1] as i32)
+                            | (rtm_bytes[6+2] as i32)
+                            | (rtm_bytes[6+3] as i32);
+            let rtm_addrs = (rtm_bytes[10] as i32)
+                            | (rtm_bytes[10+1] as i32)
+                            | (rtm_bytes[10+2] as i32)
+                            | (rtm_bytes[10+3] as i32);
 
             let dest_size = buf[end] as usize;
             let dest_start = end;
             let dest_end   = end +  dest_size;
-
             let dest_sockaddr_bytes = &buf[dest_start..dest_end];
 
             let gateway_start = dest_end;
-            let gateway_end   = dest_end + buf[gateway_start] as usize;
-
-            let gateway_sockaddr_bytes = &buf[gateway_start..gateway_start+(rtm_msglen-rt_msghdr_size-dest_size)];
+            let gateway_end   = gateway_start+(rtm_msglen-rt_msghdr_size-dest_size);
+            let gateway_sockaddr_bytes = &buf[gateway_start..gateway_end];
 
             let dest = SockAddr::from_libc_sockaddr_bytes(dest_sockaddr_bytes);
             let gateway = SockAddr::from_libc_sockaddr_bytes(gateway_sockaddr_bytes);
             
+
             if dest.is_some() && gateway.is_some(){
-                println!("dest: {:?} \t gateway: {:?}", 
-                    dest.unwrap(),
-                    gateway.unwrap());
+                if dest == Some(SockAddr::IpAddr(IpAddr::V4(Ipv4Addr::new(192, 168, 199, 1)))) {
+                    // println!("rtm_msglen: {:?}, rtm_type: {:?}, rtm_index: {:?}, rtm_flags: {:?}, rtm_addrs: {:?}",
+                    //             rtm_msglen,
+                    //             rtm_type,
+                    //             rtm_index,
+                    //             rtm_flags,
+                    //             rtm_addrs);
+                    // println!("{:?}", rtm_bytes);
+                    // println!("{:?}", dest_sockaddr_bytes);
+                }
+                match gateway {
+                    Some(sock_addr) => match sock_addr {
+                        _ => {
+                            println!("dest: {:60} \t gateway(LINK#{:2}): {:?}", 
+                                format!("{:?}", dest.unwrap()),
+                                rtm_index,
+                                sock_addr);
+                        }
+                    },
+                    None => {}
+                }
+                // println!("{:?}", gateway_sockaddr_bytes);
             }
             start += rtm_msglen;
             end = start + rt_msghdr_size;

@@ -163,7 +163,7 @@ pub fn arp_tables(){
                 break;
             }
             let rtm_bytes = &buf[start..end];
-            let rtm_msglen = rtm_bytes[0] as usize;
+            let rtm_msglen = ((rtm_bytes[0] as u16) | (rtm_bytes[1] as u16)) as usize;
             let sin_addr = ::std::net::Ipv4Addr::from([
                 buf[end+4], buf[end+5], buf[end+6], buf[end+7]
             ]);
