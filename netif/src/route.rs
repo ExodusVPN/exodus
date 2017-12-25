@@ -84,7 +84,10 @@ impl SockAddr {
                 let mut d = 0;
                 let mut e = 0;
                 let mut f = 0;
-                if sdl_nlen > 0 {
+
+                // if sdl_nlen > 0 {
+                if sa.len() > 13 {
+                    
                     a = sa[8];
                     b = sa[8+1];
                     c = sa[8+2];
@@ -92,6 +95,7 @@ impl SockAddr {
                     e = sa[8+4];
                     f = sa[8+5];
                 }
+                
                 Some(SockAddr::HwAddr(HwAddr(a, b, c, d, e, f, 
                                             (sa[2] as u16) | (sa[3] as u16) )))
                 
