@@ -90,7 +90,7 @@ pub type BPF_TIMEVAL = libc::timeval;
 
 #[cfg(target_os = "freebsd")]
 const BPF_ALIGNMENT: libc::c_int = ::std::mem::size_of::<libc::c_long>() as libc::c_int;
-#[cfg(any(target_os = "macos", windows))]
+#[cfg(target_os = "macos")]
 const BPF_ALIGNMENT: libc::c_int = ::std::mem::size_of::<libc::int32_t>() as libc::c_int;
 
 
@@ -302,7 +302,7 @@ fn main(){
     bpf.bind("en0").unwrap();
     bpf.prepare().unwrap();
 
-    if bpf.datalink_type().unwrap() == 1 {
+    if bpf.datalink_type().unwrap() == DLT_EN10MB {
         // ethernet
         loop {
             bpf.read();
