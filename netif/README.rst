@@ -21,6 +21,5 @@ Run
     cargo run --bin route
 
     # bsd `bpf` raw packet read and write.
-    cargo run --bin route
+    cargo run --bin bpf
     sudo target/debug/bpf
-    
