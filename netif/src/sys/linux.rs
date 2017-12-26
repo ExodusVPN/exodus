@@ -1,14 +1,12 @@
-#![allow(non_camel_case_types, non_snake_case, dead_code)]
-#![cfg(all(target_os = "linux"))]
+#![cfg(target_os = "linux")]
 
-extern crate libc;
+use libc;
 
-pub use libc::SOL_PACKET;
 
 pub const PACKET_ADD_MEMBERSHIP: libc::c_int = 1;
 pub const PACKET_MR_PROMISC: libc::c_int = 1;
 
-// pub const SIOCGIFMTU:   libc::c_ulong = 0x8921;
+
 pub const SIOCGIFMTU: libc::c_uint = 0x00008921;
 pub const SIOCSIFMTU: libc::c_uint = 0x00008922;
 pub const SIOCGIFMETRIC: libc::c_uint = 0x0000891d;
