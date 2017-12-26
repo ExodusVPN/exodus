@@ -3,9 +3,13 @@
 #![cfg(any(target_os = "macos", target_os = "freebsd"))]
 
 extern crate libc;
+extern crate smoltcp;
 
 use std::ffi::CString;
 use std::io;
+use std::mem;
+
+use smoltcp::wire::{ PrettyPrinter, EthernetFrame, EthernetProtocol };
 
 
 // macOS:
@@ -79,12 +83,12 @@ pub const DLT_RAW: libc::c_uint = 12;         // raw IP
  */
 pub const DLT_LOOP: libc::c_uint = 108;
 
-
-#[allow(non_camel_case_types)]
-#[cfg(target_pointer_width = "32")]
-pub type BPF_TIMEVAL = libc::timeval32;
+// https://github.com/apple/darwin-xnu/blob/0a798f6738bc1db01281fc08ae024145e84df927/bsd/net/bpf.h#L154
 #[allow(non_camel_case_types)]
 #[cfg(target_pointer_width = "64")]
+pub type BPF_TIMEVAL = libc::timeval32;
+#[allow(non_camel_case_types)]
+#[cfg(target_pointer_width = "32")]
 pub type BPF_TIMEVAL = libc::timeval;
 
 
@@ -147,44 +151,43 @@ pub struct Bpf {
 }
 
 impl Bpf {
+    #[cfg(target_os = "macos")]
     pub fn open() -> Result<Bpf, io::Error> {
-        if cfg!(target_os = "macos") {
-            for i in 0..10 {
-                let filename = CString::new(format!("/dev/bpf{}", i)).unwrap();
-                unsafe {
-                    let fd = libc::open(filename.as_ptr(), libc::O_RDWR);
-                    if fd != -1 {
-                        return Ok(Bpf {fd: fd});
-                    } else {
-                        let err = io::Error::last_os_error();
-                        match err.kind() {
-                            io::ErrorKind::PermissionDenied => {
-                                libc::close(fd);
-                                return Err(err);
-                            },
-                            io::ErrorKind::NotFound => { },
-                            _ => { }
-                        }
-                    }
-                    libc::close(fd);
-                }
-            }
-        } else if cfg!(target_os = "freebsd") {
-            let filename = CString::new("/dev/bpf").unwrap();
+        for i in 0..10 {
+            let filename = CString::new(format!("/dev/bpf{}", i)).unwrap();
             unsafe {
                 let fd = libc::open(filename.as_ptr(), libc::O_RDWR);
                 if fd != -1 {
                     return Ok(Bpf {fd: fd});
                 } else {
-                    libc::close(fd);
-                    return Err(io::Error::last_os_error());
+                    let err = io::Error::last_os_error();
+                    match err.kind() {
+                        io::ErrorKind::PermissionDenied => {
+                            libc::close(fd);
+                            return Err(err);
+                        },
+                        io::ErrorKind::NotFound => { },
+                        _ => { }
+                    }
                 }
+                libc::close(fd);
             }
-        } else {
-            unreachable!()
         }
-        
         return Err(io::Error::last_os_error());
+    }
+
+    #[cfg(target_os = "freebsd")]
+    pub fn open() -> Result<Bpf, io::Error> {
+        let filename = CString::new("/dev/bpf").unwrap();
+        unsafe {
+            let fd = libc::open(filename.as_ptr(), libc::O_RDWR);
+            if fd != -1 {
+                Ok(Bpf {fd: fd})
+            } else {
+                libc::close(fd);
+                Err(io::Error::last_os_error())
+            }
+        }
     }
 
     pub fn bind(&self, ifname: &str) -> Result<(), io::Error> {
@@ -268,19 +271,55 @@ impl Bpf {
         Ok(blen)
     }
 
+    #[allow(unused_mut, unused_variables)]
     pub fn read(&mut self) {
-        const SIZE: usize = 4096;
-        // let size = self.blen().unwrap();
-        let mut buf: [u8; SIZE] = [0u8; 4096];
-        // println!("{:?}", size);
+        const BLEN: usize = 4096;
+        // let blen = self.blen().unwrap();
+        let mut buf: [u8; BLEN] = [0u8; BLEN];
+        let buf_ptr = buf.as_mut_ptr();
         unsafe {
-            let len = libc::read(self.fd, ::std::mem::transmute(buf.as_mut_ptr() as *mut libc::c_void), SIZE);
+            let len = libc::read(
+                            self.fd,
+                            buf_ptr as *mut libc::c_void,
+                            BLEN);
             if len < 0 {
                 println!("[ERROR] {:?}", io::Error::last_os_error());
-            } else if len > 0 {
-                println!("{:?}", &buf[0..len as usize]);
-            } else {
-                // PASS
+                return ();
+            } 
+            if len == 0 {
+                return ();
+            }
+
+            // 20 (c),  kernel(18)
+            // https://github.com/apple/darwin-xnu/blob/0a798f6738bc1db01281fc08ae024145e84df927/bsd/net/bpf.h#L231
+            let bpf_hdr_size = mem::size_of::<bpf_hdr>();
+
+            let mut start = 0usize;
+            loop {
+                if start >= len as usize {
+                    break;
+                }
+                let end = start + bpf_hdr_size;
+
+                let bpf_hdr_buf = &buf[start..];
+                let bpf_packet: *const bpf_hdr = bpf_hdr_buf.as_ptr() as *const _;
+                let bh_hdrlen = (*bpf_packet).bh_hdrlen as usize;
+                let bh_datalen = (*bpf_packet).bh_datalen as usize;
+
+                let data = &buf[start+bh_hdrlen..start+bh_hdrlen+bh_datalen];
+                match EthernetFrame::new_checked(&data) {
+                    Ok(frame) => {
+                        match frame.check_len() {
+                            Ok(_) => {
+                                println!("{}", 
+                                    &PrettyPrinter::<EthernetFrame<&[u8]>>::new("", &frame.into_inner()));
+                            }
+                            Err(_) => { }
+                        }
+                    },
+                    Err(_) => {}
+                }
+                start += bh_datalen + bh_hdrlen;
             }
         }
         
@@ -296,11 +335,12 @@ impl Drop for Bpf {
 }
 
 
-
 fn main(){
+    let interface_name = "en0";
     let mut bpf = Bpf::open().unwrap();
-    bpf.bind("en0").unwrap();
+    bpf.bind(interface_name).unwrap();
     bpf.prepare().unwrap();
+
 
     if bpf.datalink_type().unwrap() == DLT_EN10MB {
         // ethernet
@@ -311,5 +351,4 @@ fn main(){
         // unknow net packet
         // PASS
     }
-    
 }

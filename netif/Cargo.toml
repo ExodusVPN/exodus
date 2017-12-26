@@ -20,9 +20,27 @@ name = "route"
 path = "src/route.rs"
 
 [dependencies]
-libc = ">=0.2.34"
+cfg-if = "0.1"
 ipnetwork = "0.12"
-nix = { path = "../../nix" }
+
+[dependencies.libc]
+git = "https://github.com/rust-lang/libc"
+branch = "master"
+# version = ">=0.2.34"
+
+[dependencies.nix]
+git = "https://github.com/LuoZijun/nix"
+branch = "patch-4"
+
+[dependencies.smoltcp]
+git = "https://github.com/m-labs/smoltcp"
+branch = "master"
+default-features = false
+features = [
+    "std", "log",
+    "proto-ipv4", "proto-ipv6",
+    "socket-raw", "socket-icmp", "socket-udp", "socket-tcp"
+]
 
 [target.'cfg(windows)'.dependencies]
 winapi  = "0.2.8"
