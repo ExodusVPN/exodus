@@ -15,9 +15,10 @@ use std::mem;
 
 // macOS:
 //     https://developer.apple.com/legacy/library/documentation/Darwin/Reference/ManPages/man4/bpf.4.html
+//     https://github.com/apple/darwin-xnu/blob/master/bsd/net/bpf.h#L154
 // FreeBSD:
 //     https://www.freebsd.org/cgi/man.cgi?query=bpf&sektion=9
-
+// 
 // Using FreeBSD's BPF device with C/C++
 //      http://bastian.rieck.ru/howtos/bpf/#index4h1
 
@@ -54,7 +55,7 @@ pub const DLT_ATM_RFC1483: libc::c_uint = 11; // LLC/SNAP encapsulated atm
 pub const DLT_RAW: libc::c_uint = 12;         // raw IP
 pub const DLT_LOOP: libc::c_uint = 108;
 
-// https://github.com/apple/darwin-xnu/blob/master/bsd/net/bpf.h#L154
+
 
 #[cfg(all(target_os = "macos", target_pointer_width = "32"))]
 pub type BPF_TIMEVAL = libc::timeval;
@@ -76,20 +77,6 @@ pub struct bpf_hdr {
     pub bh_hdrlen: libc::c_ushort,
 }
 
-impl ::std::fmt::Debug for bpf_hdr {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        write!(f, "bpf_hdr {{ bh_tstamp: timeval{} {{ tv_sec: {:?}, tv_usec: {:?} }}, bh_caplen: {:?}, bh_datalen: {:?}, bh_hdrlen: {:?} }}",
-            if cfg!(target_pointer_width = "32") { "32" } else { "" },
-            self.bh_tstamp.tv_sec,
-            self.bh_tstamp.tv_usec,
-            self.bh_caplen,
-            self.bh_datalen,
-            self.bh_hdrlen)
-    }
-}
-
-
-#[allow(non_snake_case)]
 pub fn BPF_WORDALIGN(x: isize) -> isize {
     let bpf_alignment = BPF_ALIGNMENT as isize;
     (x + (bpf_alignment - 1)) & !(bpf_alignment - 1)
@@ -248,7 +235,7 @@ impl Bpf {
             }
 
             // 20 (c),  kernel(18)
-            // https://github.com/apple/darwin-xnu/blob/0a798f6738bc1db01281fc08ae024145e84df927/bsd/net/bpf.h#L231
+            // https://github.com/apple/darwin-xnu/blob/master/bsd/net/bpf.h#L231
             let bpf_hdr_size = mem::size_of::<bpf_hdr>();
 
             let mut start = 0usize;
