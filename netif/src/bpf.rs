@@ -1,15 +1,16 @@
-// #![allow(non_camel_case_types, non_snake_case, dead_code)]
+#![allow(non_camel_case_types, non_snake_case, dead_code)]
 
 #![cfg(any(target_os = "macos", target_os = "freebsd"))]
 
 extern crate libc;
 extern crate smoltcp;
 
+use smoltcp::wire::{ PrettyPrinter, EthernetFrame };
+
+
 use std::ffi::CString;
 use std::io;
 use std::mem;
-
-use smoltcp::wire::{ PrettyPrinter, EthernetFrame, EthernetProtocol };
 
 
 // macOS:
@@ -17,46 +18,25 @@ use smoltcp::wire::{ PrettyPrinter, EthernetFrame, EthernetProtocol };
 // FreeBSD:
 //     https://www.freebsd.org/cgi/man.cgi?query=bpf&sektion=9
 
+// Using FreeBSD's BPF device with C/C++
+//      http://bastian.rieck.ru/howtos/bpf/#index4h1
+
 pub const SIOCGIFMTU: libc::c_ulong = 0xc0206933;
 pub const SIOCSIFMTU: libc::c_ulong = 0x80206934;
 pub const SIOCGIFMETRIC: libc::c_ulong = 0xc0206917;
 pub const SIOCSIFMETRIC: libc::c_ulong = 0x80206918;
 
-
-const IOC_IN: libc::c_ulong = 0x80000000;
-const IOC_OUT: libc::c_ulong = 0x40000000;
-const IOC_INOUT: libc::c_ulong = IOC_IN | IOC_OUT;
-const IOCPARM_SHIFT: libc::c_ulong = 13;
-const IOCPARM_MASK: libc::c_ulong = (1 << (IOCPARM_SHIFT as usize)) - 1;
-
-// FIXME: target_pointer_width
-const SIZEOF_TIMEVAL: libc::c_ulong = 16;
-const SIZEOF_IFREQ: libc::c_ulong = 32;
-const SIZEOF_C_UINT: libc::c_ulong = 4;
-
-
-pub const BIOCSETIF: libc::c_ulong =
-    IOC_IN | ((SIZEOF_IFREQ & IOCPARM_MASK) << 16usize) | (('B' as libc::c_ulong) << 8usize) | 108;
-pub const BIOCIMMEDIATE: libc::c_ulong =
-    IOC_IN | ((SIZEOF_C_UINT & IOCPARM_MASK) << 16) | (('B' as libc::c_ulong) << 8) | 112;
-pub const BIOCGBLEN: libc::c_ulong =
-    IOC_OUT | ((SIZEOF_C_UINT & IOCPARM_MASK) << 16) | (('B' as libc::c_ulong) << 8) | 102;
-pub const BIOCGDLT: libc::c_ulong =
-    IOC_OUT | ((SIZEOF_C_UINT & IOCPARM_MASK) << 16) | (('B' as libc::c_ulong) << 8) | 106;
-
-pub const BIOCSBLEN: libc::c_ulong =
-    IOC_INOUT | ((SIZEOF_C_UINT & IOCPARM_MASK) << 16) | (('B' as libc::c_ulong) << 8) | 102;
-pub const BIOCSHDRCMPLT: libc::c_ulong =
-    IOC_IN | ((SIZEOF_C_UINT & IOCPARM_MASK) << 16) | (('B' as libc::c_ulong) << 8) | 117;
-pub const BIOCSRTIMEOUT: libc::c_ulong =
-    IOC_IN | ((SIZEOF_TIMEVAL & IOCPARM_MASK) << 16) | (('B' as libc::c_ulong) << 8) | 109;
+pub const BIOCSETIF: libc::c_ulong = 0x8020426c;
+pub const BIOCIMMEDIATE: libc::c_ulong = 0x80044270;
+pub const BIOCGBLEN: libc::c_ulong = 0x40044266;
+pub const BIOCGDLT: libc::c_ulong = 0x4004426a;
+pub const BIOCSBLEN: libc::c_ulong = 0xc0044266;
+pub const BIOCSHDRCMPLT: libc::c_ulong = 0x80044275;
+pub const BIOCSRTIMEOUT: libc::c_ulong = 0x8010426d;
+pub const BIOCSSEESENT: libc::c_ulong = 0x80044277;
 
 #[cfg(target_os = "freebsd")]
-pub const BIOCFEEDBACK: libc::c_ulong =
-    IOC_IN | ((SIZEOF_C_UINT & IOCPARM_MASK) << 16) | (('B' as libc::c_ulong) << 8) | 124;
-
-pub const BIOCSSEESENT: libc::c_ulong = 2147762807;
-
+pub const BIOCFEEDBACK: libc::c_ulong = 0x8004427c;
 
 // Loopback
 pub const DLT_NULL: libc::c_uint = 0;         // no link-layer encapsulation
@@ -72,31 +52,21 @@ pub const DLT_PPP: libc::c_uint = 9;          // Point-to-point Protocol
 pub const DLT_FDDI: libc::c_uint = 10;        // FDDI
 pub const DLT_ATM_RFC1483: libc::c_uint = 11; // LLC/SNAP encapsulated atm
 pub const DLT_RAW: libc::c_uint = 12;         // raw IP
-/*
- * OpenBSD DLT_LOOP, for loopback devices; it's like DLT_NULL, except
- * that the AF_ type in the link-layer header is in network byte order.
- *
- * OpenBSD defines it as 12, but that collides with DLT_RAW, so we
- * define it as 108 here.  If OpenBSD picks up this file, it should
- * define DLT_LOOP as 12 in its version, as per the comment above -
- * and should not use 108 for any purpose.
- */
 pub const DLT_LOOP: libc::c_uint = 108;
 
-// https://github.com/apple/darwin-xnu/blob/0a798f6738bc1db01281fc08ae024145e84df927/bsd/net/bpf.h#L154
-#[allow(non_camel_case_types)]
-#[cfg(target_pointer_width = "64")]
+// https://github.com/apple/darwin-xnu/blob/master/bsd/net/bpf.h#L154
+
+#[cfg(all(target_os = "macos", target_pointer_width = "32"))]
+pub type BPF_TIMEVAL = libc::timeval;
+#[cfg(all(target_os = "macos", target_pointer_width = "64"))]
 pub type BPF_TIMEVAL = libc::timeval32;
-#[allow(non_camel_case_types)]
-#[cfg(target_pointer_width = "32")]
+#[cfg(target_os = "freebsd")]
 pub type BPF_TIMEVAL = libc::timeval;
 
-
 #[cfg(target_os = "freebsd")]
-const BPF_ALIGNMENT: libc::c_int = ::std::mem::size_of::<libc::c_long>() as libc::c_int;
+pub const BPF_ALIGNMENT: libc::c_int = mem::size_of::<libc::c_long>() as libc::c_int;
 #[cfg(target_os = "macos")]
-const BPF_ALIGNMENT: libc::c_int = ::std::mem::size_of::<libc::int32_t>() as libc::c_int;
-
+pub const BPF_ALIGNMENT: libc::c_int = mem::size_of::<libc::int32_t>() as libc::c_int;
 
 #[repr(C)]
 pub struct bpf_hdr {
@@ -153,7 +123,7 @@ pub struct Bpf {
 impl Bpf {
     #[cfg(target_os = "macos")]
     pub fn open() -> Result<Bpf, io::Error> {
-        for i in 0..10 {
+        for i in 0..50 {
             let filename = CString::new(format!("/dev/bpf{}", i)).unwrap();
             unsafe {
                 let fd = libc::open(filename.as_ptr(), libc::O_RDWR);
@@ -237,15 +207,6 @@ impl Bpf {
             if libc::ioctl(self.fd, BIOCSRTIMEOUT, &tv_timeout) == -1 {
                 return Err(io::Error::last_os_error());
             }
-
-            // Enable nonblocking
-            // if libc::fcntl(self.fd, libc::F_SETFL, libc::O_NONBLOCK) == -1 {
-            //     return Err(io::Error::last_os_error());
-            // }
-
-            // let mut fd_set: libc::fd_set = ::std::mem::zeroed();
-            // libc::FD_ZERO(&mut fd_set as *mut libc::fd_set);
-            // libc::FD_SET(self.fd, &mut fd_set as *mut libc::fd_set);
         }
         Ok(())
     }
@@ -271,17 +232,13 @@ impl Bpf {
         Ok(blen)
     }
 
-    #[allow(unused_mut, unused_variables)]
-    pub fn read(&mut self) {
-        const BLEN: usize = 4096;
-        // let blen = self.blen().unwrap();
-        let mut buf: [u8; BLEN] = [0u8; BLEN];
+    pub fn read(&mut self, buf: &mut [u8], blen: usize) {
         let buf_ptr = buf.as_mut_ptr();
         unsafe {
             let len = libc::read(
                             self.fd,
                             buf_ptr as *mut libc::c_void,
-                            BLEN);
+                            blen);
             if len < 0 {
                 println!("[ERROR] {:?}", io::Error::last_os_error());
                 return ();
@@ -299,10 +256,8 @@ impl Bpf {
                 if start >= len as usize {
                     break;
                 }
-                let end = start + bpf_hdr_size;
-
-                let bpf_hdr_buf = &buf[start..];
-                let bpf_packet: *const bpf_hdr = bpf_hdr_buf.as_ptr() as *const _;
+                let bpf_buf = &buf[start..start+bpf_hdr_size];
+                let bpf_packet: *const bpf_hdr = bpf_buf.as_ptr() as *const _;
                 let bh_hdrlen = (*bpf_packet).bh_hdrlen as usize;
                 let bh_datalen = (*bpf_packet).bh_datalen as usize;
 
@@ -322,7 +277,22 @@ impl Bpf {
                 start += bh_datalen + bh_hdrlen;
             }
         }
-        
+    }
+
+    pub fn write(&self, buf: &[u8]) -> Result<usize, io::Error> {
+        let ptr = buf.as_ptr();
+        let size = buf.len();
+        let ret = unsafe {
+                    libc::write(
+                            self.fd,
+                            ptr as *mut libc::c_void,
+                            size)
+        };
+        if ret < 0 {
+            Err(io::Error::last_os_error())
+        } else {
+            Ok(size)
+        }
     }
 }
 
@@ -334,21 +304,25 @@ impl Drop for Bpf {
     }
 }
 
-
 fn main(){
     let interface_name = "en0";
     let mut bpf = Bpf::open().unwrap();
     bpf.bind(interface_name).unwrap();
     bpf.prepare().unwrap();
 
-
-    if bpf.datalink_type().unwrap() == DLT_EN10MB {
-        // ethernet
-        loop {
-            bpf.read();
+    match bpf.datalink_type() {
+        Ok(datalink_type) => match datalink_type {
+            DLT_EN10MB => {
+                let blen = bpf.blen().unwrap();
+                let mut read_buffer: Vec<u8> = vec![0u8; blen];
+                loop {
+                    bpf.read(&mut read_buffer, blen);
+                }
+            }
+            _ => {}
         }
-    } else {
-        // unknow net packet
-        // PASS
+        Err(e) => {
+            println!("{:?}", e);
+        }
     }
 }
