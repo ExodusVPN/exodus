@@ -261,7 +261,7 @@ impl Bpf {
                     },
                     Err(_) => {}
                 }
-                start += bh_datalen + bh_hdrlen;
+                start += BPF_WORDALIGN((bh_datalen + bh_hdrlen) as isize) as usize;
             }
         }
     }
