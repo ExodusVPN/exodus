@@ -5,9 +5,11 @@ members = [
     
     "iana",
     "taptun",
+
+    "netif",
     "netpacket",
     "netstack",
     "netfilter",
     "netproxy",
-    "nettunnel"
+    "nettunnel",
 ]
