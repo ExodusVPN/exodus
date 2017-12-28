@@ -5,7 +5,7 @@
 extern crate libc;
 extern crate smoltcp;
 
-use smoltcp::wire::{ PrettyPrinter, EthernetFrame };
+use smoltcp::wire;
 
 
 use std::ffi::CString;
@@ -39,7 +39,7 @@ pub const BIOCSSEESENT: libc::c_ulong = 0x80044277;
 #[cfg(target_os = "freebsd")]
 pub const BIOCFEEDBACK: libc::c_ulong = 0x8004427c;
 
-// Loopback
+
 pub const DLT_NULL: libc::c_uint = 0;         // no link-layer encapsulation
 pub const DLT_EN10MB: libc::c_uint = 1;       // Ethernet (10Mb)
 pub const DLT_EN3MB: libc::c_uint = 2;        // Experimental Ethernet (3Mb)
@@ -83,7 +83,7 @@ pub fn BPF_WORDALIGN(x: isize) -> isize {
 }
 
 
-/**
+/*
 DataLink Type:
 
 macOS: https://github.com/apple/darwin-xnu/blob/master/bsd/net/bpf.h#L276
@@ -93,7 +93,7 @@ Linux: http://man7.org/linux/man-pages/man7/packet.7.html
 Note:
     https://wiki.wireshark.org/SLL
     http://www.tcpdump.org/linktypes.html
-**/
+*/
 pub enum DataLink {
     Loopback,
     Ethernet,
@@ -170,31 +170,33 @@ impl Bpf {
     pub fn prepare(&self) -> Result<(), io::Error>{
         let enable: libc::uint32_t = 1;
         
-        unsafe {
-            // Set header complete mode
-            if libc::ioctl(self.fd, BIOCSHDRCMPLT, &enable) < 0 {
-                return Err(io::Error::last_os_error());
-            }
-
-            // Monitor packets sent from our interface
-            if libc::ioctl(self.fd, BIOCSSEESENT, &enable) < 0 {
-                return Err(io::Error::last_os_error());
-            }
-
-            // Return immediately when a packet received
-            if libc::ioctl(self.fd, BIOCIMMEDIATE, &enable) < 0 {
-                return Err(io::Error::last_os_error());
-            }
-
-            // set the timeout
-            let tv_timeout: BPF_TIMEVAL = BPF_TIMEVAL {
-                tv_sec: 3,
-                tv_usec: 0
-            };
-            if libc::ioctl(self.fd, BIOCSRTIMEOUT, &tv_timeout) == -1 {
-                return Err(io::Error::last_os_error());
-            }
+        // Set header complete mode
+        if unsafe { libc::ioctl(self.fd, BIOCSHDRCMPLT, &enable) } < 0 {
+            return Err(io::Error::last_os_error());
         }
+
+        // Monitor packets sent from our interface
+        if unsafe { libc::ioctl(self.fd, BIOCSSEESENT, &enable) } < 0 {
+            return Err(io::Error::last_os_error());
+        }
+
+        // Return immediately when a packet received
+        if unsafe { libc::ioctl(self.fd, BIOCIMMEDIATE, &enable) } < 0 {
+            return Err(io::Error::last_os_error());
+        }
+
+        // set the timeout
+        let tv_timeout: BPF_TIMEVAL = BPF_TIMEVAL {
+            tv_sec: 3,
+            tv_usec: 0
+        };
+        
+        if unsafe { libc::ioctl(self.fd, BIOCSRTIMEOUT, &tv_timeout) } == -1 {
+            return Err(io::Error::last_os_error());
+        }
+
+        println!("BPF enable: BIOCSHDRCMPLT, BIOCSSEESENT, BIOCIMMEDIATE, BIOCSRTIMEOUT");
+
         Ok(())
     }
 
@@ -219,7 +221,7 @@ impl Bpf {
         Ok(blen)
     }
 
-    pub fn read(&mut self, buf: &mut [u8], blen: usize) {
+    pub fn read(&mut self, buf: &mut [u8], blen: usize, offset: usize) {
         let buf_ptr = buf.as_mut_ptr();
         unsafe {
             let len = libc::read(
@@ -239,27 +241,30 @@ impl Bpf {
             let bpf_hdr_size = mem::size_of::<bpf_hdr>();
 
             let mut start = 0usize;
+            
             loop {
                 if start >= len as usize {
                     break;
                 }
+
                 let bpf_buf = &buf[start..start+bpf_hdr_size];
                 let bpf_packet: *const bpf_hdr = bpf_buf.as_ptr() as *const _;
                 let bh_hdrlen = (*bpf_packet).bh_hdrlen as usize;
-                let bh_datalen = (*bpf_packet).bh_datalen as usize;
+                let bh_datalen = (*bpf_packet).bh_datalen as usize; // bh_caplen
+                
+                if bh_datalen + bh_hdrlen > len as usize {
+                    break;
+                }
 
-                let data = &buf[start+bh_hdrlen..start+bh_hdrlen+bh_datalen];
-                match EthernetFrame::new_checked(&data) {
-                    Ok(frame) => {
-                        match frame.check_len() {
-                            Ok(_) => {
-                                println!("{}", 
-                                    &PrettyPrinter::<EthernetFrame<&[u8]>>::new("", &frame.into_inner()));
-                            }
-                            Err(_) => { }
-                        }
-                    },
-                    Err(_) => {}
+                let data = &buf[start+bh_hdrlen+offset..start+bh_hdrlen+bh_datalen];
+                if offset == 0 {
+                    // TAP device
+                    println!("{}", &wire::PrettyPrinter::<wire::EthernetFrame<&[u8]>>::new("", &data));
+                } else if offset == 4 {
+                    // TUN or Loopback device
+                    println!("{}", &wire::PrettyPrinter::<wire::Ipv4Packet<&[u8]>>::new("", &data));
+                } else {
+                    // unknow netif device
                 }
                 start += BPF_WORDALIGN((bh_datalen + bh_hdrlen) as isize) as usize;
             }
@@ -291,25 +296,51 @@ impl Drop for Bpf {
     }
 }
 
+use std::env;
+
 fn main(){
-    let interface_name = "en0";
-    let mut bpf = Bpf::open().unwrap();
-    bpf.bind(interface_name).unwrap();
-    bpf.prepare().unwrap();
+    let mut args = env::args();
+
+    if args.len() < 2 {
+        println!("Usage:\n    $ sudo target/debug/bpf <interface name>");
+        return ();
+    }
+    let interface_name = args.nth(1).unwrap().clone();
+
+    let mut bpf = Bpf::open().expect("can't open bpf device");
+    bpf.bind(&interface_name).expect("bind interface fail");
+    println!("BPF bind to: {:?}", interface_name);
+
+    bpf.prepare().expect("prepare fail");
+
+    let blen = bpf.blen().expect("can't get blen");
+    println!("BPF blen: {:?}", blen);
+    
+    let mut read_buffer: Vec<u8> = vec![0u8; blen];
 
     match bpf.datalink_type() {
         Ok(datalink_type) => match datalink_type {
-            DLT_EN10MB => {
-                let blen = bpf.blen().unwrap();
-                let mut read_buffer: Vec<u8> = vec![0u8; blen];
+            DLT_NULL => {
+                // utun and loppback 's datalink type: DLT_NULL (0)
+                // utun    : 0, 0, 0, 2
+                // loopback: 2, 0, 0, 0
                 loop {
-                    bpf.read(&mut read_buffer, blen);
+                    bpf.read(&mut read_buffer, blen, 4);
                 }
             }
-            _ => {}
+            DLT_EN10MB => {
+                loop {
+                    bpf.read(&mut read_buffer, blen, 0);
+                }
+            }
+            e @ _ => {
+                println!("unknow datalink type: {:?}", e);
+            }
         }
         Err(e) => {
             println!("{:?}", e);
         }
     }
+
+    drop(bpf);
 }
