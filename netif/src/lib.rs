@@ -1,6 +1,4 @@
 #![feature(i128_type)]
-// #![allow(unused_imports, unused_assignments, unused_variables)]
-
 
 #[macro_use]
 extern crate cfg_if;

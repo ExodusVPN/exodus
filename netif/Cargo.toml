@@ -4,25 +4,18 @@ version = "0.1.0"
 authors = ["luozijun <gnulinux@126.com>"]
 
 [[bin]]
-name = "link"
-path = "bin/link.rs"
+name = "ip"
+path = "bin/ip.rs"
 
 [[bin]]
 name = "bpf"
 path = "src/bpf.rs"
 
-[[bin]]
-name = "neigh"
-path = "bin/neigh.rs"
-
-[[bin]]
-name = "route"
-path = "bin/route.rs"
-
 [dependencies]
 cfg-if = "0.1"
 bitflags = "1.0"
 ipnetwork = "0.12"
+clap = "^2"
 
 [dependencies.libc]
 git = "https://github.com/rust-lang/libc"
