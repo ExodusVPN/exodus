@@ -13,13 +13,13 @@ Run
 
 .. code:: bash
     
-    # same as `ip addr`
-    cargo run --bin interfaces
+    # same as `ip link list`
+    cargo run --bin link
     # same as `ip neigh`
     cargo run --bin neigh
     # same as `ip route list`
     cargo run --bin route
-
+    
     # bsd `bpf` raw packet read and write.
     cargo run --bin bpf
     sudo target/debug/bpf
