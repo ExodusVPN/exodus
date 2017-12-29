@@ -1,21 +1,15 @@
-#![allow(non_camel_case_types, non_snake_case, dead_code, unused_variables, 
-    unused_mut, unused_unsafe, unused_imports, unused_assignments)]
-
 #![cfg(any(target_os = "macos", target_os = "freebsd"))]
 
 use sys;
 use HwAddr;
 use ipnetwork::IpNetwork;
-use ipnetwork::ip_mask_to_prefix;
 
 
-use std::ffi::CStr;
 use std::io;
 use std::ptr;
 use std::mem;
 use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use std::string::ToString;
 
 
 bitflags! {
@@ -240,7 +234,7 @@ pub fn list() -> Result<Vec<Table>, io::Error>{
         return Err(io::Error::last_os_error());
     }
     
-    let mut buf = vec![0u8; lenp];
+    let buf = vec![0u8; lenp];
     let buf_ptr = buf.as_ptr();
 
     ret = unsafe {

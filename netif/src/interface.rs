@@ -1,23 +1,15 @@
+#![cfg(any(target_os = "macos", target_os = "freebsd", target_os = "linux"))]
 
-use std::ffi::{CStr, CString};
-use std::net::{
-    IpAddr, Ipv4Addr, Ipv6Addr, 
-    SocketAddr, SocketAddrV4, SocketAddrV6
-};
-use std::mem;
-use std::io;
+
+use std::net::IpAddr;
 use std::fmt;
-use std::ptr;
-use std::time::Duration;
 
 
 use sys;
 use nix;
-use nix::sys::socket::{EtherAddr, SockAddr, AddressFamily};
-use nix::net::if_::{InterfaceFlags, if_nametoindex};
+use nix::sys::socket::{EtherAddr, SockAddr};
+use nix::net::if_::{InterfaceFlags};
 use nix::ifaddrs::InterfaceAddress;
-
-
 
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
