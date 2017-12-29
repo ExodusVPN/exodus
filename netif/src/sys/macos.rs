@@ -3,6 +3,7 @@
 use libc;
 use sys;
 
+use std::str;
 use std::io;
 use std::ffi::CStr;
 use std::ffi::CString;
@@ -137,8 +138,6 @@ pub fn if_name_to_mtu(name: &str) -> Result<usize, io::Error> {
         Ok(ifreq.ifr_mtu as usize)
     }
 }
-
-use std::str;
 
 pub fn if_index_to_name(ifindex: u32) -> String{
     let ifname_buf: [u8; libc::IF_NAMESIZE] = [0u8; libc::IF_NAMESIZE];
