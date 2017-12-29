@@ -1,12 +1,4 @@
 
-
-use ::{sys, nix, libc};
-
-
-use nix::sys::socket::{EtherAddr, SockAddr, AddressFamily};
-use nix::net::if_::{InterfaceFlags, if_nametoindex};
-use nix::ifaddrs::InterfaceAddress;
-
 use std::ffi::{CStr, CString};
 use std::net::{
     IpAddr, Ipv4Addr, Ipv6Addr, 
@@ -17,6 +9,15 @@ use std::io;
 use std::fmt;
 use std::ptr;
 use std::time::Duration;
+
+
+use sys;
+use nix;
+use nix::sys::socket::{EtherAddr, SockAddr, AddressFamily};
+use nix::net::if_::{InterfaceFlags, if_nametoindex};
+use nix::ifaddrs::InterfaceAddress;
+
+
 
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -59,7 +60,6 @@ impl NetworkInterface {
     pub fn is_loopback(&self) -> bool {
         self.flags.contains(InterfaceFlags::IFF_LOOPBACK)
     }
-
     pub fn is_tap(&self) -> bool {
         !self.is_loopback() 
         && self.flags.contains(InterfaceFlags::IFF_BROADCAST)
@@ -71,71 +71,6 @@ impl NetworkInterface {
     }
 }
 
-#[repr(C)]
-#[derive(Debug)]
-pub struct ifreq {
-    ifr_name: [libc::c_char; libc::IF_NAMESIZE],
-    ifr_mtu: libc::c_int
-}
-
-#[cfg(target_os = "linux")]
-fn if_name_to_mtu(name: &str) -> Option<usize> {
-    let mut ifreq = ifreq {
-        ifr_name: [0; libc::IF_NAMESIZE],
-        ifr_mtu: 0
-    };
-
-    for (i, byte) in name.as_bytes().iter().enumerate() {
-        ifreq.ifr_name[i] = *byte as libc::c_char
-    }
-
-    let fd = unsafe {
-        let fd = libc::socket(libc::AF_PACKET, libc::SOCK_RAW | libc::SOCK_NONBLOCK,
-                              sys::ETH_P_ALL.to_be() as i32);
-        if fd == -1 {
-            // let err = Err(io::Error::last_os_error());
-            return None
-        }
-        fd
-    };
-    unsafe {
-        let res = libc::ioctl(fd, sys::SIOCGIFMTU, &mut ifreq as *mut ifreq);
-        if res == -1 {
-            // let err = Err(io::Error::last_os_error());
-            return None;
-        }
-    }
-    Some(ifreq.ifr_mtu as usize)
-}
-
-#[cfg(target_os = "macos")]
-fn if_name_to_mtu(name: &str) -> Option<usize> {
-    let fd = unsafe {
-        let fd = libc::socket(libc::AF_INET, libc::SOCK_DGRAM, 0);
-        if fd == -1 {
-            // let err = Err(io::Error::last_os_error());
-            return None
-        }
-        fd
-    };
-
-    let mut ifreq = ifreq {
-        ifr_name: [0; libc::IF_NAMESIZE],
-        ifr_mtu: 0
-    };
-    for (i, byte) in name.as_bytes().iter().enumerate() {
-        ifreq.ifr_name[i] = *byte as libc::c_char
-    }
-
-    unsafe {
-        let res = libc::ioctl(fd, sys::SIOCGIFMTU, &mut ifreq as *mut ifreq);
-        if res == -1 {
-            // let err = Err(io::Error::last_os_error());
-            return None;
-        }
-    }
-    Some(ifreq.ifr_mtu as usize)
-}
 
 pub fn interfaces () -> Vec<NetworkInterface> {
     let mut ifaces: Vec<NetworkInterface> = vec![];
@@ -148,17 +83,11 @@ pub fn interfaces () -> Vec<NetworkInterface> {
                 SockAddr::Inet(inet_addr) => {
                     iface.addrs.push(Addr::Ip(inet_addr.to_std().ip()));
                 },
-                SockAddr::Unix(_) => {
-                    // PASS
-                }
+                SockAddr::Unix(_) => { },
                 #[cfg(any(target_os = "android", target_os = "linux"))]
-                SockAddr::Netlink(_) => {
-                    // PASS
-                },
+                SockAddr::Netlink(_) => { },
                 #[cfg(any(target_os = "ios", target_os = "macos"))]
-                SockAddr::SysControl(_) => {
-                    // PASS
-                },
+                SockAddr::SysControl(_) => { },
                 #[cfg(any(target_os = "dragonfly",
                           target_os = "freebsd",
                           target_os = "ios",
@@ -217,8 +146,8 @@ pub fn interfaces () -> Vec<NetworkInterface> {
         }
 
         if !found {
-            let if_index = if_nametoindex(name.as_str()).unwrap();
-            let if_mtu   = if_name_to_mtu(&name).unwrap();
+            let if_index = sys::if_name_to_index(&name);
+            let if_mtu   = sys::if_name_to_mtu(&name).unwrap();
             let mut iface = NetworkInterface {
                 name : name.clone(),
                 index: if_index as usize,

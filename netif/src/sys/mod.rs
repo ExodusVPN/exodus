@@ -1,8 +1,6 @@
 #![cfg(any(target_os = "macos", target_os = "freebsd", target_os = "linux"))]
 #![allow(non_camel_case_types, non_snake_case, dead_code)]
 
-extern crate libc;
-
 pub use libc::*;
 
 cfg_if! {

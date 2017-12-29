@@ -4,8 +4,8 @@ version = "0.1.0"
 authors = ["luozijun <gnulinux@126.com>"]
 
 [[bin]]
-name = "interfaces"
-path = "src/main.rs"
+name = "link"
+path = "bin/link.rs"
 
 [[bin]]
 name = "bpf"
@@ -13,14 +13,15 @@ path = "src/bpf.rs"
 
 [[bin]]
 name = "neigh"
-path = "src/neighbor.rs"
+path = "bin/neigh.rs"
 
 [[bin]]
 name = "route"
-path = "src/route.rs"
+path = "bin/route.rs"
 
 [dependencies]
 cfg-if = "0.1"
+bitflags = "1.0"
 ipnetwork = "0.12"
 
 [dependencies.libc]
@@ -31,6 +32,8 @@ branch = "master"
 [dependencies.nix]
 git = "https://github.com/LuoZijun/nix"
 branch = "patch-4"
+# path = "../../nix"
+
 
 [dependencies.smoltcp]
 git = "https://github.com/m-labs/smoltcp"

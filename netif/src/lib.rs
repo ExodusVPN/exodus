@@ -1,26 +1,26 @@
+#![feature(i128_type)]
 #![allow(unused_imports, unused_assignments, unused_variables)]
-// #![cfg(all(unix, windows))]
+
 
 #[macro_use]
 extern crate cfg_if;
+#[macro_use]
+extern crate bitflags;
 extern crate libc;
+extern crate nix;
 extern crate ipnetwork;
 extern crate smoltcp;
 
 #[cfg(windows)]
 extern crate winapi;
-// #[cfg(unix)]
-extern crate nix;
-
 
 pub mod sys;
 pub mod interface;
 
+mod hwaddr;
+pub use hwaddr::HwAddr;
 
-fn main() {
-    let ifaces = interface::interfaces();
-    for x in ifaces{
-        println!("{}", x);
-    }
-    
-}
+pub mod neighbor;
+pub mod route;
+
+
