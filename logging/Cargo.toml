@@ -8,7 +8,7 @@ name = "log"
 path = "src/example.rs"
 
 [dependencies]
-log  = "0.3"
+log  = "0.3" # "0.4.1"
 time = "0.1"
-env_logger = "0.3"
+env_logger = { version = "0.3", default-features = false, features = [] }
 ansi_term  = "0.9"
