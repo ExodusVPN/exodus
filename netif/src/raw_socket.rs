@@ -4,6 +4,7 @@ use sys;
 
 use std::io;
 use std::mem;
+use std::ptr;
 use std::ffi::CString;
 use std::time::Duration;
 use std::os::unix::io::RawFd;
@@ -107,6 +108,36 @@ impl RawSocket {
             Err(io::Error::last_os_error())
         } else {
             Ok(len as usize)
+        }
+    }
+
+    pub fn await(&self, millis: Option<u64>) -> Result<(), io::Error> {
+        unsafe {
+            let mut readfds = mem::uninitialized::<sys::fd_set>();
+            sys::FD_ZERO(&mut readfds);
+            sys::FD_SET(self.fd, &mut readfds);
+
+            let mut writefds = mem::uninitialized::<sys::fd_set>();
+            sys::FD_ZERO(&mut writefds);
+
+            let mut exceptfds = mem::uninitialized::<sys::fd_set>();
+            sys::FD_ZERO(&mut exceptfds);
+
+            let mut timeout = sys::timeval { tv_sec: 0, tv_usec: 0 };
+            let timeout_ptr =
+                if let Some(millis) = millis {
+                    timeout.tv_usec = (millis * 1_000) as sys::suseconds_t;
+                    &mut timeout as *mut _
+                } else {
+                    ptr::null_mut()
+                };
+
+            let res = sys::select(self.fd + 1, &mut readfds, &mut writefds, &mut exceptfds, timeout_ptr);
+            if res == -1 {
+                Err(io::Error::last_os_error())
+            } else {
+                Ok(())
+            }
         }
     }
 }

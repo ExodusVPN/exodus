@@ -4,15 +4,10 @@ extern crate netif;
 extern crate smoltcp;
 
 use netif::LinkLayer;
-use netif::sys;
 use smoltcp::wire;
 
 
 use std::env;
-use std::mem;
-use std::ptr;
-use std::io;
-use std::os::unix::io::AsRawFd;
 
 
 fn handle_ip_packet(packet: &[u8]) {
@@ -94,7 +89,6 @@ fn main(){
 
     let mut raw_socket = netif::RawSocket::open(&ifname)
                             .expect(format!("can't open raw socket on netif {}", ifname).as_str());
-    let raw_fd = raw_socket.as_raw_fd();
 
     let mut buffer = vec![0u8; raw_socket.blen()];
 
@@ -103,41 +97,14 @@ fn main(){
     println!("[INFO] Netif: {} Link layer: {:?}\n", ifname, link_layer);
     
     loop {
-        let millis: Option<u64> = None;
-        unsafe {
-            let mut readfds = mem::uninitialized::<sys::fd_set>();
-            sys::FD_ZERO(&mut readfds);
-            sys::FD_SET(raw_fd, &mut readfds);
-
-            let mut writefds = mem::uninitialized::<sys::fd_set>();
-            sys::FD_ZERO(&mut writefds);
-
-            let mut exceptfds = mem::uninitialized::<sys::fd_set>();
-            sys::FD_ZERO(&mut exceptfds);
-
-            let mut timeout = sys::timeval { tv_sec: 0, tv_usec: 0 };
-            let timeout_ptr =
-                if let Some(millis) = millis {
-                    timeout.tv_usec = (millis * 1_000) as sys::suseconds_t;
-                    &mut timeout as *mut _
-                } else {
-                    ptr::null_mut()
-                };
-
-            let res = sys::select(raw_fd + 1, &mut readfds, &mut writefds, &mut exceptfds, timeout_ptr);
-            if res == -1 {
-                println!("[ERROR] {:?}", io::Error::last_os_error() );
-                break;
-            }
-        }
-
+        raw_socket.await(None).unwrap();
 
         match raw_socket.recv(&mut buffer) {
             Ok(size) => {
                 if size <= 0 {
                     continue;
                 }
-                
+
                 match link_layer {
                     LinkLayer::Null => {
                         // macOS loopback or utun
