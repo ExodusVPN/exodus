@@ -51,8 +51,8 @@ impl RawSocket {
 
         let protocol = match link_layer {
             // LinkLayer::Loopback => (sys::ETH_P_LOOP as u16).to_be(),
-            LinkLayer::Eth => (sys::ETH_P_ALL as u16).to_be(),
-            LinkLayer::Ip => (sys::ETH_P_IP as u16).to_be(),
+            LinkLayer::Eth | LinkLayer::Ip => (sys::ETH_P_ALL as u16).to_be(),
+            // LinkLayer::Ip => (sys::ETH_P_IP as u16).to_be(),
             _ => return Err(io::Error::new(io::ErrorKind::Other, "link layer unknow"))
         };
 
