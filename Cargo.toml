@@ -57,7 +57,6 @@ features = [
     "socket-raw", "socket-icmp", "socket-udp", "socket-tcp"
 ]
 
-
 [target.'cfg(unix)'.dependencies.libc]
 git = "https://github.com/rust-lang/libc.git"
 branch = "master"
@@ -70,3 +69,23 @@ branch = "patch-1"
 git = "https://github.com/LuoZijun/nix.git"
 branch = "patch-4"
 
+
+[profile.dev]
+opt-level = 0
+debug = true
+rpath = false
+lto = false
+debug-assertions = true
+codegen-units = 1
+panic = 'unwind'
+incremental = true
+
+[profile.release]
+opt-level = 3
+debug = false
+rpath = false
+lto = true
+debug-assertions = false
+codegen-units = 9
+panic = 'unwind'
+incremental = false
