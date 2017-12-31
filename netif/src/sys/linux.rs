@@ -4,16 +4,16 @@ use libc;
 use sys;
 
 use std::io;
-
+use std::ffi::CString;
 
 pub const PACKET_ADD_MEMBERSHIP: libc::c_int = 1;
 pub const PACKET_MR_PROMISC: libc::c_int = 1;
 
 
-pub const SIOCGIFMTU: libc::c_uint = 0x00008921;
-pub const SIOCSIFMTU: libc::c_uint = 0x00008922;
-pub const SIOCGIFMETRIC: libc::c_uint = 0x0000891d;
-pub const SIOCSIFMETRIC: libc::c_uint = 0x0000891e;
+pub const SIOCGIFMTU: libc::c_ulong = 0x00008921;
+pub const SIOCSIFMTU: libc::c_ulong = 0x00008922;
+pub const SIOCGIFMETRIC: libc::c_ulong = 0x0000891d;
+pub const SIOCSIFMETRIC: libc::c_ulong = 0x0000891e;
 pub const SIOCGIFINDEX: libc::c_ulong = 0x8933;
 
 pub const TUNSETIFF:    libc::c_ulong = 0x400454CA;
@@ -68,4 +68,8 @@ pub fn if_name_to_mtu(name: &str) -> Result<usize, io::Error> {
     } else {
         Ok(ifreq.ifr_mtu as usize)
     }
+}
+
+pub fn if_name_to_index(ifname: &str) -> u32 {
+    unsafe { sys::if_nametoindex(CString::new(ifname).unwrap().as_ptr()) }
 }

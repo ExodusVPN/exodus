@@ -8,8 +8,9 @@ name = "ip"
 path = "bin/ip.rs"
 
 [[bin]]
-name = "bpf"
-path = "src/bpf.rs"
+name = "packetdump"
+path = "bin/packetdump.rs"
+
 
 [dependencies]
 cfg-if = "0.1"

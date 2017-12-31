@@ -20,6 +20,7 @@ Run
     target/debug/ip neigh
     target/debug/ip route
     
-    # bsd `bpf` raw packet read and write.
-    cargo run --bin bpf
-    sudo target/debug/bpf
+    # macOS: support tap/utun/loopback
+    # linux: support tap/loopback
+    cargo run --bin packetdump
+    sudo target/debug/packetdump

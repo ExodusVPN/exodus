@@ -13,6 +13,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 
 bitflags! {
+    // https://github.com/apple/darwin-xnu/blob/master/bsd/net/route.h
     pub struct Flags: i32 {
         const RTF_UP = sys::RTF_UP;
         const RTF_GATEWAY = sys::RTF_GATEWAY;
