@@ -8,10 +8,7 @@ authors = ["luozijun <gnulinux@126.com>"]
 members = [
     "logging",
     "iana",
-    "netif",
-    # "netstack",
-    # "netproxy",
-    # "nettunnel",
+    "netif"
 ]
 
 
@@ -34,7 +31,7 @@ rand = "0.4"
 mio      = "0.6.11"
 mio-more = "0.1.0"
 futures  = "0.1.17"
-
+ipnetwork = "0.12"
 
 [dependencies.logging]
 path = "./logging"
