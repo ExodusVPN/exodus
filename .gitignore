@@ -2,6 +2,8 @@
 *.pyc
 *.pyo
 __pycache__
+*.DS_Store
+*.bk
 
 /target/
 **/*.rs.bk

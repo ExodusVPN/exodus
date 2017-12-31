@@ -7,9 +7,7 @@ members = [
     "taptun",
 
     "netif",
-    "netpacket",
     "netstack",
-    "netfilter",
     "netproxy",
     "nettunnel",
 ]
