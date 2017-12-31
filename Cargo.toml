@@ -1,11 +1,72 @@
+[package]
+name = "exodus"
+version = "0.1.0"
+authors = ["luozijun <gnulinux@126.com>"]
+
 
 [workspace]
 members = [
     "logging",
     "iana",
     "netif",
-    
-    "netstack",
-    "netproxy",
-    "nettunnel",
+    # "netstack",
+    # "netproxy",
+    # "nettunnel",
 ]
+
+
+[[bin]]
+name = "vpn"
+path = "src/bin/vpn.rs"
+
+[[bin]]
+name = "proxy"
+path = "src/bin/proxy.rs"
+
+
+[dependencies]
+cfg-if = "0.1"
+bitflags = "1.0"
+byteorder = "1.2.1"
+clap = "2.29.0"
+rand = "0.4"
+
+mio      = "0.6.11"
+mio-more = "0.1.0"
+futures  = "0.1.17"
+
+
+[dependencies.logging]
+path = "./logging"
+
+[dependencies.ctrlc]
+version = "3.0"
+features = ["termination"]
+
+[dependencies.ring]
+git = "https://github.com/briansmith/ring.git"
+branch = "master"
+
+[dependencies.smoltcp]
+git = "https://github.com/m-labs/smoltcp.git"
+branch = "master"
+default-features = false
+features = [
+    "std", "log",
+    "proto-ipv4", "proto-ipv6",
+    "socket-raw", "socket-icmp", "socket-udp", "socket-tcp"
+]
+
+
+[target.'cfg(unix)'.dependencies.libc]
+git = "https://github.com/rust-lang/libc.git"
+branch = "master"
+
+[target.'cfg(unix)'.dependencies.tun]
+git = "https://github.com/LuoZijun/rust-tun.git"
+branch = "patch-1"
+
+[target.'cfg(unix)'.dependencies.nix]
+git = "https://github.com/LuoZijun/nix.git"
+branch = "patch-4"
+
