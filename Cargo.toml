@@ -2,11 +2,9 @@
 [workspace]
 members = [
     "logging",
-    
     "iana",
-    "taptun",
-
     "netif",
+    
     "netstack",
     "netproxy",
     "nettunnel",
