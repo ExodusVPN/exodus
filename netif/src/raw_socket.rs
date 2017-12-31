@@ -32,7 +32,31 @@ pub struct RawSocket {
 #[cfg(target_os = "linux")]
 impl RawSocket {
     pub fn open(ifname: &str) -> Result<RawSocket, io::Error> {
-        let protocol = (sys::ETH_P_ALL as u16).to_be();
+        let flags = sys::if_name_to_flags(ifname).unwrap();
+        let link_layer = 
+            if flags & sys::IFF_LOOPBACK != 0 {
+                // Loopback: IFF_UP | IFF_LOOPBACK | IFF_RUNNING
+                // LinkLayer::Loopback
+                LinkLayer::Eth
+            } else if flags & sys::IFF_BROADCAST != 0 {
+                // TAP: IFF_UP | IFF_BROADCAST | IFF_RUNNING | IFF_MULTICAST
+                LinkLayer::Eth
+            } else if flags & sys::IFF_POINTOPOINT != 0 {
+                // TUN: POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP
+                LinkLayer::Ip
+            } else {
+                // unknow interface
+                return Err(io::Error::new(io::ErrorKind::Other, "link layer unknow"))
+            };
+
+        let protocol = match link_layer {
+            // LinkLayer::Loopback => (sys::ETH_P_LOOP as u16).to_be(),
+            LinkLayer::Eth => (sys::ETH_P_ALL as u16).to_be(),
+            LinkLayer::Ip => (sys::ETH_P_IP as u16).to_be(),
+            _ => return Err(io::Error::new(io::ErrorKind::Other, "link layer unknow"))
+        };
+
+        // let protocol = (sys::ETH_P_ALL as u16).to_be();
         let fd = unsafe {
             sys::socket(sys::AF_PACKET, sys::SOCK_RAW | sys::SOCK_NONBLOCK, protocol as i32)
         };
@@ -53,9 +77,7 @@ impl RawSocket {
             sll_addr:     [0; 8]
         };
         
-
         let sa = &sll as *const sys::sockaddr_ll as *const sys::sockaddr;
-
         let ret = unsafe { sys::bind(fd, sa, mem::size_of::<sys::sockaddr_ll>() as u32) };
 
         if ret == -1 {
@@ -64,7 +86,9 @@ impl RawSocket {
         }
         
         let mtu = sys::if_name_to_mtu(ifname).unwrap();
-        Ok(RawSocket { fd: fd, dt: LinkLayer::Eth, blen: mtu })
+
+
+        Ok(RawSocket { fd: fd, dt: link_layer, blen: mtu })
 
     }
 
@@ -88,7 +112,7 @@ impl RawSocket {
                       buffer.as_mut_ptr() as *mut sys::c_void,
                       buffer.len(), 0)
         };
-
+        
         if len == -1 {
             Err(io::Error::last_os_error())
         } else {
