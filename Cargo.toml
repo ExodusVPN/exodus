@@ -22,23 +22,21 @@ path = "src/bin/proxy.rs"
 
 
 [dependencies]
+logging = { path = "./logging" }
+netif = { path = "./netif" }
+
 cfg-if = "0.1"
 bitflags = "1.0"
 byteorder = "1.2.1"
-clap = "2.29.0"
+ipnetwork = "0.12"
+mio-more = "0.1.0"
 rand = "0.4"
 
-mio      = "0.6.11"
-mio-more = "0.1.0"
-futures  = "0.1.17"
-ipnetwork = "0.12"
-
-[dependencies.logging]
-path = "./logging"
-
-[dependencies.ctrlc]
-version = "3.0"
-features = ["termination"]
+clap     = { version = "2.29.0", default-features = false, features = [] }
+ctrlc    = { version = "3.0.3", default-features = false, features = ["termination"] }
+hwaddr   = { version = "0.1.3", default-features = false, features = [] }
+futures  = { version = "0.1.17", default-features = false, features = ["use_std"] }
+mio      = { version = "0.6.11", default-features = false, features = [] }
 
 [dependencies.ring]
 git = "https://github.com/briansmith/ring.git"
@@ -54,13 +52,15 @@ features = [
     "socket-raw", "socket-icmp", "socket-udp", "socket-tcp"
 ]
 
-[target.'cfg(unix)'.dependencies.libc]
-git = "https://github.com/rust-lang/libc.git"
-branch = "master"
-
 [target.'cfg(unix)'.dependencies.tun]
 git = "https://github.com/LuoZijun/rust-tun.git"
 branch = "patch-1"
+default-features = false
+features = ["mio"]
+
+[target.'cfg(unix)'.dependencies.libc]
+git = "https://github.com/rust-lang/libc.git"
+branch = "master"
 
 [target.'cfg(unix)'.dependencies.nix]
 git = "https://github.com/LuoZijun/nix.git"
@@ -73,7 +73,7 @@ debug = true
 rpath = false
 lto = false
 debug-assertions = true
-codegen-units = 1
+codegen-units = 3
 panic = 'unwind'
 incremental = true
 
@@ -83,6 +83,6 @@ debug = false
 rpath = false
 lto = true
 debug-assertions = false
-codegen-units = 9
+# codegen-units = 3 # codegen-units ignored with lto=true
 panic = 'unwind'
 incremental = false
