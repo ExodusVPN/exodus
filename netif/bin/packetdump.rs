@@ -98,13 +98,11 @@ fn main(){
     
     loop {
         raw_socket.await(None).unwrap();
-
         match raw_socket.recv(&mut buffer) {
             Ok(size) => {
                 if size <= 0 {
                     continue;
                 }
-
                 match link_layer {
                     LinkLayer::Null => {
                         // macOS loopback or utun
