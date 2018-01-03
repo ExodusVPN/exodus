@@ -134,6 +134,10 @@ impl RawSocket {
         }
     }
 
+    pub fn write(&mut self, buffer: &[u8]) -> Result<usize, io::Error> {
+        self.send(buffer)
+    }
+
     pub fn await(&self, millis: Option<u64>) -> Result<(), io::Error> {
         unsafe {
             let mut readfds = mem::uninitialized::<sys::fd_set>();

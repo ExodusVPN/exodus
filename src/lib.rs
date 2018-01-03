@@ -33,28 +33,24 @@ pub mod signal;
 pub mod vpn;
 pub mod proxy;
 
-use byteorder::{BigEndian, ByteOrder};
 
 use netif::{LinkLayer, RawSocket};
 use netif::interface::NetworkInterface;
+
+use byteorder::{ByteOrder, BigEndian, NetworkEndian};
 
 use mio::Evented;
 use mio::unix::EventedFd;
 
 use smoltcp::wire;
-
 use tun::platform::Device as TunDevice;
 
-use std::net::IpAddr;
-use std::net::Ipv4Addr;
-use std::net::SocketAddr;
-use std::net::UdpSocket;
 use std::process;
-use std::os::unix::io::RawFd;
-use std::os::unix::io::AsRawFd;
-use std::io::Write;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::collections::HashMap;
+use std::os::unix::io::{RawFd, AsRawFd};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
+use std::str::FromStr;
 
 
 const TUN_TOKEN: mio::Token = mio::Token(0);
@@ -96,20 +92,73 @@ pub fn create_tun(ifname: &str, addr: Ipv4Addr, dst: Ipv4Addr, netmask: Ipv4Addr
     tun::create(&config).expect("虚拟网络设备创建失败")
 }
 
-pub fn create_vpn_server(tun_ifname: &str, server_socket_addr: SocketAddr ) {
+pub fn create_vpn_server(tun_ifname: &str, gateway_ifname: &str, port: u16) {
+    let gateway_interface = get_interface_by_name(gateway_ifname).unwrap();
+    let gateway_interface_ip = find_ipv4_addr_from_interface(gateway_interface).unwrap();
+    
+    let server_socket_addr = SocketAddr::new(IpAddr::V4(gateway_interface_ip), port);
+
     let tun_ip = Ipv4Addr::new(172, 16, 10, 1);
     let tun_octets = tun_ip.octets();
     let tun_ip_addr = wire::Ipv4Address::from_bytes(&tun_octets);
+    let tun_network_string = format!("{}/24", Ipv4Addr::new(172, 16, 10, 0));
 
     let tun_netmask = Ipv4Addr::new(255, 255, 255, 0);
     let mut tun_device: TunDevice = create_tun(tun_ifname, tun_ip, Ipv4Addr::new(0, 0, 0, 0), tun_netmask);
 
     let udp_socket_raw_fd = mio::net::UdpSocket::bind(&server_socket_addr).unwrap();
-    info!("UDP Socket Listening on: {:?} ...", &server_socket_addr);
+    info!("bind at: {:?} ...", &server_socket_addr);
     info!("TUN ip: {:?}", tun_ip);
+
+    // sudo sysctl -w net.ipv4.ip_forward=1
+    process::Command::new("sysctl")
+        .arg("-w")
+        .arg("net.ipv4.ip_forward=1")
+        .output()
+        .expect("failed to execute process");
+
+    // sudo route add -net 172.16.10.0/24  dev utun10
+    process::Command::new("route")
+        .arg("add")
+        .arg("-net")
+        .arg(tun_network_string.as_str())
+        .arg("dev")
+        .arg(tun_ifname)
+        .output()
+        .expect("failed to execute process");
+
+    // sudo iptables -t nat -A POSTROUTING -s 172.16.10.1/24 -o enp0s3 -j MASQUERADE
+    process::Command::new("iptables")
+        .arg("-t")
+        .arg("nat")
+        .arg("-A")
+        .arg("POSTROUTING")
+        .arg("-s")
+        .arg(tun_network_string.as_str())
+        .arg("-o")
+        .arg(gateway_ifname)
+        .arg("-j")
+        .arg("MASQUERADE")
+        .output()
+        .expect("failed to execute process");
+
+    // sudo iptables -A OUTPUT -o utun10 -j ACCEPT
+    process::Command::new("iptables")
+        .arg("-A")
+        .arg("OUTPUT")
+        .arg("-o")
+        .arg("utun10")
+        .arg("-j")
+        .arg("ACCEPT")
+        .output()
+        .expect("failed to execute process");
+
+
+    // let mut gateway_raw_socket = RawSocket::open(gateway_ifname).unwrap();
 
     let mut udp_buf = [0u8; 1600];
     let mut tun_buf = [0u8; 1600];
+    let mut ethernet_frame_buf = [0u8; 1614];
 
     let mut events = mio::Events::with_capacity(1024);
     let mut registry: HashMap<Ipv4Addr, SocketAddr> = HashMap::new();
@@ -144,7 +193,6 @@ pub fn create_vpn_server(tun_ifname: &str, server_socket_addr: SocketAddr ) {
                                 let remote_octets = remote_ip.octets();
                                 let best_octets = Ipv4Addr::from(best_ip_number).octets();
                                 
-
                                 let msg = [1,
                                     best_octets[0], best_octets[1], best_octets[2], best_octets[3],
                                     remote_octets[0], remote_octets[1], remote_octets[2], remote_octets[3],
@@ -159,54 +207,36 @@ pub fn create_vpn_server(tun_ifname: &str, server_socket_addr: SocketAddr ) {
                         },
                         2 => {
                             let mut packet = &mut udp_buf[1..size];
-                            if packet[0] == 69 {
-                                // Ipv4
-                                let mut ipv4_packet = wire::Ipv4Packet::new(&mut packet);
-                                
-                                let src_ip = Ipv4Addr::from(ipv4_packet.src_addr().0);
-                                let dst_ip = Ipv4Addr::from(ipv4_packet.dst_addr().0);
-
-                                ipv4_packet.set_src_addr(tun_ip_addr);
-                                ipv4_packet.fill_checksum();
-
-                                debug!("[NAT] ({:?} -> {:?}) TO ({:?} -> {:?})",
-                                                        src_ip, dst_ip,
-                                                        tun_ip, dst_ip);
-
-                                // println!("[UDP] {}", &wire::PrettyPrinter::<wire::Ipv4Packet<&[u8]>>::new("", &packet));
-                                // debug!("Write UDP Packet to TUN: {:?}", &packet);
-                                let _ = tun_device.write(ipv4_packet.into_inner());
-                            }
+                            let _ = tun_device.write(&packet);
                         },
                         _ => { }
                     }
                 },
                 TUN_TOKEN => {
                     let size: usize = tun_device.read(&mut tun_buf[1..]).unwrap();
-                    if size == 0 {
-                        continue;
-                    }
                     let data = if cfg!(target_os = "macos") {
+                        if size < 4 {
+                            continue;
+                        }
                         tun_buf[4] = 2;
                         &tun_buf[4..size+1]
                     } else if cfg!(target_os = "linux") {
+                        if size == 0 {
+                            continue;
+                        }
                         tun_buf[0] = 2;
                         &tun_buf[..size+1]
                     } else {
                         panic!("oops ...");
                     };
 
-                    // debug!("Read TUN Packet: {:?}", &data);
-
                     let packet = &data[1..];
                     if packet[0] == 69 {
                         // Ipv4
                         let ipv4_packet = wire::Ipv4Packet::new(&packet);
                         let dst_ip = Ipv4Addr::from(ipv4_packet.dst_addr().0);
-                        println!("[TUN] {}", &wire::PrettyPrinter::<wire::Ipv4Packet<&[u8]>>::new("", &packet));
                         match registry.get(&dst_ip) {
                             Some(remote_socket_addr) => {
-                                debug!("Send TUN Packet to UDP: {:?}", &tun_buf[..size+1]);
                                 udp_socket_raw_fd.send_to(&data, remote_socket_addr).unwrap();
                             }
                             None => { }
@@ -243,16 +273,16 @@ fn dhcp_request(udp_socket: &UdpSocket, buf: &mut [u8]) -> (Ipv4Addr, Ipv4Addr, 
     (internal_ip, public_ip, server_gateway_ip)
 }
 
-pub fn create_vpn_client(tun_ifname: &str, gateway_ifname: &str, server_socket_addr: SocketAddr) {
+pub fn create_vpn_client(tun_ifname: &str, gateway_ifname: &str, port: u16, server_socket_addr: SocketAddr) {
     
     let gateway_interface = get_interface_by_name(gateway_ifname).unwrap();
     let gateway_interface_ip = find_ipv4_addr_from_interface(gateway_interface).unwrap();
     
     let udp_socket = {
-        let local_udp_socket_addr = SocketAddr::new(IpAddr::V4(gateway_interface_ip), 9251);
+        let local_udp_socket_addr = SocketAddr::new(IpAddr::V4(gateway_interface_ip), port);
 
         let s = UdpSocket::bind(&local_udp_socket_addr).expect("couldn't bind to address");
-        debug!("client running on {:?}", local_udp_socket_addr);
+        debug!("bind at {:?}", local_udp_socket_addr);
         s.connect(&server_socket_addr).expect("connect function failed");
         debug!("connect to {:?}", server_socket_addr);
         s
@@ -268,18 +298,13 @@ pub fn create_vpn_client(tun_ifname: &str, gateway_ifname: &str, server_socket_a
     info!("TUN running on {:?} -> {:?}", tun_ip, server_tun_ip);
 
     let udp_socket_raw_fd = mio::net::UdpSocket::from_socket(udp_socket).unwrap();
-
     
     let mut events = mio::Events::with_capacity(1024);
     let poll = mio::Poll::new().unwrap();
 
     poll.register(&udp_socket_raw_fd, UDP_TOKEN, mio::Ready::readable(), mio::PollOpt::level()).unwrap();
     poll.register(&tun_device, TUN_TOKEN, mio::Ready::readable(), mio::PollOpt::level()).unwrap();
-    // let gateway_raw_socket = RawSocket::open(gateway_ifname).unwrap();
-    // poll.register(&EventedFd(&gateway_raw_socket.as_raw_fd()),
-    //               GATEWAY_TOKEN, mio::Ready::readable(),
-    //               mio::PollOpt::level()).unwrap();
-
+    
     info!("Ready for transmission.");
     loop {
         if !signal::is_running() {
@@ -290,14 +315,24 @@ pub fn create_vpn_client(tun_ifname: &str, gateway_ifname: &str, server_socket_a
         for event in events.iter() {
             match event.token() {
                 UDP_TOKEN => {
-                    let size = udp_socket_raw_fd.recv(&mut udp_buf).unwrap();
-                    let cmd = udp_buf[0];
+                    let size = udp_socket_raw_fd.recv(&mut udp_buf[4..]).unwrap();
+                    let cmd = udp_buf[4];
                     if cmd != 2 {
                         continue;
                     }
-                    let packet = &udp_buf[1..size];
-                    println!("[UDP] {}", &wire::PrettyPrinter::<wire::Ipv4Packet<&[u8]>>::new("", &packet));
-                    let _ = tun_device.write(packet);
+                    let packet = if cfg!(target_os = "macos") {
+                        // IPv4: [0, 0, 0, 2]
+                        udp_buf[1] = 0;
+                        udp_buf[2] = 0;
+                        udp_buf[3] = 0;
+                        udp_buf[4] = 2;
+                        &mut udp_buf[1..size+5]
+                    } else if cfg!(target_os = "linux") {
+                        &mut udp_buf[5..size+5]
+                    } else {
+                        panic!("oops...");
+                    };
+                    let _ = tun_device.write(&packet);
                 },
                 TUN_TOKEN => {
                     let size: usize = tun_device.read(&mut tun_buf[1..]).unwrap();
@@ -305,7 +340,6 @@ pub fn create_vpn_client(tun_ifname: &str, gateway_ifname: &str, server_socket_a
                         continue;
                     }
                     let data = if cfg!(target_os = "macos") {
-                        // IPv4: [0, 0, 0, 2]
                         tun_buf[4] = 2;
                         &tun_buf[4..size+1]
                     } else if cfg!(target_os = "linux") {
@@ -316,7 +350,6 @@ pub fn create_vpn_client(tun_ifname: &str, gateway_ifname: &str, server_socket_a
                     };
 
                     let packet = &data[1..];
-                    println!("[TUN] {}", &wire::PrettyPrinter::<wire::Ipv4Packet<&[u8]>>::new("", &packet));
                     udp_socket_raw_fd.send(&data).unwrap();
                 },
                 _ => { }
