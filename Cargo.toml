@@ -20,6 +20,9 @@ path = "src/bin/vpn.rs"
 name = "proxy"
 path = "src/bin/proxy.rs"
 
+[[bin]]
+name = "crypto"
+path = "src/crypto.rs"
 
 [dependencies]
 logging = { path = "./logging" }
@@ -28,19 +31,17 @@ netif = { path = "./netif" }
 cfg-if = "0.1"
 bitflags = "1.0"
 byteorder = "1.2.1"
-ipnetwork = "0.12"
+rand = "0.4.1"
+snap = "0.2.3"
+openssl = "0.9.23"
 mio-more = "0.1.0"
-rand = "0.4"
+ipnetwork = "0.12"
 
 clap     = { version = "2.29.0", default-features = false, features = [] }
 ctrlc    = { version = "3.0.3", default-features = false, features = ["termination"] }
 hwaddr   = { version = "0.1.3", default-features = false, features = [] }
 futures  = { version = "0.1.17", default-features = false, features = ["use_std"] }
 mio      = { version = "0.6.11", default-features = false, features = [] }
-
-[dependencies.ring]
-git = "https://github.com/briansmith/ring.git"
-branch = "master"
 
 [dependencies.smoltcp]
 git = "https://github.com/m-labs/smoltcp.git"
