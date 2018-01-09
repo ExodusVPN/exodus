@@ -1,6 +1,10 @@
 Exodus: Ciphertext and plaintext
 ====================================
 
+.. image:: https://badges.gitter.im/Join%20Chat.svg
+    :alt: Join the chat at https://gitter.im/luozijun/exodus
+    :target: https://gitter.im/luozijun/exodus?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge
+
 .. image:: assets/logo.jpg
 
 
