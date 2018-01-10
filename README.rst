@@ -62,8 +62,10 @@ Debian 9:
 Run
 -------
 
+    WARN: Do Not Run `VPN Server` On a Production Env.
+
+
 .. code:: bash
-    
 
     cd exodus
     # VPN Server
