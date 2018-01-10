@@ -2,11 +2,6 @@
 
 use libc;
 
-pub const SIOCGIFMTU: libc::c_ulong = 0xc0206933;
-pub const SIOCSIFMTU: libc::c_ulong = 0x80206934;
-
-pub const SIOCGIFMETRIC: libc::c_ulong = 0xc0206917;
-pub const SIOCSIFMETRIC: libc::c_ulong = 0x80206918;
 
 pub const BIOCSETIF: libc::c_ulong = 0x8020426c;
 pub const BIOCGETIF: libc::c_ulong = 0x4020426b;

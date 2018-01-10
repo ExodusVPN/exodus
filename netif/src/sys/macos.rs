@@ -9,9 +9,52 @@ use std::ffi::CStr;
 use std::ffi::CString;
 
 
+pub const SIOCSIFADDR: libc::c_ulong = 0x8020690c;
+pub const SIOCGIFADDR: libc::c_ulong = 0xc0206921;
+pub const SIOCSIFDSTADDR: libc::c_ulong = 0x8020690e;
+pub const SIOCGIFDSTADDR: libc::c_ulong = 0xc0206922;
+pub const SIOCSIFBRDADDR: libc::c_ulong = 0x80206913;
+pub const SIOCGIFBRDADDR: libc::c_ulong = 0xc0206923;
+pub const SIOCSIFFLAGS: libc::c_ulong = 0x80206910;
+pub const SIOCGIFFLAGS: libc::c_ulong = 0xc0206911;
+pub const SIOCSIFNETMASK: libc::c_ulong = 0x80206916;
+pub const SIOCGIFNETMASK: libc::c_ulong = 0xc0206925;
+pub const SIOCGIFMETRIC: libc::c_ulong = 0xc0206917;
+pub const SIOCSIFMETRIC: libc::c_ulong = 0x80206918;
+pub const SIOCGIFMTU: libc::c_ulong = 0xc0206933;
+pub const SIOCSIFMTU: libc::c_ulong = 0x80206934;
+pub const SIOCSIFMEDIA: libc::c_ulong = 0xc0206937;
+pub const SIOCGIFMEDIA: libc::c_ulong = 0xc02c6938;
+pub const SIOCGIFSTATUS: libc::c_ulong = 0xc331693d;
+pub const SIOCSIFLLADDR: libc::c_ulong = 0x8020693c;
+
+
 pub const RTF_LLDATA: libc::c_int = 0x400;
 pub const RTF_DEAD: libc::c_int = 0x20000000;
 pub const RTPRF_OURS: libc::c_int = libc::RTF_PROTO3;
+
+#[repr(C)]
+#[allow(non_snake_case)]
+#[derive(Copy, Clone)]
+pub union ifru {
+    pub addr:      libc::sockaddr,
+    pub dstaddr:   libc::sockaddr,
+    pub broadaddr: libc::sockaddr,
+    pub flags:     libc::c_short,
+    pub metric:    libc::c_int,
+    pub mtu:       libc::c_int,
+    pub media:     libc::c_int,
+    pub data:      *mut libc::c_void,
+}
+
+#[repr(C)]
+#[allow(non_snake_case)]
+#[derive(Copy, Clone)]
+pub struct ifreq {
+    pub ifr_name: [libc::c_char; libc::IF_NAMESIZE],
+    pub ifru: ifru,
+}
+
 
 #[repr(C)]
 #[allow(non_snake_case)]

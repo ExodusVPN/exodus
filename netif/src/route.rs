@@ -11,7 +11,7 @@ use std::mem;
 use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
-
+#[cfg(target_os = "macos")]
 bitflags! {
     // https://github.com/apple/darwin-xnu/blob/master/bsd/net/route.h
     pub struct Flags: i32 {
@@ -49,12 +49,34 @@ bitflags! {
     }
 }
 
+#[cfg(target_os = "linux")]
+bitflags! {
+    // https://github.com/torvalds/linux/blob/master/include/uapi/linux/route.h
+    // u16
+    pub struct Flags: i32 {
+        const RTF_UP        = sys::RTF_UP as i32;
+        const RTF_GATEWAY   = sys::RTF_GATEWAY as i32;
+        const RTF_HOST      = sys::RTF_HOST as i32;
+        const RTF_REINSTATE = sys::RTF_REINSTATE as i32;
+        const RTF_DYNAMIC   = sys::RTF_DYNAMIC as i32;
+        const RTF_MODIFIED  = sys::RTF_MODIFIED as i32;
+        const RTF_MTU       = sys::RTF_MTU as i32;
+        const RTF_MSS       = sys::RTF_MSS as i32;
+        const RTF_WINDOW    = sys::RTF_WINDOW as i32;
+        const RTF_IRTT      = sys::RTF_IRTT as i32;
+        const RTF_REJECT    = sys::RTF_REJECT as i32;
+    }
+}
+
+
 impl fmt::Display for Flags {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}",
             format!("{:?}", self).replace("RTF_", "").replace(" | ", ","))
     }
 }
+
+
 
 bitflags! {
     pub struct RtmAddrFlags: i32 {

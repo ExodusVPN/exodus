@@ -14,15 +14,12 @@ members = [
 
 [[bin]]
 name = "vpn"
-path = "src/bin/vpn.rs"
+path = "src/vpn.rs"
 
 [[bin]]
-name = "proxy"
-path = "src/bin/proxy.rs"
+name = "vpnd"
+path = "src/vpnd.rs"
 
-[[bin]]
-name = "crypto"
-path = "src/crypto.rs"
 
 [dependencies]
 logging = { path = "./logging" }
@@ -42,6 +39,7 @@ ctrlc    = { version = "3.0.3", default-features = false, features = ["terminati
 hwaddr   = { version = "0.1.3", default-features = false, features = [] }
 futures  = { version = "0.1.17", default-features = false, features = ["use_std"] }
 mio      = { version = "0.6.11", default-features = false, features = [] }
+tun      = { version = "0.4.2", default-features = false, features = ["mio"] }
 
 [dependencies.smoltcp]
 git = "https://github.com/m-labs/smoltcp.git"
@@ -52,12 +50,6 @@ features = [
     "proto-ipv4", "proto-ipv6",
     "socket-raw", "socket-icmp", "socket-udp", "socket-tcp"
 ]
-
-[target.'cfg(unix)'.dependencies.tun]
-git = "https://github.com/LuoZijun/rust-tun.git"
-branch = "patch-1"
-default-features = false
-features = ["mio"]
 
 [target.'cfg(unix)'.dependencies.libc]
 git = "https://github.com/rust-lang/libc.git"

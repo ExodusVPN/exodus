@@ -8,11 +8,13 @@ static RUNNING: AtomicBool = ATOMIC_BOOL_INIT;
 
 
 pub fn init() {
-    RUNNING.store(true, Ordering::SeqCst);
-    ctrlc::set_handler(move || { RUNNING.store(false, Ordering::SeqCst); })
-        .expect("Error setting Ctrl-C handler");
+    RUNNING.store(true, Ordering::Relaxed);
+    ctrlc::set_handler(move || {
+        info!("graceful shutdown ...");
+        RUNNING.store(false, Ordering::Relaxed);
+    }).expect("Setting Ctrl-C handler failed.");
 }
 
 pub fn is_running() -> bool {
-    RUNNING.load(Ordering::SeqCst)
+    RUNNING.load(Ordering::Relaxed)
 }

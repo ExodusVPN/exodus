@@ -4,6 +4,7 @@ use sys;
 
 use std::io;
 use std::mem;
+#[cfg(target_os = "linux")]
 use std::ptr;
 use std::ffi::CString;
 use std::time::Duration;
@@ -13,8 +14,11 @@ use std::os::unix::io::AsRawFd;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum LinkLayer {
+    /// macOS loopback or utun (macOS Only).
     Null,
+    /// Ethernet Frame
     Eth,
+    /// Raw IP Packet
     Ip,
 }
 
@@ -56,7 +60,6 @@ impl RawSocket {
             _ => return Err(io::Error::new(io::ErrorKind::Other, "link layer unknow"))
         };
 
-        // let protocol = (sys::ETH_P_ALL as u16).to_be();
         let fd = unsafe {
             sys::socket(sys::AF_PACKET, sys::SOCK_RAW | sys::SOCK_NONBLOCK, protocol as i32)
         };
@@ -89,16 +92,11 @@ impl RawSocket {
 
 
         Ok(RawSocket { fd: fd, dt: link_layer, blen: mtu })
-
     }
-
+    
     pub fn link_layer(&self) -> LinkLayer {
         // https://github.com/torvalds/linux/blob/master/include/uapi/linux/if_ether.h#L46
         // http://man7.org/linux/man-pages/man7/packet.7.html
-        // ETH_P_ALL   0x0003
-        // ETH_P_LOOP  0x0060
-        // ETH_P_IP    0x0800
-        // ETH_P_ARP   0x0806
         self.dt
     }
 
@@ -241,6 +239,7 @@ impl RawSocket {
         }
     }
 
+    #[allow(dead_code)]
     fn set_link_layer(fd: sys::c_int, dlt: sys::uint32_t) -> Result<(), io::Error> {
         let ret = unsafe { sys::ioctl(fd, sys::BIOCSDLT, &dlt) };
         if ret < 0 {
@@ -290,23 +289,11 @@ impl RawSocket {
                     return Err(io::Error::last_os_error());
                 }
                 
-                // match RawSocket::get_link_layer(bpf_fd).unwrap() {
-                //     // loopback or utun
-                //     // Change Link-Layer type.
-                //     sys::DLT_NULL => RawSocket::set_link_layer(bpf_fd, sys::DLT_RAW).unwrap(),
-                //     // Ethernet frame
-                //     sys::DLT_EN10MB => { },
-                //     // IPv4/IPv6
-                //     sys::DLT_RAW => { },
-                //     // unsupport link layer
-                //     _ => return Err(io::Error::new(io::ErrorKind::Other, "unsupport datalink layer"))
-                // };
-                
                 let link_layer = match RawSocket::get_link_layer(bpf_fd).unwrap() {
                     sys::DLT_NULL => LinkLayer::Null,
                     sys::DLT_EN10MB => LinkLayer::Eth,
                     sys::DLT_RAW => LinkLayer::Ip,
-                    _ => return Err(io::Error::new(io::ErrorKind::Other, "set datalink layer failure."))
+                    _ => return Err(io::Error::new(io::ErrorKind::Other, "get datalink layer failure."))
                 };
                 let blen = RawSocket::get_blen(bpf_fd).unwrap();
                 Ok(RawSocket { fd: bpf_fd, dt: link_layer, blen: blen, len: 0, start: None })
