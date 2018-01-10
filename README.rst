@@ -5,6 +5,12 @@ Exodus: Ciphertext and plaintext
     :alt: Join the chat at https://gitter.im/luozijun/exodus
     :target: https://gitter.im/luozijun/exodus?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge
 
+.. image:: https://img.shields.io/badge/Telegram%20Group-https%3A%2F%2Ft.me%2FExodusProject-blue.svg
+    :alt: Join the chat at https://t.me/ExodusProject
+    :target: https://t.me/ExodusProject
+
+
+
 .. image:: assets/logo.jpg
 
 
