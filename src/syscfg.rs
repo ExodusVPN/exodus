@@ -2,6 +2,9 @@
 use std::process;
 use std::net::Ipv4Addr;
 
+use netif;
+
+
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct DefaultDNS {
     #[cfg(target_os = "macos")]
@@ -92,10 +95,32 @@ pub fn get_default_route() -> Option<(String, Ipv4Addr)> {
                     let s = line.trim();
                     if s.starts_with("default") {
                         let mut _tmp = s.split(" ").collect::<Vec<&str>>();
-                        assert_eq!(_tmp.len(), 5);
-                        let gateway_ip: Ipv4Addr = _tmp[2].trim().parse().unwrap();
-                        let ifname = _tmp[4].trim().to_string();
-                        return Some((ifname, gateway_ip))
+                        if _tmp[1] == "via" {
+                            assert_eq!(_tmp.len(), 5);
+                            let gateway_ip: Ipv4Addr = _tmp[2].trim().parse().unwrap();
+                            let ifname = _tmp[4].trim().to_string();
+                            return Some((ifname, gateway_ip))
+                        } else if _tmp[1] == "dev" {
+                            let ifname = _tmp[2].trim().to_string();
+                            let ifindex = netif::sys::if_name_to_index(&ifname);
+
+                            let mut addrs = vec![];
+                            for iface in netif::interface::interfaces() {
+                                if iface.index() == ifindex {
+                                    match iface.addr(){
+                                        Some(addr) => {
+                                            if !addr.is_loopback() {
+                                                addrs.push(addr);
+                                            }
+                                        },
+                                        None => { }
+                                    }
+                                }
+                            }
+                            if addrs.len() > 0 {
+                                return Some((ifname, addrs[0]))
+                            }
+                        }
                     }
                 }
             }
@@ -151,3 +176,8 @@ pub fn get_default_dns() -> Option<DefaultDNS> {
 //             },
 //             Err(e) => Err(e)
 //         }
+
+fn main (){
+    let r = get_default_route();
+    println!("{:?}", r);
+}
