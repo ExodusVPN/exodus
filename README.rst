@@ -19,6 +19,19 @@ Exodus: Ciphertext and plaintext
 .. contents::
 
 
+Platform Support
+-------------------
+
+VPN Server:
+
+*   Linux > 3.0
+
+VPN Client:
+
+*   macOS >= 10.13
+*   Linux > 3.0
+
+
 Build
 ---------
 
@@ -26,6 +39,7 @@ macOS:
 
 .. code:: bash
     
+    brew install git curl wget clang
     brew install rustup-init
     brew install openssl
 
@@ -46,7 +60,8 @@ Debian 9:
 
 .. code:: bash
     
-    sudo apt install build-essential libssl-dev make cmake clang gcc
+    sudo apt install git curl wget clang pkg-config libssl-dev 
+    sudo apt install build-essential make cmake
 
     wget https://static.rust-lang.org/rustup.sh
     chmod +x rustup.sh
