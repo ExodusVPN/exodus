@@ -80,7 +80,7 @@ impl SystemDns {
     #[cfg(target_os = "linux")]
     pub fn new(dns_server: Ipv4Addr) -> Result<SystemDns, io::Error> {
         match File::open("/etc/resolv.conf") {
-            Ok(file) => {
+            Ok(mut file) => {
                 let mut contents = String::new();
                 match file.read_to_string(&mut contents) {
                     Ok(_) => Ok(SystemDns {
@@ -116,7 +116,7 @@ impl SystemDns {
     pub fn execute(&self) -> Result<(), io::Error> {
         let data = format!("nameserver {}\n", self.dns_server);
         match OpenOptions::new().write(true).create(true).open("/etc/resolv.conf") {
-            Ok(file) => file.write_all(&data.as_bytes()),
+            Ok(mut file) => file.write_all(&data.as_bytes()),
             Err(e) => Err(e)
         }
     }
@@ -143,7 +143,7 @@ impl SystemDns {
     #[cfg(target_os = "linux")]
     pub fn recover(&self) -> Result<(), io::Error> {
         match OpenOptions::new().write(true).create(true).open("/etc/resolv.conf") {
-            Ok(file) => file.write_all(self.resolv_conf.as_bytes()),
+            Ok(mut file) => file.write_all(self.resolv_conf.as_bytes()),
             Err(e) => Err(e)
         }
     }
@@ -189,15 +189,6 @@ pub struct ClientConfig {
     pub prikey: Option<crypto::rsa::PriKey>,
 }
 
-
-#[cfg(target_os = "linux")]
-fn boot() -> Result<ClientConfig, io::Error> {
-    error!("VPN client does not yet support your platform");
-    unimplemented!()
-}
-
-
-#[cfg(target_os = "macos")]
 fn boot() -> Result<ClientConfig, io::Error> {
     use clap::{App, Arg};
 
@@ -361,7 +352,9 @@ fn boot() -> Result<ClientConfig, io::Error> {
         }
     };
 
-    let (default_ifname, default_gateway, default_networkservice) = if matches.is_present("no-autoconfig") {
+    let no_autoconfig: bool = if matches.is_present("no-autoconfig") { true } else { false };
+
+    let (default_ifname, default_gateway, default_networkservice) = if no_autoconfig {
         let default_ifname = match matches.value_of("default-ifname") {
             Some(ifname) => ifname.to_string(),
             None => {
@@ -376,17 +369,21 @@ fn boot() -> Result<ClientConfig, io::Error> {
                 process::exit(1);
             }
         };
-        let default_networkservice = None;
-        (default_ifname, default_gateway, default_networkservice)
+        (default_ifname, default_gateway, None)
     } else {
         match syscfg::get_default_route() {
-            Some((ifname, gateway)) => match syscfg::get_default_networkservice(&ifname) {
-                Some(networkservice) => (ifname, gateway, Some(networkservice)),
-                None => {
-                    println!("Can't get default networkservice.");
-                    process::exit(1);
+            #[cfg(target_os = "macos")]
+            Some((ifname, gateway)) => {
+                match syscfg::get_default_networkservice(&ifname) {
+                    Some(networkservice) => (ifname, gateway, Some(networkservice)),
+                    None => {
+                        println!("Can't get default networkservice.");
+                        process::exit(1);
+                    }
                 }
             },
+            #[cfg(target_os = "linux")]
+            Some((ifname, gateway)) => (ifname, gateway, None),
             None => {
                 println!("Can't get default gateway.");
                 process::exit(1);
@@ -394,12 +391,9 @@ fn boot() -> Result<ClientConfig, io::Error> {
         }
     };
 
-    let no_autoconfig: bool;
-    let dns_server: Option<Ipv4Addr> = if matches.is_present("no-autoconfig") {
-        no_autoconfig = true;
+    let dns_server: Option<Ipv4Addr> = if no_autoconfig {
         None
     } else {
-        no_autoconfig = false;
         Some(matches.value_of("dns").unwrap().parse().unwrap())
     };
     
@@ -565,7 +559,61 @@ fn run (config: &ClientConfig) {
 
 #[cfg(target_os = "linux")]
 fn auto_config(config: &ClientConfig, tun_ip: &Ipv4Addr) {
-    unimplemented!()
+    if !config.no_autoconfig {
+        let server_ip: Ipv4Addr = match config.server_socket_addr.ip() {
+            IpAddr::V4(ipv4_addr) => ipv4_addr,
+            _ => unreachable!()
+        };
+         // sudo route add -n <server_ip> gw 192.168.199.1
+        process::Command::new("route")
+            .arg("add")
+            .arg("-host")
+            .arg(format!("{}", server_ip))
+            .arg("gw")
+            .arg(format!("{}", config.default_gateway))
+            .status()
+            .expect("failed to auto config route");
+
+        // sudo route -n delete default
+        process::Command::new("route")
+            .arg("-n")
+            .arg("delete")
+            .arg("default")
+            .status()
+            .expect("failed to auto config route");
+        // sudo route -n add default gw 172.16.10.13
+        process::Command::new("route")
+            .arg("-n")
+            .arg("add")
+            .arg("default")
+            .arg("gw")
+            .arg(format!("{}", tun_ip))
+            .status()
+            .expect("failed to auto config route");
+
+        info!("auto config routing table    [OK]");
+
+        assert_eq!(config.dns_server.is_some(), true);
+
+        process::Command::new("mv")
+            .arg("/etc/resolv.conf")
+            .arg("/etc/resolv.conf.bk")
+            .status()
+            .expect("failed to auto config dns");
+
+        let data = format!("nameserver {}", config.dns_server.unwrap());
+
+        match OpenOptions::new().write(true).create(true).open("/etc/resolv.conf") {
+            Ok(mut file) => {
+                let _ = file.write_all(data.as_bytes()).unwrap();
+                info!("auto config dns server       [OK]");
+            },
+            Err(e) => {
+                error!("auto config dns server       [FAILURE]");
+                debug!("{:?}", e);
+            }
+        }
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -614,8 +662,51 @@ fn auto_config(config: &ClientConfig, tun_ip: &Ipv4Addr) {
 }
 
 #[cfg(target_os = "linux")]
-fn cleanup(config: &Config) {
-    unimplemented!()
+fn cleanup(config: &ClientConfig) {
+    if !config.no_autoconfig {
+        // 恢复默认路由表设定
+        // sudo route -n delete default
+        process::Command::new("route")
+            .arg("-n")
+            .arg("delete")
+            .arg("default")
+            .status()
+            .expect("failed to auto config route");
+
+        // sudo route -n add default gw 192.168.199.1
+        process::Command::new("route")
+            .arg("-n")
+            .arg("add")
+            .arg("default")
+            .arg("gw")
+            .arg(format!("{}", config.default_gateway))
+            .status()
+            .expect("failed to auto config route");
+
+        let server_ip: Ipv4Addr = match config.server_socket_addr.ip() {
+            IpAddr::V4(ipv4_addr) => ipv4_addr,
+            _ => unreachable!()
+        };
+        process::Command::new("route")
+            .arg("-n")
+            .arg("delete")
+            .arg(format!("{}", server_ip))
+            .status()
+            .expect("failed to restore default route");
+
+        info!("restore default routing table    [OK]");
+
+        // 恢复系统DNS设定
+        assert_eq!(config.dns_server.is_some(), true);
+
+        // sudo mv /etc/resolv.conf.bk /etc/resolv.conf
+        process::Command::new("mv")
+            .arg("/etc/resolv.conf.bk")
+            .arg("/etc/resolv.conf")
+            .status()
+            .expect("failed to auto config dns");
+        info!("restore default dns setting      [OK]");
+    }
 }
 
 
