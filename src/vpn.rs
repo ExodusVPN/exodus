@@ -422,9 +422,27 @@ fn boot() -> Result<ClientConfig, io::Error> {
 
 
 fn run (config: &ClientConfig) {
-    let gateway_interface = Interface::with_name(&config.default_ifname).unwrap();
-    let gateway_interface_ip = gateway_interface.addr().unwrap();
+    // let gateway_interface = Interface::with_name(&config.default_ifname).unwrap();
+    // let gateway_interface_ip = gateway_interface.addr().unwrap();
+    let gateway_interface_ip = {
+        let ifindex = netif::sys::if_name_to_index(&config.default_ifname);
+        let mut addrs = vec![];
+        for iface in netif::interface::interfaces() {
+            if iface.index() == ifindex {
+                match iface.addr(){
+                    Some(addr) => {
+                        if !addr.is_loopback() {
+                            addrs.push(addr);
+                        }
+                    },
+                    None => { }
+                }
+            }
+        }
 
+        assert_eq!(addrs.len() > 0, true);
+        addrs[0]
+    };
     assert_eq!(config.server_socket_addr.ip().is_ipv4(), true);
 
     info!("use default interface {:?}", config.default_ifname);
