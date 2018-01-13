@@ -56,8 +56,8 @@ git = "https://github.com/rust-lang/libc.git"
 branch = "master"
 
 [target.'cfg(unix)'.dependencies.nix]
-git = "https://github.com/LuoZijun/nix.git"
-branch = "patch-4"
+git = "https://github.com/nix-rust/nix.git"
+branch = "master"
 
 
 [profile.dev]
