@@ -321,7 +321,28 @@ fn run(config: &ServerConfig) {
                         },
                         2 => {
                             let mut packet = &mut udp_buf[1..size];
-                            let _ = tun_device.write(&packet);
+                            
+                            let ipv4_packet = wire::Ipv4Packet::new(&packet);
+                            let dst_ip = Ipv4Addr::from(ipv4_packet.dst_addr().0);
+                            
+                            if config.tun_network.contains(dst_ip) {
+                                if dst_ip != tun_ip {
+                                    match registry.get(&dst_ip) {
+                                        Some(remote_socket_addr) => {
+                                            udp_socket_raw_fd.send_to(&udp_buf[..size], remote_socket_addr).unwrap();
+                                        }
+                                        None => { }
+                                    }
+                                }
+                            } else if dst_ip.is_loopback()
+                                    || dst_ip.is_link_local()
+                                    || dst_ip.is_broadcast()
+                                    || dst_ip.is_documentation()
+                                    || dst_ip.is_unspecified() {
+                                    
+                            } else {
+                                let _ = tun_device.write(&packet);
+                            }
                         },
                         _ => { }
                     }
@@ -356,6 +377,7 @@ fn run(config: &ServerConfig) {
                             None => { }
                         }
                     } else if packet[0] == 96 {
+                        // IPv6
                         continue;
                     }
                 },
