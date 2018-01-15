@@ -454,6 +454,8 @@ fn run (config: &ClientConfig) {
         s.set_write_timeout(Some(Duration::new(10, 0))).unwrap();
         s.connect(&config.server_socket_addr).unwrap();
         info!("connect to {}", config.server_socket_addr);
+        s.set_read_timeout(None).unwrap();
+        s.set_write_timeout(None).unwrap();
         s
     };
 
