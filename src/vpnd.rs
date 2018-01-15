@@ -320,7 +320,7 @@ fn run(config: &ServerConfig) {
                             }
                         },
                         2 => {
-                            let mut packet = &mut udp_buf[1..size];
+                            let packet = &udp_buf[1..size];
                             
                             let ipv4_packet = wire::Ipv4Packet::new(&packet);
                             let dst_ip = Ipv4Addr::from(ipv4_packet.dst_addr().0);
