@@ -1,6 +1,7 @@
 #![cfg(any(target_os = "macos", target_os = "freebsd", target_os = "linux"))]
 #![allow(non_camel_case_types, non_snake_case, dead_code)]
 
+#![cfg(not(windows))]
 pub use libc::*;
 
 cfg_if! {
@@ -17,6 +18,9 @@ cfg_if! {
     } else if #[cfg(target_os = "linux")] {
         mod linux;
         pub use self::linux::*;
-    } 
+    } else if #[cfg(windows)] {
+        mod windows;
+        pub use self::windows::*;
+    }
 }
 

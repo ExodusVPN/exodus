@@ -25,10 +25,9 @@ git = "https://github.com/rust-lang/libc"
 branch = "master"
 # version = ">=0.2.34"
 
-[dependencies.nix]
-git = "https://github.com/LuoZijun/nix"
-branch = "patch-4"
-# path = "../../nix"
+[target.'cfg(unix)'.dependencies.nix]
+git = "https://github.com/nix-rust/nix.git"
+branch = "master"
 
 
 [dependencies.smoltcp]
@@ -42,4 +41,4 @@ features = [
 ]
 
 [target.'cfg(windows)'.dependencies]
-winapi  = "0.2.8"
+winapi  = "0.3.4"
