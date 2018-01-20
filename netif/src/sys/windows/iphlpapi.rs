@@ -301,7 +301,7 @@ impl _NET_LUID_Info {
     // 24 bits , The network interface LUID index.
     #[inline]
     pub fn NetLuidIndex(&self) -> ULONG64 {
-        (self.0 & 0b_00000000_00000000_00000000) >> 16
+        ( self.0 >> 16 ) & 0b_00000000_00000000_00000000_11111111_11111111_11111111
     }
 
     // 16 bits
@@ -311,7 +311,7 @@ impl _NET_LUID_Info {
     //       are possible. 
     #[inline]
     pub fn IfType(&self) -> ULONG64 {
-        self.0 & 0b_00000000_00000000_00000000_00000000_00000000_00000000
+        self.0 & 0b_00000000_00000000_00000000_00000000_00000000_00000000_11111111_11111111
     }
 }
 
