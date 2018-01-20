@@ -1,12 +1,14 @@
 
 use parent::*;
 
-const MAX_ADAPTER_DESCRIPTION_LENGTH: usize = 128;
-const MAX_ADAPTER_NAME_LENGTH: usize = 256;
-const MAX_ADAPTER_ADDRESS_LENGTH: usize = 8;
+// from IPHlpApi.h
 
-const MAX_DHCPV6_DUID_LENGTH: usize = 130;
-const MAX_DNS_SUFFIX_STRING_LENGTH: usize = 256;
+pub const MAX_ADAPTER_DESCRIPTION_LENGTH: usize = 128;
+pub const MAX_ADAPTER_NAME_LENGTH: usize = 256;
+pub const MAX_ADAPTER_ADDRESS_LENGTH: usize = 8;
+
+pub const MAX_DHCPV6_DUID_LENGTH: usize = 130;
+pub const MAX_DNS_SUFFIX_STRING_LENGTH: usize = 256;
 
 // from IPTypes.h
 #[repr(C)]
@@ -181,71 +183,76 @@ pub struct _IP_ADAPTER_ADDRESSES {
 pub type IP_ADAPTER_ADDRESSES = _IP_ADAPTER_ADDRESSES;
 pub type PIP_ADAPTER_ADDRESSES = *mut _IP_ADAPTER_ADDRESSES;
 
-
-// #[repr(C)]
-// pub struct IPAddrS_un_b {
-//     pub s_b1: c_uchar,
-//     pub s_b2: c_uchar,
-//     pub s_b3: c_uchar,
-//     pub s_b4: c_uchar,
-// }
-
-// #[repr(C)]
-// pub struct IPAddrS_un_w {
-//     pub s_w1: c_ushort,
-//     pub s_w2: c_ushort,
-// }
-
-// #[repr(C)]
-// pub union IPAddrS_un {
-//     // The IPv4 address of the host formatted as four u_chars.
-//     pub S_un_b: IPAddrS_un_b,
-//     // The IPv4 address of the host formatted as two u_shorts.
-//     pub S_un_w: IPAddrS_un_w,
-//     // Address of the host formatted as a u_long.
-//     pub S_addr: c_ulong
-// }
-
-// #[repr(C)]
-// pub struct IPAddr {
-//     pub S_un: IPAddrS_un
-// }
-
 // https://msdn.microsoft.com/en-us/library/windows/desktop/aa366055(v=vs.85).aspx
 pub type IPAddr = in_addr;
 pub type sockaddr = SOCKADDR;
 
-// DWORD
+
 #[repr(C)]
 pub enum MIB_IPFORWARD_YPE {
-    MIB_IPROUTE_TYPE_OTHER = 1DWORD,
-    MIB_IPROUTE_TYPE_INVALID = 2,
-    MIB_IPROUTE_TYPE_DIRECT = 3,
+    // Some other type not specified in RFC 1354.
+    MIB_IPROUTE_TYPE_OTHER    = 1u32, // DWORD == u32
+    // An invalid route. This value can result from a route added by an ICMP redirect.
+    MIB_IPROUTE_TYPE_INVALID  = 2,
+    // A local route where the next hop is the final destination (a local interface).
+    MIB_IPROUTE_TYPE_DIRECT   = 3,
+    // The remote route where the next hop is not the final destination (a remote destination).
     MIB_IPROUTE_TYPE_INDIRECT = 4
 }
 
-// DWORD
 #[repr(C)]
 pub enum MIB_IPPROTO {
-    MIB_IPPROTO_OTHER = 1DWORD,
+    // Some other protocol not specified in RFC 1354.
+    MIB_IPPROTO_OTHER = 1u32,      // DWORD == u32
+    // A local interface.
     MIB_IPPROTO_LOCAL = 2,
+    // A static route. This value is used to identify route information for 
+    // IP routing set through network management such as the Dynamic Host
+    // Configuration Protocol (DCHP), the Simple Network Management Protocol (SNMP),
+    // or by calls to the CreateIpForwardEntry, DeleteIpForwardEntry, or SetIpForwardEntry functions.
     MIB_IPPROTO_NETMGMT = 3,
+    // The result of ICMP redirect.
     MIB_IPPROTO_ICMP = 4,
+    // The Exterior Gateway Protocol (EGP), a dynamic routing protocol.
     MIB_IPPROTO_EGP = 5,
+    // The Gateway-to-Gateway Protocol (GGP), a dynamic routing protocol.
     MIB_IPPROTO_GGP = 6,
+    // The Hellospeak protocol, a dynamic routing protocol. This is a historical 
+    // entry no longer in use and was an early routing protocol used by the original
+    // ARPANET routers that ran special software called the Fuzzball routing protocol,
+    // sometimes called Hellospeak, as described in RFC 891 and RFC 1305. For more information,
+    // see http://www.ietf.org/rfc/rfc891.txt and http://www.ietf.org/rfc/rfc1305.txt. 
     MIB_IPPROTO_HELLO = 7,
+    // The Berkeley Routing Information Protocol (RIP) or RIP-II, a dynamic routing protocol.
     MIB_IPPROTO_RIP = 8,
+    // The Intermediate System-to-Intermediate System (IS-IS) protocol, 
+    // a dynamic routing protocol. The IS-IS protocol was developed for 
+    // use in the Open Systems Interconnection (OSI) protocol suite.
     MIB_IPPROTO_IS_IS = 9,
+    // The End System-to-Intermediate System (ES-IS) protocol, 
+    // a dynamic routing protocol. The ES-IS protocol was developed for 
+    // use in the Open Systems Interconnection (OSI) protocol suite.
     MIB_IPPROTO_ES_IS = 10,
+    // The Cisco Interior Gateway Routing Protocol (IGRP), a dynamic routing protocol.
     MIB_IPPROTO_CISCO = 11,
+    // The Bolt, Beranek, and Newman (BBN) Interior Gateway Protocol (IGP) that 
+    // used the Shortest Path First (SPF) algorithm. This was an early dynamic routing protocol.
     MIB_IPPROTO_BBN = 12,
+    // The Open Shortest Path First (OSPF) protocol, a dynamic routing protocol.
     MIB_IPPROTO_OSPF = 13,
+    // The Border Gateway Protocol (BGP), a dynamic routing protocol.
     MIB_IPPROTO_BGP = 14,
+    // A Windows specific entry added originally by a routing protocol, but which is now static.
     MIB_IPPROTO_NT_AUTOSTATIC = 10002,
+    // A Windows specific entry added as a static route from the routing user interface or a routing command. 
     MIB_IPPROTO_NT_STATIC = 10006,
+    // A Windows specific entry added as a static route from the routing user interface or a routing command, 
+    // except these routes do not cause Dial On Demand (DOD).
     MIB_IPPROTO_NT_STATIC_NON_DOD = 10007,
 }
 
+// https://msdn.microsoft.com/en-us/library/windows/desktop/aa366850(v=vs.85).aspx
+/// The MIB_IPFORWARDROW structure contains information that describes an IPv4 network route. 
 #[repr(C)]
 pub struct _MIB_IPFORWARDROW {
     pub dwForwardDest: DWORD,
@@ -253,8 +260,8 @@ pub struct _MIB_IPFORWARDROW {
     pub dwForwardPolicy: DWORD,
     pub dwForwardNextHop: DWORD,
     pub dwForwardIfIndex: DWORD,
-    pub dwForwardType: MIB_IPFORWARD_YPE,
-    pub dwForwardProto: MIB_IPPROTO,
+    pub dwForwardType: MIB_IPFORWARD_YPE, // DWORD
+    pub dwForwardProto: MIB_IPPROTO,      // DWORD
     pub dwForwardAge: DWORD,
     pub dwForwardNextHopAS: DWORD,
     pub dwForwardMetric1: DWORD,
@@ -267,24 +274,6 @@ pub struct _MIB_IPFORWARDROW {
 pub type MIB_IPFORWARDROW = _MIB_IPFORWARDROW;
 pub type PMIB_IPFORWARDROW = *mut _MIB_IPFORWARDROW;
 
-typedef struct _MIB_IPFORWARD_ROW2 {
-  NET_LUID          InterfaceLuid;
-  NET_IFINDEX       InterfaceIndex;
-  IP_ADDRESS_PREFIX DestinationPrefix;
-  SOCKADDR_INET      NextHop;
-  UCHAR             SitePrefixLength;
-  ULONG             ValidLifetime;
-  ULONG             PreferredLifetime;
-  ULONG             Metric;
-  NL_ROUTE_PROTOCOL Protocol;
-  BOOLEAN           Loopback;
-  BOOLEAN           AutoconfigureAddress;
-  BOOLEAN           Publish;
-  BOOLEAN           Immortal;
-  ULONG             Age;
-  NL_ROUTE_ORIGIN   Origin;
-} MIB_IPFORWARD_ROW2, *PMIB_IPFORWARD_ROW2;
-
 
 // https://msdn.microsoft.com/en-us/library/windows/desktop/aa366320(v=vs.85).aspx
 // https://github.com/Alexpux/mingw-w64/blob/master/mingw-w64-headers/include/ifdef.h#L96
@@ -292,8 +281,10 @@ typedef struct _MIB_IPFORWARD_ROW2 {
 pub struct _NET_LUID_Info {
     pub Reserved: ULONG64,     // :24 , This field is reserved.
     pub NetLuidIndex: ULONG64, // :24 , The network interface LUID index.
-    pub IfType: ULONG64,       // :16 , The interface type as defined by the Internet Assigned Names Authority (IANA). Possible values for the interface type are listed in the Ipifcons.h include file.
-                               //       The table below lists common values for the interface type although many other values are possible. 
+    pub IfType: ULONG64,       // :16 , The interface type as defined by the Internet Assigned Names Authority (IANA). 
+                               //       Possible values for the interface type are listed in the Ipifcons.h include file.
+                               //       The table below lists common values for the interface type although many other values 
+                               //       are possible. 
 }
 
 pub const IF_TYPE_OTHER: ULONG64 = 1;              // Some other type of network interface.
@@ -405,14 +396,12 @@ pub type NETIOAPI_API = DWORD;
 
 #[link(name = "iphlpapi")]
 extern "system" {
-    // from IPHlpApi.h
     pub fn GetAdaptersInfo(pAdapterInfo: PIP_ADAPTER_INFO, pOutBufLen: PULONG) -> DWORD;
     pub fn GetAdaptersAddresses(Family: ULONG,
                                 Flags: ULONG,
                                 Reserved: PVOID,
                                 AdapterAddresses: PIP_ADAPTER_ADDRESSES,
-                                SizePointer: PULONG)
-        -> ULONG;
+                                SizePointer: PULONG) -> ULONG;
     pub fn GetBestInterface(dwDestAddr: IPAddr, pdwBestIfIndex: PDWORD) -> DWORD;
     pub fn GetBestInterfaceEx(pDestAddr: *mut sockaddr, pdwBestIfIndex: PDWORD) -> DWORD;
     pub fn GetBestRoute(dwDestAddr: DWORD, dwSourceAddr: DWORD, pBestRoute: PMIB_IPFORWARDROW) -> DWORD;

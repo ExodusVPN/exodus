@@ -39,7 +39,10 @@ macOS:
 
 .. code:: bash
     
-    brew install git curl wget clang
+    # commandline tools: make, GCC, clang, perl, svn, git, size, strip, strings, libtool, cpp ...
+    sudo xcode-select --install
+    
+    brew install git curl wget
     brew install rustup-init
     brew install openssl
 
