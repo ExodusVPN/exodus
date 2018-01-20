@@ -277,15 +277,44 @@ pub type PMIB_IPFORWARDROW = *mut _MIB_IPFORWARDROW;
 
 // https://msdn.microsoft.com/en-us/library/windows/desktop/aa366320(v=vs.85).aspx
 // https://github.com/Alexpux/mingw-w64/blob/master/mingw-w64-headers/include/ifdef.h#L96
+// #[repr(C)]
+// pub struct _NET_LUID_Info {
+//     pub Reserved: ULONG64,     // :24 , This field is reserved.
+//     pub NetLuidIndex: ULONG64, // :24 , The network interface LUID index.
+//     pub IfType: ULONG64,       // :16 , The interface type as defined by the Internet Assigned Names Authority (IANA). 
+//                                //       Possible values for the interface type are listed in the Ipifcons.h include file.
+//                                //       The table below lists common values for the interface type although many other values 
+//                                //       are possible. 
+// }
+
 #[repr(C)]
-pub struct _NET_LUID_Info {
-    pub Reserved: ULONG64,     // :24 , This field is reserved.
-    pub NetLuidIndex: ULONG64, // :24 , The network interface LUID index.
-    pub IfType: ULONG64,       // :16 , The interface type as defined by the Internet Assigned Names Authority (IANA). 
-                               //       Possible values for the interface type are listed in the Ipifcons.h include file.
-                               //       The table below lists common values for the interface type although many other values 
-                               //       are possible. 
+pub struct _NET_LUID_Info(pub u64);
+
+impl _NET_LUID_Info {
+
+    // 24 bits , This field is reserved.
+    #[inline]
+    pub fn Reserved(&self) -> ULONG64 {
+        self.0 >> 40
+    }
+
+    // 24 bits , The network interface LUID index.
+    #[inline]
+    pub fn NetLuidIndex(&self) -> ULONG64 {
+        (self.0 & 0b_00000000_00000000_00000000) >> 16
+    }
+
+    // 16 bits
+    // The interface type as defined by the Internet Assigned Names Authority (IANA). 
+    //       Possible values for the interface type are listed in the Ipifcons.h include file.
+    //       The table below lists common values for the interface type although many other values 
+    //       are possible. 
+    #[inline]
+    pub fn IfType(&self) -> ULONG64 {
+        self.0 & 0b_00000000_00000000_00000000_00000000_00000000_00000000
+    }
 }
+
 
 pub const IF_TYPE_OTHER: ULONG64 = 1;              // Some other type of network interface.
 pub const IF_TYPE_ETHERNET_CSMACD: ULONG64 = 6;    // An Ethernet network interface.
