@@ -163,7 +163,9 @@ pub const IFF_POINTOPOINT: c_int = IFF_POINTTOPOINT;
 pub const IFF_MULTICAST: c_int = 0x00000010;
 
 
-pub mod iphlpapi;
+mod iphlpapi;
+
+pub use iphlpapi::*;
 
 
 
