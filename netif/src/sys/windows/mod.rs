@@ -68,7 +68,8 @@ pub use winapi::shared::ntdef::{
     SINGLE_LIST_ENTRY32, STRING, STRING32, STRING64, ULARGE_INTEGER, ULARGE_INTEGER_s,
     UNICODE_STRING, WNF_STATE_NAME,
 
-    PVOID, PVOID64, PWCHAR, PCHAR,
+    PVOID, PVOID64, WCHAR, PWCHAR, PCHAR, LPWSTR, PCSTR, BOOLEAN, VOID, HANDLE, PHANDLE,
+
 };
 
 pub use winapi::shared::ws2def::{
@@ -135,6 +136,7 @@ pub use winapi::shared::ws2def::{
     SO_REUSE_MULTICASTPORT, SO_REUSE_UNICASTPORT, SO_SNDBUF, SO_SNDLOWAT, SO_SNDTIMEO, SO_TYPE,
     SO_USELOOPBACK, 
 
+    SCOPE_LEVEL,
     ScopeLevelAdmin, ScopeLevelCount, ScopeLevelGlobal, ScopeLevelInterface, ScopeLevelLink,
     ScopeLevelOrganization, ScopeLevelSite, ScopeLevelSubnet, 
 
@@ -155,6 +157,10 @@ pub use winapi::shared::winerror::{
 
 pub use winapi::shared::guiddef::{
     GUID,
+};
+
+pub use winapi::um::minwinbase::{
+    OVERLAPPED, LPOVERLAPPED, 
 };
 
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ms738568(v=vs.85).aspx

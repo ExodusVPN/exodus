@@ -4,11 +4,23 @@ use parent::*;
 // from IPHlpApi.h
 
 pub const MAX_ADAPTER_DESCRIPTION_LENGTH: usize = 128;
+pub const MAX_ADAPTER_NAME: usize = 128;
 pub const MAX_ADAPTER_NAME_LENGTH: usize = 256;
 pub const MAX_ADAPTER_ADDRESS_LENGTH: usize = 8;
 
 pub const MAX_DHCPV6_DUID_LENGTH: usize = 130;
 pub const MAX_DNS_SUFFIX_STRING_LENGTH: usize = 256;
+
+pub const MAX_INTERFACE_NAME_LEN: usize = 256;
+pub const MAXLEN_PHYSADDR: usize = 8;
+pub const MAXLEN_IFDESCR: usize = 256;
+
+// ifdef.h
+pub const IF_MAX_STRING_SIZE: usize = 256;
+pub const IF_MAX_PHYS_ADDRESS_LENGTH: usize = 32;
+
+pub const ANY_SIZE: usize = 1;
+
 
 // from IPTypes.h
 #[repr(C)]
@@ -177,6 +189,35 @@ pub type PIP_ADAPTER_GATEWAY_ADDRESS_LH = *mut _IP_ADAPTER_GATEWAY_ADDRESS_LH;
 pub type IP_ADAPTER_GATEWAY_ADDRESS = _IP_ADAPTER_GATEWAY_ADDRESS_LH;
 pub type PIP_ADAPTER_GATEWAY_ADDRESS = *mut _IP_ADAPTER_GATEWAY_ADDRESS_LH;
 
+/// The IP_UNIDIRECTIONAL_ADAPTER_ADDRESS structure stores the IPv4 addresses associated with a unidirectional adapter.
+#[repr(C)]
+pub struct _IP_UNIDIRECTIONAL_ADAPTER_ADDRESS {
+    /// The number of IPv4 addresses pointed to by the Address member.
+    pub NumAdapters: ULONG,
+    /// An array of variables of type IPAddr. 
+    /// Each element of the array specifies an IPv4 address associated with this unidirectional adapter.
+    pub Address: [IPAddr; 1],
+}
+
+pub type IP_UNIDIRECTIONAL_ADAPTER_ADDRESS = _IP_UNIDIRECTIONAL_ADAPTER_ADDRESS;
+pub type PIP_UNIDIRECTIONAL_ADAPTER_ADDRESS = *mut _IP_UNIDIRECTIONAL_ADAPTER_ADDRESS;
+
+#[repr(C)]
+pub struct _IP_PER_ADAPTER_INFO {
+    /// Specifies whether IP address auto-configuration (APIPA) is enabled on this adapter. See Remarks.
+    pub AutoconfigEnabled: UINT,
+    /// Specifies whether this adapter's IP address is currently auto-configured by APIPA.
+    pub AutoconfigActive: UINT,
+    /// Reserved. Use the DnsServerList member to obtain the DNS servers for the local computer.
+    pub CurrentDnsServer: PIP_ADDR_STRING,
+    /// A linked list of IP_ADDR_STRING structures that specify the set of DNS servers used by the local computer.
+    pub DnsServerList: IP_ADDR_STRING,
+}
+
+pub type IP_PER_ADAPTER_INFO = _IP_PER_ADAPTER_INFO;
+pub type PIP_PER_ADAPTER_INFO = *mut _IP_PER_ADAPTER_INFO;
+
+
 #[repr(C)]
 pub enum IF_OPER_STATUS {
     IfOperStatusUp = 1,
@@ -263,6 +304,8 @@ pub type PIP_ADAPTER_ADDRESSES = *mut _IP_ADAPTER_ADDRESSES;
 
 // https://msdn.microsoft.com/en-us/library/windows/desktop/aa366055(v=vs.85).aspx
 pub type IPAddr = in_addr;
+pub type IPMask = ULONG;
+pub type IP_STATUS = ULONG;
 pub type sockaddr = SOCKADDR;
 
 
@@ -393,16 +436,37 @@ impl _NET_LUID_Info {
     }
 }
 
+#[repr(C)]
+pub enum IF_TYPE {
+    IF_TYPE_OTHER = 1,              // Some other type of network interface.
+    IF_TYPE_ETHERNET_CSMACD = 6,    // An Ethernet network interface.
+    IF_TYPE_ISO88025_TOKENRING = 9, // A token ring network interface.
+    IF_TYPE_PPP = 23,               // A PPP network interface.
+    IF_TYPE_SOFTWARE_LOOPBACK = 24, // A software loopback network interface.
+    IF_TYPE_ATM = 37,               // An ATM network interface.
+    IF_TYPE_IEEE80211 = 71,         // An IEEE 802.11 wireless network interface.
+    IF_TYPE_TUNNEL = 131,           // A tunnel type encapsulation network interface.
+    IF_TYPE_IEEE1394 = 144,         // An IEEE 1394 (Firewire) high performance serial bus network interface.
+    // Note: interface type is supported on Windows 7, Windows Server 2008 R2, and later.
+    IF_TYPE_IEEE80216_WMAN = 237,   // A mobile broadband interface for WiMax devices.
+    IF_TYPE_WWANPP = 243,           // A mobile broadband interface for GSM-based devices.
+    IF_TYPE_WWANPP2 = 244,          // A mobile broadband interface for CDMA-based devices.
+}
 
-pub const IF_TYPE_OTHER: ULONG64 = 1;              // Some other type of network interface.
-pub const IF_TYPE_ETHERNET_CSMACD: ULONG64 = 6;    // An Ethernet network interface.
-pub const IF_TYPE_ISO88025_TOKENRING: ULONG64 = 9; // A token ring network interface.
-pub const IF_TYPE_PPP: ULONG64 = 23;               // A PPP network interface.
-pub const IF_TYPE_SOFTWARE_LOOPBACK: ULONG64 = 24; // A software loopback network interface.
-pub const IF_TYPE_ATM: ULONG64 = 37;               // An ATM network interface.
-pub const IF_TYPE_IEEE80211: ULONG64 = 71;         // An IEEE 802.11 wireless network interface.
-pub const IF_TYPE_TUNNEL: ULONG64 = 131;           // A tunnel type encapsulation network interface.
-pub const IF_TYPE_IEEE1394: ULONG64 = 144;         // An IEEE 1394 (Firewire) high performance serial bus network interface.
+// pub const IF_TYPE_OTHER: ULONG64 = 1;              // Some other type of network interface.
+// pub const IF_TYPE_ETHERNET_CSMACD: ULONG64 = 6;    // An Ethernet network interface.
+// pub const IF_TYPE_ISO88025_TOKENRING: ULONG64 = 9; // A token ring network interface.
+// pub const IF_TYPE_PPP: ULONG64 = 23;               // A PPP network interface.
+// pub const IF_TYPE_SOFTWARE_LOOPBACK: ULONG64 = 24; // A software loopback network interface.
+// pub const IF_TYPE_ATM: ULONG64 = 37;               // An ATM network interface.
+// pub const IF_TYPE_IEEE80211: ULONG64 = 71;         // An IEEE 802.11 wireless network interface.
+// pub const IF_TYPE_TUNNEL: ULONG64 = 131;           // A tunnel type encapsulation network interface.
+// pub const IF_TYPE_IEEE1394: ULONG64 = 144;         // An IEEE 1394 (Firewire) high performance serial bus network interface.
+// // Note: interface type is supported on Windows 7, Windows Server 2008 R2, and later.
+// pub const IF_TYPE_IEEE80216_WMAN: ULONG64 = 237;   // A mobile broadband interface for WiMax devices.
+// pub const IF_TYPE_WWANPP: ULONG64 = 243;           // A mobile broadband interface for GSM-based devices.
+// pub const IF_TYPE_WWANPP2: ULONG64 = 244;          // A mobile broadband interface for CDMA-based devices.
+
 
 #[repr(C)]
 pub union _NET_LUID {
@@ -523,30 +587,679 @@ pub struct _MIB_IPFORWARD_ROW2 {
     pub ValidLifetime: ULONG,
     pub PreferredLifetime: ULONG,
     pub Metric: ULONG,
-    pub Protocol: NL_ROUTE_PROTOCOL,   // int/i32
+    pub Protocol: NL_ROUTE_PROTOCOL,   // int/i32 ?
     pub Loopback: BOOLEAN,
     pub AutoconfigureAddress: BOOLEAN,
     pub Publish: BOOLEAN,
     pub Immortal: BOOLEAN,
     pub Age: ULONG,
-    pub Origin: NL_ROUTE_ORIGIN,      // int/i32
+    pub Origin: NL_ROUTE_ORIGIN,      // int/i32 ?
 }
 
 pub type MIB_IPFORWARD_ROW2 = _MIB_IPFORWARD_ROW2;
 pub type PMIB_IPFORWARD_ROW2 = *mut MIB_IPFORWARD_ROW2;
 
+#[repr(C)]
+pub struct _MIB_IFROW {
+    pub wszName: [WCHAR; MAX_INTERFACE_NAME_LEN],
+    pub dwIndex: DWORD,
+    pub dwType: DWORD,
+    pub dwMtu: DWORD,
+    pub dwSpeed: DWORD,
+    pub dwPhysAddrLen: DWORD,
+    pub bPhysAddr: [BYTE; MAXLEN_PHYSADDR],
+    pub dwAdminStatus: DWORD,
+    pub dwOperStatus: DWORD,
+    pub dwLastChange: DWORD,
+    pub dwInOctets: DWORD,
+    pub dwInUcastPkts: DWORD,
+    pub dwInNUcastPkts: DWORD,
+    pub dwInDiscards: DWORD,
+    pub dwInErrors: DWORD,
+    pub dwInUnknownProtos: DWORD,
+    pub dwOutOctets: DWORD,
+    pub dwOutUcastPkts: DWORD,
+    pub dwOutNUcastPkts: DWORD,
+    pub dwOutDiscards: DWORD,
+    pub dwOutErrors: DWORD,
+    pub dwOutQLen: DWORD,
+    pub dwDescrLen: DWORD,
+    pub bDescr: [BYTE; MAXLEN_IFDESCR],
+}
+
+pub type MIB_IFROW = _MIB_IFROW;
+pub type PMIB_IFROW = *mut _MIB_IFROW;
+
+#[repr(C)]
+pub struct _InterfaceAndOperStatusFlags(pub u8);
+
+impl _InterfaceAndOperStatusFlags {
+    pub fn HardwareInterface(&self) -> BOOLEAN {
+        self.0 >> 7 
+    }
+
+    pub fn FilterInterface(&self) -> BOOLEAN {
+        (self.0 >> 6) & 0b_01
+    }
+
+    pub fn ConnectorPresent(&self) -> BOOLEAN {
+        (self.0 >> 5) & 0b_001
+    }
+
+    pub fn NotAuthenticated(&self) -> BOOLEAN {
+        (self.0 >> 4) & 0b_0001
+    }
+
+    pub fn NotMediaConnected(&self) -> BOOLEAN {
+        (self.0 >> 3) & 0b_0000_1
+    }
+
+    pub fn Paused(&self) -> BOOLEAN {
+        (self.0 >> 2) & 0b_0000_01
+    }
+
+    pub fn LowPower(&self) -> BOOLEAN {
+        (self.0 >> 1) & 0b_0000_001
+    }
+
+    pub fn EndPointInterface(&self) -> BOOLEAN {
+        self.0 & 0b_0000_0001
+    }
+}
+
+#[repr(C)]
+pub enum NDIS_MEDIUM {
+    // An Ethernet (802.3) network.
+    NdisMedium802_3 = 0,
+    // A Token Ring (802.5) network.
+    NdisMedium802_5 = 1,
+    // A Fiber Distributed Data Interface (FDDI) network.
+    NdisMediumFddi = 2,
+    // A wide area network (WAN). This type covers various forms of point-to-point 
+    // and WAN NICs, as well as variant address/header formats that must be negotiated 
+    // between the protocol driver and the underlying driver after the binding is established.
+    NdisMediumWan = 3,
+    // A LocalTalk network.
+    NdisMediumLocalTalk = 4,
+    // An Ethernet network for which the drivers use the DIX Ethernet header format.
+    NdisMediumDix = 5,
+    // An ARCNET network.
+    NdisMediumArcnetRaw = 6,
+    // An ARCNET (878.2) network.
+    NdisMediumArcnet878_2 = 7,
+    // An ATM network. Connection-oriented client protocol drivers can bind themselves to 
+    // an underlying miniport driver that returns this value. Otherwise, legacy protocol 
+    // drivers bind themselves to the system-supplied LanE intermediate driver, which 
+    // reports its medium type as either NdisMedium802_3 or NdisMedium802_5, depending 
+    // on how the LanE driver is configured by the network administrator.
+    NdisMediumAtm = 8,
+    // A wireless network. NDIS 5.X miniport drivers that support wireless LAN (WLAN) or 
+    // wireless WAN (WWAN) packets do not use this NDIS media type, but declare their 
+    // media type as NdisMedium802_3 and emulate Ethernet to higher-level NDIS drivers.
+    // Note  This media type is supported and can be used for Mobile Broadband only on 
+    //       Windows 7, Windows Server 2008 R2, and later.
+    NdisMediumWirelessWan = 9,
+    // An infrared (IrDA) network.
+    NdisMediumIrda = 10,
+    // A broadcast PC network.
+    NdisMediumBpc = 11,
+    // A wide area network in a connection-oriented environment.
+    NdisMediumCoWan = 12,
+    // An IEEE 1394 (fire wire) network.
+    NdisMedium1394 = 13,
+    // An InfiniBand network.
+    NdisMediumInfiniBand = 14,
+    // A tunnel network.
+    // Note  This media type is supported on Windows Vista, Windows Server 2008, and later.
+    NdisMediumTunnel = 15,
+    // A native IEEE 802.11 network.
+    // Note  This media type is supported on Windows Vista, Windows Server 2008, and later.
+    NdisMediumNative802_11 = 16,
+    // An NDIS loopback network.
+    // Note  This media type is supported on Windows Vista, Windows Server 2008, and later.
+    NdisMediumLoopback = 17,
+    // An WiMax network.
+    // Note  This media type is supported on Windows 7, Windows Server 2008 R2, and later.
+    NdisMediumWiMax = 18,
+}
+
+#[repr(C)]
+pub enum NDIS_PHYSICAL_MEDIUM {
+    NdisPhysicalMediumUnspecified = 0,
+    NdisPhysicalMediumWirelessLan = 1,
+    NdisPhysicalMediumCableModem = 2,
+    NdisPhysicalMediumPhoneLine = 3,
+    NdisPhysicalMediumPowerLine = 4,
+    NdisPhysicalMediumDSL = 5,
+    NdisPhysicalMediumFibreChannel = 6,
+    NdisPhysicalMedium1394 = 7,
+    NdisPhysicalMediumWirelessWan = 8,
+    NdisPhysicalMediumNative802_11 = 9,
+    NdisPhysicalMediumBluetooth = 10,
+    NdisPhysicalMediumInfiniband = 11,
+    NdisPhysicalMediumWiMax = 12,
+    NdisPhysicalMediumUWB = 13,
+    NdisPhysicalMedium802_3 = 14,
+    NdisPhysicalMedium802_5 = 15,
+    NdisPhysicalMediumIrda = 16,
+    NdisPhysicalMediumWiredWAN = 17,
+    NdisPhysicalMediumWiredCoWan = 18,
+    NdisPhysicalMediumOther = 19,
+}
+
+#[repr(c)]
+pub enum NET_IF_ACCESS_TYPE {
+    // Loopback access type. This access type indicates that 
+    // the interface loops back transmit data as receive data.
+    NET_IF_ACCESS_LOOPBACK = 1, 
+    // The LAN access type which includes Ethernet. This access type indicates that the 
+    // interface provides native support for multicast or broadcast services.
+    // Note  Mobile broadband interfaces with a MediaType of NdisMedium802_3 use this access type.
+    NET_IF_ACCESS_BROADCAST = 2, 
+    // Point-to-point access that supports CoNDIS/WAN, except for non-broadcast multi-access (NBMA) interfaces.
+    // Note  Mobile broadband interfaces with a MediaType of NdisMediumWirelessWan use this access type.
+    NET_IF_ACCESS_POINT_TO_POINT = 3, 
+    // Point-to-multipoint access that supports non-broadcast multi-access (NBMA) media,
+    // including the "RAS Internal" interface, and native (non-LANE) ATM.
+    NET_IF_ACCESS_POINT_TO_MULTI_POINT = 4, 
+    // The maximum possible value for the NET_IF_ACCESS_TYPE enumeration type.
+    // This is not a legal value for AccessType member.
+    NET_IF_ACCESS_MAXIMUM = 5, 
+}
+
+#[repr(c)]
+pub enum NET_IF_DIRECTION_TYPE {
+    // The send and receive direction type. This direction type 
+    // indicates that the NDIS network interface can send and receive data.
+    NET_IF_DIRECTION_SENDRECEIVE = 0,
+    // The send only direction type. This direction type indicates 
+    // that the NDIS network interface can only send data.
+    NET_IF_DIRECTION_SENDONLY = 1,
+    // The receive only direction type. This direction type indicates 
+    // that the NDIS network interface can only receive data.
+    NET_IF_DIRECTION_RECEIVEONLY = 2,
+    // The maximum possible value for the NET_IF_DIRECTION_TYPE enumeration type.
+    // This is not a legal value for DirectionType member.
+    NET_IF_DIRECTION_MAXIMUM = 3,
+}
+
+#[repr(c)]
+pub enum NET_IF_ADMIN_STATUS {
+    // The interface is initialized and enabled. But the interface is not 
+    // necessarily ready to transmit and receive network data because that 
+    // depends on the operational status of the interface.
+    NET_IF_ADMIN_STATUS_UP = 1,
+    // The interface is down, and this interface cannot be used to transmit or receive network data.
+    NET_IF_ADMIN_STATUS_DOWN = 2,
+    // The interface is in a test mode, and no network data can be transmitted or received.
+    NET_IF_ADMIN_STATUS_TESTING = 3,
+}
+
+#[repr(c)]
+pub enum NET_IF_MEDIA_CONNECT_STATE {
+    // The connection state of the interface is unknown.
+    MediaConnectStateUnknown = 0,
+    // The interface is connected to the network.
+    MediaConnectStateConnected = 1,
+    // The interface is not connected to the network. 
+    MediaConnectStateDisconnected = 2,
+}
+
+#[repr(C)]
+pub struct _MIB_IF_ROW2 {
+    pub InterfaceLuid: NET_LUID,
+    pub InterfaceIndex: NET_IFINDEX,
+    pub InterfaceGuid: GUID,
+    pub Alias: [WCHAR; IF_MAX_STRING_SIZE + 1],
+    pub Description: [WCHAR; IF_MAX_STRING_SIZE + 1],
+    pub PhysicalAddressLength: ULONG,
+    pub PhysicalAddress: [UCHAR; IF_MAX_PHYS_ADDRESS_LENGTH],
+    pub PermanentPhysicalAddress: [UCHAR; IF_MAX_PHYS_ADDRESS_LENGTH],
+    pub Mtu: ULONG,
+    pub Type: IF_TYPE,
+    pub TunnelType: TUNNEL_TYPE,
+    pub MediaType: NDIS_MEDIUM,
+    pub PhysicalMediumType: NDIS_PHYSICAL_MEDIUM,
+    pub AccessType: NET_IF_ACCESS_TYPE,
+    pub DirectionType: NET_IF_DIRECTION_TYPE,
+
+    pub InterfaceAndOperStatusFlags: _InterfaceAndOperStatusFlags,
+
+    pub OperStatus: IF_OPER_STATUS, 
+    pub AdminStatus: NET_IF_ADMIN_STATUS, 
+    pub MediaConnectState: NET_IF_MEDIA_CONNECT_STATE, 
+    pub NetworkGuid: NET_IF_NETWORK_GUID, 
+    pub ConnectionType: NET_IF_CONNECTION_TYPE, 
+    pub TransmitLinkSpeed: ULONG64, 
+    pub ReceiveLinkSpeed: ULONG64, 
+    pub InOctets: ULONG64, 
+    pub InUcastPkts: ULONG64, 
+    pub InNUcastPkts: ULONG64, 
+    pub InDiscards: ULONG64, 
+    pub InErrors: ULONG64, 
+    pub InUnknownProtos: ULONG64, 
+    pub InUcastOctets: ULONG64, 
+    pub InMulticastOctets: ULONG64, 
+    pub InBroadcastOctets: ULONG64, 
+    pub OutOctets: ULONG64, 
+    pub OutUcastPkts: ULONG64, 
+    pub OutNUcastPkts: ULONG64, 
+    pub OutDiscards: ULONG64, 
+    pub OutErrors: ULONG64, 
+    pub OutUcastOctets: ULONG64, 
+    pub OutMulticastOctets: ULONG64, 
+    pub OutBroadcastOctets: ULONG64, 
+    pub OutQLen: ULONG64, 
+}
+
+pub type MIB_IF_ROW2 = _MIB_IF_ROW2;
+pub type PMIB_IF_ROW2 = *mut _MIB_IF_ROW2;
+
+#[repr(C)]
+pub struct _MIB_IFSTACK_ROW {
+    pub HigherLayerInterfaceIndex: NET_IFINDEX,
+    pub LowerLayerInterfaceIndex: NET_IFINDEX,
+}
+
+pub type MIB_IFSTACK_ROW = _MIB_IFSTACK_ROW;
+pub type PMIB_IFSTACK_ROW = *mut _MIB_IFSTACK_ROW;
+
+#[repr(C)]
+pub struct _MIB_IFSTACK_TABLE {
+    pub NumEntries: ULONG,
+    pub Table: [MIB_IFSTACK_ROW; ANY_SIZE],
+}
+
+pub type MIB_IFSTACK_TABLE = _MIB_IFSTACK_TABLE;
+pub type PMIB_IFSTACK_TABLE = *mut _MIB_IFSTACK_TABLE;
+
+#[repr(C)]
+pub struct _MIB_IFTABLE {
+    pub dwNumEntries: DWORD,
+    pub table: [MIB_IFROW; ANY_SIZE],
+}
+
+pub type MIB_IFTABLE = _MIB_IFTABLE;
+pub type PMIB_IFTABLE = *mut _MIB_IFTABLE;
+
+#[repr(C)]
+pub struct _MIB_IF_TABLE2 {
+    pub NumEntries: ULONG,
+    pub Table: [MIB_IF_ROW2; ANY_SIZE],
+}
+
+pub type MIB_IFTABLE2 = _MIB_IF_TABLE2;
+pub type PMIB_IFTABLE2 = *mut _MIB_IF_TABLE2;
+
+#[repr(C)]
+pub enum MIB_IF_TABLE_LEVEL {
+    MibIfTableNormal,
+    MibIfTableRaw,
+}
+
+pub type PMIB_IF_TABLE_LEVEL = *mut MIB_IF_TABLE_LEVEL;
+
+#[repr(C)]
+pub struct IP_ADAPTER_INDEX_MAP {
+    pub Index: ULONG,
+    pub Name: [WCHAR; MAX_ADAPTER_NAME],
+}
+
+pub type PIP_ADAPTER_INDEX_MAP = *mut IP_ADAPTER_INDEX_MAP;
+
+
+#[repr(C)]
+pub struct _IP_INTERFACE_INFO {
+    pub NumAdapters: LONG,
+    pub Adapter: [IP_ADAPTER_INDEX_MAP; 1],
+}
+
+pub type IP_INTERFACE_INFO = _IP_INTERFACE_INFO;
+pub type PIP_INTERFACE_INFO = *mut _IP_INTERFACE_INFO;
+
+#[repr(C)]
+pub enum NL_ROUTER_DISCOVERY_BEHAVIOR {
+    // Router discovery is disabled.
+    RouterDiscoveryDisabled = 0,
+    // Router discovery is enabled. This is the default value for IPv6.
+    RouterDiscoveryEnabled = 1,
+    // Router discovery is configured based on DHCP.
+    // This is the default value for IPv4.
+    RouterDiscoveryDhcp = 2,
+    // This value is used when setting the properties for an IP interface 
+    // when the value for router discovery should be unchanged.
+    RouterDiscoveryUnchanged = -1,
+}
+
+#[repr(C)]
+pub enum NL_LINK_LOCAL_ADDRESS_BEHAVIOR {
+    // Never use a link local IP address.
+    LinkLocalAlwaysOff = 0,
+    // Use a link local IP address only if no other address is available.
+    // This is the default setting for an IPv4 interface.
+    LinkLocalDelayed = 1,
+    // Always use a link local IP address. This is the default setting for an IPv6 interface.
+    LinkLocalAlwaysOn = 2,
+    // This value is used when setting the properties for an IP interface when the value 
+    // for link local address behavior should be unchanged.
+    LinkLocalUnchanged = -1,
+}
+
+// FIXME: 9 bits
+#[repr(C)]
+pub struct NL_INTERFACE_OFFLOAD_ROD(pub u16);
+
+impl NL_INTERFACE_OFFLOAD_ROD {
+    pub fn NlChecksumSupported(&self) -> BOOLEAN {
+        self.0 >> 15
+    }
+    pub fn NlOptionsSupported(&self) -> BOOLEAN {
+        (self.0 >> 14) & 0b_01
+    }
+
+    pub fn TlDatagramChecksumSupported(&self) -> BOOLEAN {
+        (self.0 >> 13) & 0b_001
+    }
+    pub fn TlStreamChecksumSupported(&self) -> BOOLEAN {
+        (self.0 >> 12) & 0b_0001
+    }
+    pub fn TlStreamOptionsSupported(&self) -> BOOLEAN {
+        (self.0 >> 11) & 0b_0000_1
+    }
+    pub fn TlStreamFastPathCompatible(&self) -> BOOLEAN {
+        (self.0 >> 10) & 0b_0000_01
+    }
+    pub fn TlDatagramFastPathCompatible(&self) -> BOOLEAN {
+        (self.0 >> 9) & 0b_0000_001
+    }
+    pub fn TlLargeSendOffloadSupported(&self) -> BOOLEAN {
+        (self.0 >> 8) & 0b_0000_0001
+    }
+    pub fn TlGiantSendOffloadSupported(&self) -> BOOLEAN {
+        (self.0 >> 7) & 0b_0000_0000_1
+    }
+}
+
+#[repr(C)]
+pub struct _MIB_IPINTERFACE_ROW {
+    pub Family: ADDRESS_FAMILY,
+    pub InterfaceLuid: NET_LUID,
+    pub InterfaceIndex: NET_IFINDEX,
+    pub MaxReassemblySize: ULONG,
+    pub InterfaceIdentifier: ULONG64,
+    pub MinRouterAdvertisementInterval: ULONG,
+    pub MaxRouterAdvertisementInterval: ULONG,
+    pub AdvertisingEnabled: BOOLEAN,
+    pub ForwardingEnabled: BOOLEAN,
+    pub WeakHostSend: BOOLEAN,
+    pub WeakHostReceive: BOOLEAN,
+    pub UseAutomaticMetric: BOOLEAN,
+    pub UseNeighborUnreachabilityDetection: BOOLEAN,
+    pub ManagedAddressConfigurationSupported: BOOLEAN,
+    pub OtherStatefulConfigurationSupported: BOOLEAN,
+    pub AdvertiseDefaultRoute: BOOLEAN,
+    pub RouterDiscoveryBehavior: NL_ROUTER_DISCOVERY_BEHAVIOR,
+    pub DadTransmits: ULONG,
+    pub BaseReachableTime: ULONG,
+    pub RetransmitTime: ULONG,
+    pub PathMtuDiscoveryTimeout: ULONG,
+    pub LinkLocalAddressBehavior: NL_LINK_LOCAL_ADDRESS_BEHAVIOR,
+    pub LinkLocalAddressTimeout: ULONG,
+    pub ZoneIndices: [ULONG; ScopeLevelCount],
+    pub SitePrefixLength: ULONG,
+    pub Metric: ULONG,
+    pub NlMtu: ULONG,
+    pub Connected: BOOLEAN,
+    pub SupportsWakeUpPatterns: BOOLEAN,
+    pub SupportsNeighborDiscovery: BOOLEAN,
+    pub SupportsRouterDiscovery: BOOLEAN,
+    pub ReachableTime: ULONG,
+    // pub TransmitOffload: NL_INTERFACE_OFFLOAD_ROD,  // 9 bits
+    // pub ReceiveOffload: NL_INTERFACE_OFFLOAD_ROD,   // 9 bits
+    // pub DisableDefaultRoutes: BOOLEAN,              // 8 bits
+    pub _last: u32,
+}
+
+impl _MIB_IPINTERFACE_ROW {
+    pub fn TransmitOffload(&self) -> NL_INTERFACE_OFFLOAD_ROD {
+        NL_INTERFACE_OFFLOAD_ROD( ((self._last & 0b_11111111_10000000_00000000_00000000) >> 23)  as u16)
+    }
+
+    pub fn ReceiveOffload(&self) -> NL_INTERFACE_OFFLOAD_ROD {
+        NL_INTERFACE_OFFLOAD_ROD( ((self._last & 0b_00000000_01111111_11000000_00000000) >> 14) as u16)
+    }
+
+    pub fn DisableDefaultRoutes(&self) -> BOOLEAN {
+        ((self._last & 0b_00000000_00000000_00111111_11000000) >> 6) as BOOLEAN
+    }
+}
+
+pub type MIB_IPINTERFACE_ROW = _MIB_IPINTERFACE_ROW;
+pub type PMIB_IPINTERFACE_ROW = *mut _MIB_IPINTERFACE_ROW;
+
+#[repr(C)]
+pub struct _MIB_IPINTERFACE_TABLE {
+    pub NumEntries: ULONG,
+    pub Table: [MIB_IPINTERFACE_ROW; ANY_SIZE],
+}
+
+pub type MIB_IPINTERFACE_TABLE = _MIB_IPINTERFACE_TABLE;
+pub type PMIB_IPINTERFACE_TABLE = *mut _MIB_IPINTERFACE_TABLE;
+
+#[repr(C)]
+pub struct MIB_IPADDRROW {
+    pub dwAddr: DWORD,
+    pub dwIndex: DWORD,
+    pub dwMask: DWORD,
+    pub dwBCastAddr: DWORD,
+    pub dwReasmSize: DWORD,
+    pub unused1: c_ushort,
+    pub wType: c_ushort
+}
+
+pub type PMIB_IPADDRROW = *mut MIB_IPADDRROW;
+
+
+#[repr(C)]
+pub struct _MIB_IPADDRTABLE {
+    pub dwNumEntries: DWORD,
+    pub table: [MIB_IPADDRROW; ANY_SIZE],
+}
+
+pub type MIB_IPADDRTABLE = _MIB_IPADDRTABLE;
+pub type PMIB_IPADDRTABLE = *mut _MIB_IPADDRTABLE;
+
+#[repr(C)]
+pub struct _MIB_IPFORWARDTABLE {
+    pub dwNumEntries: DWORD,
+    pub table: [MIB_IPFORWARDROW; ANY_SIZE],
+}
+
+pub type MIB_IPFORWARDTABLE = _MIB_IPFORWARDTABLE;
+pub type PMIB_IPFORWARDTABLE = *mut _MIB_IPFORWARDTABLE;
+
+#[repr(C)]
+pub struct _MIB_IPFORWARD_TABLE2 {
+    pub NumEntries: ULONG,
+    pub Table: [MIB_IPFORWARD_ROW2; ANY_SIZE],
+}
+
+pub type MIB_IPFORWARD_TABLE2 = _MIB_IPFORWARD_TABLE2;
+pub type PMIB_IPFORWARD_TABLE2 = *mut _MIB_IPFORWARD_TABLE2;
+
+#[repr(C)]
+pub struct _MIB_IPSTATS {
+    pub dwForwarding: DWORD,
+    pub dwDefaultTTL: DWORD,
+    pub dwInReceives: DWORD,
+    pub dwInHdrErrors: DWORD,
+    pub dwInAddrErrors: DWORD,
+    pub dwForwDatagrams: DWORD,
+    pub dwInUnknownProtos: DWORD,
+    pub dwInDiscards: DWORD,
+    pub dwInDelivers: DWORD,
+    pub dwOutRequests: DWORD,
+    pub dwRoutingDiscards: DWORD,
+    pub dwOutDiscards: DWORD,
+    pub dwOutNoRoutes: DWORD,
+    pub dwReasmTimeout: DWORD,
+    pub dwReasmReqds: DWORD,
+    pub dwReasmOks: DWORD,
+    pub dwReasmFails: DWORD,
+    pub dwFragOks: DWORD,
+    pub dwFragFails: DWORD,
+    pub dwFragCreates: DWORD,
+    pub dwNumIf: DWORD,
+    pub dwNumAddr: DWORD,
+    pub dwNumRoutes: DWORD,
+}
+
+pub type MIB_IPSTATS = _MIB_IPSTATS;
+pub type PMIB_IPSTATS = *mut _MIB_IPSTATS;
+
+
+
+
 // NO_ERROR or ERROR_INVALID_PARAMETER / ERROR_FILE_NOT_FOUND / ERROR_NOT_SUPPORTED / Other
 pub type NETIOAPI_API = DWORD;
 
 
+
 #[link(name = "iphlpapi")]
 extern "system" {
-    pub fn GetAdaptersInfo(pAdapterInfo: PIP_ADAPTER_INFO, pOutBufLen: PULONG) -> DWORD;
+    // Adapter Management
+    pub fn GetAdapterIndex(AdapterName: LPWSTR, IfIndex: PULONG) -> DWORD;
     pub fn GetAdaptersAddresses(Family: ULONG,
                                 Flags: ULONG,
                                 Reserved: PVOID,
                                 AdapterAddresses: PIP_ADAPTER_ADDRESSES,
                                 SizePointer: PULONG) -> ULONG;
+    /// The GetAdaptersInfo function retrieves adapter information for the local computer.
+    /// On Windows XP and later:  Use the GetAdaptersAddresses function instead of GetAdaptersInfo.
+    pub fn GetAdaptersInfo(pAdapterInfo: PIP_ADAPTER_INFO, pOutBufLen: PULONG) -> DWORD;
+    pub fn GetPerAdapterInfo(IfIndex: ULONG,
+                             pPerAdapterInfo: PIP_PER_ADAPTER_INFO,
+                             pOutBufLen: PULONG) -> DWORD;
+    pub fn GetUniDirectionalAdapterInfo(pIPIfInfo: PIP_UNIDIRECTIONAL_ADAPTER_ADDRESS,
+                                        dwOutBufLen: PULONG) -> DWORD;
+
+    // Address Resolution Protocol (ARP) Management
+    //    
+    // CreateIpNetEntry
+    // CreateProxyArpEntry
+    // DeleteIpNetEntry
+    // DeleteProxyArpEntry
+    // FlushIpNetTable
+    // GetIpNetTable
+    // SendARP
+    // SetIpNetEntry
+
+    // Interface Conversion
+    //    
+    // ConvertInterfaceAliasToLuid
+    // ConvertInterfaceGuidToLuid
+    // ConvertInterfaceIndexToLuid
+    // ConvertInterfaceLuidToAlias
+    // ConvertInterfaceLuidToGuid
+    // ConvertInterfaceLuidToIndex
+    // ConvertInterfaceLuidToNameA
+    // ConvertInterfaceLuidToNameW
+    // ConvertInterfaceNameToLuidA
+    // ConvertInterfaceNameToLuidW
+    pub fn if_indextoname(InterfaceIndex: NET_IFINDEX, InterfaceName: PCHAR) -> PCHAR;
+    pub fn if_nametoindex(InterfaceName: PCSTR) -> NET_IFINDEX;
+
+    // Interface Management
+    pub fn GetFriendlyIfIndex(IfIndex: DWORD) -> DWORD;
+    pub fn GetIfEntry(pIfRow: PMIB_IFROW) -> DWORD;
+    pub fn GetIfEntry2(Row: PMIB_IF_ROW2) -> NETIOAPI_API;
+    pub fn GetIfEntry2Ex(Level: MIB_IF_ENTRY_LEVEL, Row: PMIB_IF_ROW2) -> NETIOAPI_API;
+    pub fn GetIfStackTable(Table: PMIB_IFSTACK_TABLE) -> NETIOAPI_API;
+    pub fn GetIfTable(pIfTable: PMIB_IFTABLE, pdwSize: PULONG, bOrder: BOOL) -> DWORD;
+    pub fn GetIfTable2(Table: PMIB_IF_TABLE2) -> NETIOAPI_API;
+    pub fn GetIfTable2Ex(Level: MIB_IF_TABLE_LEVEL, Table: PMIB_IF_TABLE2) -> NETIOAPI_API;
+    pub fn GetInterfaceInfo(pIfTable: PIP_INTERFACE_INFO, dwOutBufLen: PULONG) -> DWORD;
+    // GetInvertedIfStackTable
+    pub fn GetIpInterfaceEntry(Row: PMIB_IPINTERFACE_ROW) -> NETIOAPI_API;
+    pub fn GetIpInterfaceTable(Family: ADDRESS_FAMILY, Table: PMIB_IPINTERFACE_TABLE) -> NETIOAPI_API;
+    pub fn GetNumberOfInterfaces(pdwNumIf: PDWORD) -> DWORD;
+    pub fn InitializeIpInterfaceEntry(Row: PMIB_IPINTERFACE_ROW) -> VOID;
+    pub fn SetIfEntry(pIfRow: PMIB_IFROW) -> DWORD;
+    pub fn SetIpInterfaceEntry(Row: PMIB_IPINTERFACE_ROW) -> NETIOAPI_API;
+    
+    // Internet Protocol (IP) and Internet Control Message Protocol (ICMP)
+    // GetIcmpStatistics
+    // GetIpStatistics
+    // Icmp6CreateFile
+    // Icmp6ParseReplies
+    // Icmp6SendEcho2
+    // IcmpCloseHandle
+    // IcmpCreateFile
+    // IcmpParseReplies
+    // IcmpSendEcho
+    // IcmpSendEcho2
+    // IcmpSendEcho2Ex
+    // SetIpTTL
+
+    // IP Address Management
+    pub fn AddIPAddress(Address: IPAddr,
+                        IpMask: IPMask,
+                        IfIndex: DWORD,
+                        NTEContext: PULONG,
+                        NTEInstance: PULONG) -> DWORD;
+    // CreateAnycastIpAddressEntry
+    // CreateUnicastIpAddressEntry
+    pub fn DeleteIPAddress(NTEContext: ULONG) -> DWORD;
+    // DeleteAnycastIpAddressEntry
+    // DeleteUnicastIpAddressEntry
+    // GetAnycastIpAddressEntry
+    // GetAnycastIpAddressTable
+    pub fn GetIpAddrTable(pIpAddrTable: PMIB_IPADDRTABLE, pdwSize: PULONG, bOrder: BOOL) -> DWORD;
+    // GetMulticastIpAddressEntry
+    // GetMulticastIpAddressTable
+    // GetUnicastIpAddressEntry
+    // GetUnicastIpAddressTable
+    // InitializeUnicastIpAddressEntry
+    pub fn IpReleaseAddress(AdapterInfo: PIP_ADAPTER_INDEX_MAP) -> DWORD;
+    pub fn IpRenewAddress(AdapterInfo: PIP_ADAPTER_INDEX_MAP) -> DWORD;
+    // NotifyStableUnicastIpAddressTable
+    // SetUnicastIpAddressEntry
+
+    // IP Address String Conversion
+    //
+    // RtlIpv4AddressToString
+    // RtlIpv4AddressToStringEx
+    // RtlIpv4StringToAddress
+    // RtlIpv4StringToAddressEx
+    // RtlIpv6AddressToString
+    // RtlIpv6AddressToStringEx
+    // RtlIpv6StringToAddress
+    // RtlIpv6StringToAddressEx
+
+    // IP Neighbor Address Management
+    //
+    // CreateIpNetEntry2
+    // DeleteIpNetEntry2
+    // FlushIpNetTable2
+    // GetIpNetEntry2
+    // GetIpNetTable2
+    // ResolveIpNetEntry2
+    // ResolveNeighbor
+    // SetIpNetEntry2
+
+    // IP Path Management
+    //
+    // FlushIpPathTable
+    // GetIpPathEntry
+    // GetIpPathTable
+
+    // IP Route Management
+    pub fn CreateIpForwardEntry(pRoute: PMIB_IPFORWARDROW) -> DWORD;
+    //  (_In_ const MIB_IPFORWARD_ROW2 *Row)
+    pub fn CreateIpForwardEntry2(Row: *mut *const MIB_IPFORWARD_ROW2) -> DWORD;
+    pub fn DeleteIpForwardEntry(pRoute: PMIB_IPFORWARDROW) -> DWORD;
+    pub fn DeleteIpForwardEntry2(Row: *mut *const MIB_IPFORWARD_ROW2) -> NETIOAPI_API;
+    pub fn EnableRouter(pHandle: *mut HANDLE, pOverlapped: *mut OVERLAPPED) -> DWORD;
     pub fn GetBestInterface(dwDestAddr: IPAddr, pdwBestIfIndex: PDWORD) -> DWORD;
     pub fn GetBestInterfaceEx(pDestAddr: *mut sockaddr, pdwBestIfIndex: PDWORD) -> DWORD;
     pub fn GetBestRoute(dwDestAddr: DWORD, dwSourceAddr: DWORD, pBestRoute: PMIB_IPFORWARDROW) -> DWORD;
@@ -557,5 +1270,89 @@ extern "system" {
                          AddressSortOptions: ULONG,
                          BestRoute: PMIB_IPFORWARD_ROW2,
                          BestSourceAddress: *mut SOCKADDR_INET) -> NETIOAPI_API;
+    pub fn GetIpForwardEntry2(Row: PMIB_IPFORWARD_ROW2) -> NETIOAPI_API;
+    pub fn GetIpForwardTable(pIpForwardTable: PMIB_IPFORWARDTABLE, pdwSize: PULONG, bOrder: BOOL) -> DWORD;
+    pub fn GetIpForwardTable2(Family: ADDRESS_FAMILY, Table: PMIB_IPFORWARD_TABLE2) -> NETIOAPI_API;
+    pub fn GetRTTAndHopCount(DestIpAddress: IPAddr, HopCount: PULONG, MaxHops: ULONG, RTT: PULONG) -> BOOL;
+    pub fn InitializeIpForwardEntry(Row: PMIB_IPFORWARD_ROW2) -> VOID;
+    pub fn SetIpForwardEntry(pRoute: PMIB_IPFORWARDROW) -> DWORD;
+    pub fn SetIpForwardEntry2(Route: *mut *const MIB_IPFORWARD_ROW2) -> NETIOAPI_API;
+    pub fn SetIpStatistics(pIpStats: PMIB_IPSTATS) -> DWORD;
+    pub fn SetIpStatisticsEx(pIpStats: PMIB_IPSTATS, Family: ULONG) -> DWORD;
+    pub fn UnenableRouter(pOverlapped: *mut OVERLAPPED, lpdwEnableCount: LPDWORD) -> DWORD;
+    
+    // IP Table Memory Management
+    pub fn FreeMibTable(Memory: PVOID) -> VOID;
+    
+    // IP Utility
+    // 
+    // ConvertIpv4MaskToLength
+    // ConvertLengthToIpv4Mask
+    // CreateSortedAddressPairs
+    // ParseNetworkString
+
+    // Network Configuration
+    // 
+    // GetNetworkParams
+
+    // Notification
+    // 
+    // CancelMibChangeNotify2
+    // NotifyAddrChange
+    // NotifyIpInterfaceChange
+    // NotifyRouteChange
+    // NotifyRouteChange2
+    // NotifyUnicastIpAddressChange
+
+    // Persistent Port Reservarion
+    // 
+    // CreatePersistentTcpPortReservation
+    // CreatePersistentUdpPortReservation
+    // DeletePersistentTcpPortReservation
+    // DeletePersistentUdpPortReservation
+    // LookupPersistentTcpPortReservation
+    // LookupPersistentUdpPortReservation
+
+    // Security Health
+    // 
+    // CancelSecurityHealthChangeNotify
+    // NotifySecurityHealthChange
+
+    // Teredo IPv6 Client Management
+    // 
+    // GetTeredoPort
+    // NotifyTeredoPortChange
+    // NotifyStableUnicastIpAddressTable
+
+    // Transmission Control Protocol (TCP) and User Datagram Protocol (UDP)
+    // 
+    // GetExtendedTcpTable
+    // GetExtendedUdpTable
+    // GetOwnerModuleFromTcp6Entry
+    // GetOwnerModuleFromTcpEntry
+    // GetOwnerModuleFromUdp6Entry
+    // GetOwnerModuleFromUdpEntry
+    // GetPerTcp6ConnectionEStats
+    // GetPerTcpConnectionEStats
+    // GetTcpStatistics
+    // GetTcpStatisticsEx
+    // GetTcpStatisticsEx2
+    // GetTcp6Table
+    // GetTcp6Table2
+    // GetTcpTable
+    // GetTcpTable2
+    // SetPerTcp6ConnectionEStats
+    // SetPerTcpConnectionEStats
+    // SetTcpEntry
+    // GetUdp6Table
+    // GetUdpStatistics
+    // GetUdpStatisticsEx
+    // GetUdpStatisticsEx2
+    // GetUdpTable
+
+    // Deprecated APIs
+    // 
+    // AllocateAndGetTcpExTableFromStack
+    // AllocateAndGetUdpExTableFromStack
 
 }
