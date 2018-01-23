@@ -2,7 +2,6 @@
 use parent::*;
 
 // from IPHlpApi.h
-
 pub const MAX_ADAPTER_DESCRIPTION_LENGTH: usize = 128;
 pub const MAX_ADAPTER_NAME: usize = 128;
 pub const MAX_ADAPTER_NAME_LENGTH: usize = 256;
@@ -15,7 +14,7 @@ pub const MAX_INTERFACE_NAME_LEN: usize = 256;
 pub const MAXLEN_PHYSADDR: usize = 8;
 pub const MAXLEN_IFDESCR: usize = 256;
 
-// ifdef.h
+// from ifdef.h
 pub const IF_MAX_STRING_SIZE: usize = 256;
 pub const IF_MAX_PHYS_ADDRESS_LENGTH: usize = 32;
 
@@ -189,13 +188,15 @@ pub type PIP_ADAPTER_GATEWAY_ADDRESS_LH = *mut _IP_ADAPTER_GATEWAY_ADDRESS_LH;
 pub type IP_ADAPTER_GATEWAY_ADDRESS = _IP_ADAPTER_GATEWAY_ADDRESS_LH;
 pub type PIP_ADAPTER_GATEWAY_ADDRESS = *mut _IP_ADAPTER_GATEWAY_ADDRESS_LH;
 
-/// The IP_UNIDIRECTIONAL_ADAPTER_ADDRESS structure stores the IPv4 addresses associated with a unidirectional adapter.
+/// The IP_UNIDIRECTIONAL_ADAPTER_ADDRESS structure stores
+/// the IPv4 addresses associated with a unidirectional adapter.
 #[repr(C)]
 pub struct _IP_UNIDIRECTIONAL_ADAPTER_ADDRESS {
     /// The number of IPv4 addresses pointed to by the Address member.
     pub NumAdapters: ULONG,
     /// An array of variables of type IPAddr. 
-    /// Each element of the array specifies an IPv4 address associated with this unidirectional adapter.
+    /// Each element of the array specifies an IPv4 address 
+    /// associated with this unidirectional adapter.
     pub Address: [IPAddr; 1],
 }
 
@@ -204,13 +205,17 @@ pub type PIP_UNIDIRECTIONAL_ADAPTER_ADDRESS = *mut _IP_UNIDIRECTIONAL_ADAPTER_AD
 
 #[repr(C)]
 pub struct _IP_PER_ADAPTER_INFO {
-    /// Specifies whether IP address auto-configuration (APIPA) is enabled on this adapter. See Remarks.
+    /// Specifies whether IP address auto-configuration (APIPA) 
+    /// is enabled on this adapter. See Remarks.
     pub AutoconfigEnabled: UINT,
-    /// Specifies whether this adapter's IP address is currently auto-configured by APIPA.
+    /// Specifies whether this adapter's IP address is 
+    /// currently auto-configured by APIPA.
     pub AutoconfigActive: UINT,
-    /// Reserved. Use the DnsServerList member to obtain the DNS servers for the local computer.
+    /// Reserved. Use the DnsServerList member to obtain 
+    /// the DNS servers for the local computer.
     pub CurrentDnsServer: PIP_ADDR_STRING,
-    /// A linked list of IP_ADDR_STRING structures that specify the set of DNS servers used by the local computer.
+    /// A linked list of IP_ADDR_STRING structures that specify 
+    /// the set of DNS servers used by the local computer.
     pub DnsServerList: IP_ADDR_STRING,
 }
 
@@ -313,11 +318,14 @@ pub type sockaddr = SOCKADDR;
 pub enum MIB_IPFORWARD_YPE {
     // Some other type not specified in RFC 1354.
     MIB_IPROUTE_TYPE_OTHER    = 1u32, // DWORD == u32
-    // An invalid route. This value can result from a route added by an ICMP redirect.
+    // An invalid route. This value can result from 
+    // a route added by an ICMP redirect.
     MIB_IPROUTE_TYPE_INVALID  = 2,
-    // A local route where the next hop is the final destination (a local interface).
+    // A local route where the next hop is 
+    // the final destination (a local interface).
     MIB_IPROUTE_TYPE_DIRECT   = 3,
-    // The remote route where the next hop is not the final destination (a remote destination).
+    // The remote route where the next hop is not 
+    // the final destination (a remote destination).
     MIB_IPROUTE_TYPE_INDIRECT = 4
 }
 
@@ -330,7 +338,8 @@ pub enum MIB_IPPROTO {
     // A static route. This value is used to identify route information for 
     // IP routing set through network management such as the Dynamic Host
     // Configuration Protocol (DCHP), the Simple Network Management Protocol (SNMP),
-    // or by calls to the CreateIpForwardEntry, DeleteIpForwardEntry, or SetIpForwardEntry functions.
+    // or by calls to the CreateIpForwardEntry, 
+    // DeleteIpForwardEntry, or SetIpForwardEntry functions.
     MIB_IPPROTO_NETMGMT = 3,
     // The result of ICMP redirect.
     MIB_IPPROTO_ICMP = 4,
@@ -344,7 +353,8 @@ pub enum MIB_IPPROTO {
     // sometimes called Hellospeak, as described in RFC 891 and RFC 1305. For more information,
     // see http://www.ietf.org/rfc/rfc891.txt and http://www.ietf.org/rfc/rfc1305.txt. 
     MIB_IPPROTO_HELLO = 7,
-    // The Berkeley Routing Information Protocol (RIP) or RIP-II, a dynamic routing protocol.
+    // The Berkeley Routing Information Protocol (RIP) or RIP-II, 
+    // a dynamic routing protocol.
     MIB_IPPROTO_RIP = 8,
     // The Intermediate System-to-Intermediate System (IS-IS) protocol, 
     // a dynamic routing protocol. The IS-IS protocol was developed for 
@@ -354,20 +364,26 @@ pub enum MIB_IPPROTO {
     // a dynamic routing protocol. The ES-IS protocol was developed for 
     // use in the Open Systems Interconnection (OSI) protocol suite.
     MIB_IPPROTO_ES_IS = 10,
-    // The Cisco Interior Gateway Routing Protocol (IGRP), a dynamic routing protocol.
+    // The Cisco Interior Gateway Routing Protocol (IGRP), 
+    // a dynamic routing protocol.
     MIB_IPPROTO_CISCO = 11,
     // The Bolt, Beranek, and Newman (BBN) Interior Gateway Protocol (IGP) that 
-    // used the Shortest Path First (SPF) algorithm. This was an early dynamic routing protocol.
+    // used the Shortest Path First (SPF) algorithm. 
+    // This was an early dynamic routing protocol.
     MIB_IPPROTO_BBN = 12,
-    // The Open Shortest Path First (OSPF) protocol, a dynamic routing protocol.
+    // The Open Shortest Path First (OSPF) protocol, 
+    // a dynamic routing protocol.
     MIB_IPPROTO_OSPF = 13,
     // The Border Gateway Protocol (BGP), a dynamic routing protocol.
     MIB_IPPROTO_BGP = 14,
-    // A Windows specific entry added originally by a routing protocol, but which is now static.
+    // A Windows specific entry added originally by a routing protocol,
+    // but which is now static.
     MIB_IPPROTO_NT_AUTOSTATIC = 10002,
-    // A Windows specific entry added as a static route from the routing user interface or a routing command. 
+    // A Windows specific entry added as a static route from 
+    // the routing user interface or a routing command. 
     MIB_IPPROTO_NT_STATIC = 10006,
-    // A Windows specific entry added as a static route from the routing user interface or a routing command, 
+    // A Windows specific entry added as a static route from 
+    // the routing user interface or a routing command, 
     // except these routes do not cause Dial On Demand (DOD).
     MIB_IPPROTO_NT_STATIC_NON_DOD = 10007,
 }
@@ -395,24 +411,10 @@ pub struct _MIB_IPFORWARDROW {
 pub type MIB_IPFORWARDROW = _MIB_IPFORWARDROW;
 pub type PMIB_IPFORWARDROW = *mut _MIB_IPFORWARDROW;
 
-
-// https://msdn.microsoft.com/en-us/library/windows/desktop/aa366320(v=vs.85).aspx
-// https://github.com/Alexpux/mingw-w64/blob/master/mingw-w64-headers/include/ifdef.h#L96
-// #[repr(C)]
-// pub struct _NET_LUID_Info {
-//     pub Reserved: ULONG64,     // :24 , This field is reserved.
-//     pub NetLuidIndex: ULONG64, // :24 , The network interface LUID index.
-//     pub IfType: ULONG64,       // :16 , The interface type as defined by the Internet Assigned Names Authority (IANA). 
-//                                //       Possible values for the interface type are listed in the Ipifcons.h include file.
-//                                //       The table below lists common values for the interface type although many other values 
-//                                //       are possible. 
-// }
-
 #[repr(C)]
 pub struct _NET_LUID_Info(pub u64);
 
 impl _NET_LUID_Info {
-
     // 24 bits , This field is reserved.
     #[inline]
     pub fn Reserved(&self) -> ULONG64 {
@@ -436,37 +438,36 @@ impl _NET_LUID_Info {
     }
 }
 
+// ULONG64
 #[repr(C)]
 pub enum IF_TYPE {
-    IF_TYPE_OTHER = 1,              // Some other type of network interface.
-    IF_TYPE_ETHERNET_CSMACD = 6,    // An Ethernet network interface.
-    IF_TYPE_ISO88025_TOKENRING = 9, // A token ring network interface.
-    IF_TYPE_PPP = 23,               // A PPP network interface.
-    IF_TYPE_SOFTWARE_LOOPBACK = 24, // A software loopback network interface.
-    IF_TYPE_ATM = 37,               // An ATM network interface.
-    IF_TYPE_IEEE80211 = 71,         // An IEEE 802.11 wireless network interface.
-    IF_TYPE_TUNNEL = 131,           // A tunnel type encapsulation network interface.
-    IF_TYPE_IEEE1394 = 144,         // An IEEE 1394 (Firewire) high performance serial bus network interface.
+    // Some other type of network interface.
+    IF_TYPE_OTHER = 1,
+    // An Ethernet network interface.
+    IF_TYPE_ETHERNET_CSMACD = 6,
+    // A token ring network interface.
+    IF_TYPE_ISO88025_TOKENRING = 9,
+    // A PPP network interface.
+    IF_TYPE_PPP = 23,
+    // A software loopback network interface.
+    IF_TYPE_SOFTWARE_LOOPBACK = 24,
+    // An ATM network interface.
+    IF_TYPE_ATM = 37,
+    // An IEEE 802.11 wireless network interface.
+    IF_TYPE_IEEE80211 = 71,
+    // A tunnel type encapsulation network interface.
+    IF_TYPE_TUNNEL = 131,
+    // An IEEE 1394 (Firewire) high performance serial bus network interface.
+    IF_TYPE_IEEE1394 = 144,
+
     // Note: interface type is supported on Windows 7, Windows Server 2008 R2, and later.
-    IF_TYPE_IEEE80216_WMAN = 237,   // A mobile broadband interface for WiMax devices.
-    IF_TYPE_WWANPP = 243,           // A mobile broadband interface for GSM-based devices.
-    IF_TYPE_WWANPP2 = 244,          // A mobile broadband interface for CDMA-based devices.
+    // A mobile broadband interface for WiMax devices.
+    IF_TYPE_IEEE80216_WMAN = 237,
+    // A mobile broadband interface for GSM-based devices.
+    IF_TYPE_WWANPP = 243,
+    // A mobile broadband interface for CDMA-based devices.
+    IF_TYPE_WWANPP2 = 244,
 }
-
-// pub const IF_TYPE_OTHER: ULONG64 = 1;              // Some other type of network interface.
-// pub const IF_TYPE_ETHERNET_CSMACD: ULONG64 = 6;    // An Ethernet network interface.
-// pub const IF_TYPE_ISO88025_TOKENRING: ULONG64 = 9; // A token ring network interface.
-// pub const IF_TYPE_PPP: ULONG64 = 23;               // A PPP network interface.
-// pub const IF_TYPE_SOFTWARE_LOOPBACK: ULONG64 = 24; // A software loopback network interface.
-// pub const IF_TYPE_ATM: ULONG64 = 37;               // An ATM network interface.
-// pub const IF_TYPE_IEEE80211: ULONG64 = 71;         // An IEEE 802.11 wireless network interface.
-// pub const IF_TYPE_TUNNEL: ULONG64 = 131;           // A tunnel type encapsulation network interface.
-// pub const IF_TYPE_IEEE1394: ULONG64 = 144;         // An IEEE 1394 (Firewire) high performance serial bus network interface.
-// // Note: interface type is supported on Windows 7, Windows Server 2008 R2, and later.
-// pub const IF_TYPE_IEEE80216_WMAN: ULONG64 = 237;   // A mobile broadband interface for WiMax devices.
-// pub const IF_TYPE_WWANPP: ULONG64 = 243;           // A mobile broadband interface for GSM-based devices.
-// pub const IF_TYPE_WWANPP2: ULONG64 = 244;          // A mobile broadband interface for CDMA-based devices.
-
 
 #[repr(C)]
 pub union _NET_LUID {
@@ -489,7 +490,8 @@ pub struct SOCKADDR_IN6 {
     pub sin6_scope_id: c_ulong,
 }
 
-// The SOCKADDR_INET union contains an IPv4, an IPv6 address, or an address family.
+// The SOCKADDR_INET union contains an IPv4, 
+// an IPv6 address, or an address family.
 #[repr(C)]
 pub union _SOCKADDR_INET {
     pub Ipv4: SOCKADDR_IN,
@@ -533,9 +535,11 @@ pub enum NL_ROUTE_PROTOCOL {
     // routing protocol used by the original ARPANET routers that ran special 
     // software called the Fuzzball routing protocol, sometimes called Hellospeak, 
     // as described in RFC 891 and RFC 1305. 
-    // For more information, see http://www.ietf.org/rfc/rfc891.txt and http://www.ietf.org/rfc/rfc1305.txt. 
+    // For more information,
+    // see http://www.ietf.org/rfc/rfc891.txt and http://www.ietf.org/rfc/rfc1305.txt. 
     MIB_IPPROTO_HELLO = 7,
-    // The Berkeley Routing Information Protocol (RIP) or RIP-II, a dynamic routing protocol.
+    // The Berkeley Routing Information Protocol (RIP) or RIP-II,
+    // a dynamic routing protocol.
     MIB_IPPROTO_RIP = 8,
     // The Intermediate System-to-Intermediate System (IS-IS) protocol, 
     // a dynamic routing protocol. The IS-IS protocol was developed for 
@@ -545,20 +549,27 @@ pub enum NL_ROUTE_PROTOCOL {
     // a dynamic routing protocol. The ES-IS protocol was developed 
     // for use in the Open Systems Interconnection (OSI) protocol suite. 
     MIB_IPPROTO_ES_IS = 10,
-    // The Cisco Interior Gateway Routing Protocol (IGRP), a dynamic routing protocol.
+    // The Cisco Interior Gateway Routing Protocol (IGRP),
+    // a dynamic routing protocol.
     MIB_IPPROTO_CISCO = 11,
     // The Bolt, Beranek, and Newman (BBN) Interior Gateway Protocol (IGP) that 
-    // used the Shortest Path First (SPF) algorithm. This was an early dynamic routing protocol.
+    // used the Shortest Path First (SPF) algorithm.
+    // This was an early dynamic routing protocol.
     MIB_IPPROTO_BBN = 12,
-    // The Open Shortest Path First (OSPF) protocol, a dynamic routing protocol.
+    // The Open Shortest Path First (OSPF) protocol,
+    // a dynamic routing protocol.
     MIB_IPPROTO_OSPF = 13,
-    // The Border Gateway Protocol (BGP), a dynamic routing protocol.
+    // The Border Gateway Protocol (BGP), 
+    // a dynamic routing protocol.
     MIB_IPPROTO_BGP = 14,
-    // A Windows specific entry added originally by a routing protocol, but which is now static.
+    // A Windows specific entry added originally by 
+    // a routing protocol, but which is now static.
     MIB_IPPROTO_NT_AUTOSTATIC = 10002,
-    // A Windows specific entry added as a static route from the routing user interface or a routing command. 
+    // A Windows specific entry added as a static route from 
+    // the routing user interface or a routing command. 
     MIB_IPPROTO_NT_STATIC = 10006,
-    // A Windows specific entry added as an static route from the routing user interface or a routing command, 
+    // A Windows specific entry added as an static route from
+    // the routing user interface or a routing command, 
     // except these routes do not cause Dial On Demand (DOD).
     MIB_IPPROTO_NT_STATIC_NON_DOD = 10007,
 }
@@ -710,16 +721,20 @@ pub enum NDIS_MEDIUM {
     // An InfiniBand network.
     NdisMediumInfiniBand = 14,
     // A tunnel network.
-    // Note  This media type is supported on Windows Vista, Windows Server 2008, and later.
+    // Note  This media type is supported on Windows Vista,
+    //       Windows Server 2008, and later.
     NdisMediumTunnel = 15,
     // A native IEEE 802.11 network.
-    // Note  This media type is supported on Windows Vista, Windows Server 2008, and later.
+    // Note  This media type is supported on Windows Vista,
+    //       Windows Server 2008, and later.
     NdisMediumNative802_11 = 16,
     // An NDIS loopback network.
-    // Note  This media type is supported on Windows Vista, Windows Server 2008, and later.
+    // Note  This media type is supported on Windows Vista,
+    //       Windows Server 2008, and later.
     NdisMediumLoopback = 17,
     // An WiMax network.
-    // Note  This media type is supported on Windows 7, Windows Server 2008 R2, and later.
+    // Note  This media type is supported on Windows 7,
+    //       Windows Server 2008 R2, and later.
     NdisMediumWiMax = 18,
 }
 
@@ -752,14 +767,19 @@ pub enum NET_IF_ACCESS_TYPE {
     // Loopback access type. This access type indicates that 
     // the interface loops back transmit data as receive data.
     NET_IF_ACCESS_LOOPBACK = 1, 
-    // The LAN access type which includes Ethernet. This access type indicates that the 
-    // interface provides native support for multicast or broadcast services.
-    // Note  Mobile broadband interfaces with a MediaType of NdisMedium802_3 use this access type.
+    // The LAN access type which includes Ethernet. 
+    // This access type indicates that the interface 
+    // provides native support for multicast or broadcast services.
+    // Note  Mobile broadband interfaces with a MediaType 
+    // of NdisMedium802_3 use this access type.
     NET_IF_ACCESS_BROADCAST = 2, 
-    // Point-to-point access that supports CoNDIS/WAN, except for non-broadcast multi-access (NBMA) interfaces.
-    // Note  Mobile broadband interfaces with a MediaType of NdisMediumWirelessWan use this access type.
+    // Point-to-point access that supports CoNDIS/WAN, 
+    // except for non-broadcast multi-access (NBMA) interfaces.
+    // Note  Mobile broadband interfaces with a MediaType 
+    // of NdisMediumWirelessWan use this access type.
     NET_IF_ACCESS_POINT_TO_POINT = 3, 
-    // Point-to-multipoint access that supports non-broadcast multi-access (NBMA) media,
+    // Point-to-multipoint access that supports non-broadcast 
+    // multi-access (NBMA) media,
     // including the "RAS Internal" interface, and native (non-LANE) ATM.
     NET_IF_ACCESS_POINT_TO_MULTI_POINT = 4, 
     // The maximum possible value for the NET_IF_ACCESS_TYPE enumeration type.
@@ -789,9 +809,11 @@ pub enum NET_IF_ADMIN_STATUS {
     // necessarily ready to transmit and receive network data because that 
     // depends on the operational status of the interface.
     NET_IF_ADMIN_STATUS_UP = 1,
-    // The interface is down, and this interface cannot be used to transmit or receive network data.
+    // The interface is down, 
+    // and this interface cannot be used to transmit or receive network data.
     NET_IF_ADMIN_STATUS_DOWN = 2,
-    // The interface is in a test mode, and no network data can be transmitted or received.
+    // The interface is in a test mode, 
+    // and no network data can be transmitted or received.
     NET_IF_ADMIN_STATUS_TESTING = 3,
 }
 
@@ -938,9 +960,11 @@ pub enum NL_LINK_LOCAL_ADDRESS_BEHAVIOR {
     // Use a link local IP address only if no other address is available.
     // This is the default setting for an IPv4 interface.
     LinkLocalDelayed = 1,
-    // Always use a link local IP address. This is the default setting for an IPv6 interface.
+    // Always use a link local IP address.
+    // This is the default setting for an IPv6 interface.
     LinkLocalAlwaysOn = 2,
-    // This value is used when setting the properties for an IP interface when the value 
+    // This value is used when setting the properties 
+    // for an IP interface when the value 
     // for link local address behavior should be unchanged.
     LinkLocalUnchanged = -1,
 }
