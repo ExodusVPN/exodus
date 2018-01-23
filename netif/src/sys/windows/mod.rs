@@ -153,6 +153,9 @@ pub use winapi::shared::winerror::{
     NO_ERROR, 
 };
 
+pub use winapi::shared::guiddef::{
+    GUID,
+};
 
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ms738568(v=vs.85).aspx
 pub const IFF_UP: c_int = 0x00000001;

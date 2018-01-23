@@ -140,6 +140,84 @@ pub type IP_ADAPTER_DNS_SUFFIX = _IP_ADAPTER_DNS_SUFFIX;
 pub type PIP_ADAPTER_DNS_SUFFIX = *mut _IP_ADAPTER_DNS_SUFFIX;
 
 #[repr(C)]
+pub struct _IP_ADAPTER_PREFIX {
+    pub Length: ULONG,
+    pub Flags: DWORD,
+    pub Next: *mut _IP_ADAPTER_PREFIX,
+    pub Address: SOCKET_ADDRESS,
+    pub PrefixLength: ULONG,
+}
+
+pub type IP_ADAPTER_PREFIX = _IP_ADAPTER_PREFIX;
+pub type PIP_ADAPTER_PREFIX = *mut _IP_ADAPTER_PREFIX;
+
+#[repr(C)]
+pub struct _IP_ADAPTER_WINS_SERVER_ADDRESS_LH {
+    pub Length: ULONG,
+    pub Reserved: DWORD,
+    pub Next: *mut _IP_ADAPTER_WINS_SERVER_ADDRESS_LH,
+    pub Address: SOCKET_ADDRESS,
+}
+
+pub type IP_ADAPTER_WINS_SERVER_ADDRESS_LH = _IP_ADAPTER_WINS_SERVER_ADDRESS_LH;
+pub type PIP_ADAPTER_WINS_SERVER_ADDRESS_LH = *mut _IP_ADAPTER_WINS_SERVER_ADDRESS_LH;
+pub type IP_ADAPTER_WINS_SERVER_ADDRESS = _IP_ADAPTER_WINS_SERVER_ADDRESS_LH;
+pub type PIP_ADAPTER_WINS_SERVER_ADDRESS = *mut _IP_ADAPTER_WINS_SERVER_ADDRESS_LH;
+
+#[repr(C)]
+pub struct _IP_ADAPTER_GATEWAY_ADDRESS_LH {
+    pub Length: ULONG,
+    pub Reserved: DWORD,
+    pub Next: *mut _IP_ADAPTER_GATEWAY_ADDRESS_LH,
+    pub Address: SOCKET_ADDRESS,
+}
+
+pub type IP_ADAPTER_GATEWAY_ADDRESS_LH = _IP_ADAPTER_GATEWAY_ADDRESS_LH;
+pub type PIP_ADAPTER_GATEWAY_ADDRESS_LH = *mut _IP_ADAPTER_GATEWAY_ADDRESS_LH;
+pub type IP_ADAPTER_GATEWAY_ADDRESS = _IP_ADAPTER_GATEWAY_ADDRESS_LH;
+pub type PIP_ADAPTER_GATEWAY_ADDRESS = *mut _IP_ADAPTER_GATEWAY_ADDRESS_LH;
+
+#[repr(C)]
+pub enum IF_OPER_STATUS {
+    IfOperStatusUp = 1,
+    IfOperStatusDown,
+    IfOperStatusTesting,
+    IfOperStatusUnknown,
+    IfOperStatusDormant,
+    IfOperStatusNotPresent,
+    IfOperStatusLowerLayerDown,
+}
+
+pub type NET_IF_COMPARTMENT_ID = UINT32;
+pub type PNET_IF_COMPARTMENT_ID = *mut UINT32;
+pub type NET_IF_NETWORK_GUID = GUID;
+pub type PNET_IF_NETWORK_GUID = *mut GUID;
+
+#[repr(C)]
+pub enum _NET_IF_CONNECTION_TYPE {
+    NET_IF_CONNECTION_DEDICATED = 1,
+    NET_IF_CONNECTION_PASSIVE = 2,
+    NET_IF_CONNECTION_DEMAND = 3,
+    NET_IF_CONNECTION_MAXIMUM = 4,
+}
+
+pub type NET_IF_CONNECTION_TYPE = _NET_IF_CONNECTION_TYPE;
+pub type PNET_IF_CONNECTION_TYPE = *mut _NET_IF_CONNECTION_TYPE;
+
+#[repr(C)]
+pub enum TUNNEL_TYPE {
+    TUNNEL_TYPE_NONE = 0,
+    TUNNEL_TYPE_OTHER = 1,
+    TUNNEL_TYPE_DIRECT = 2,
+    TUNNEL_TYPE_6TO4 = 11,
+    TUNNEL_TYPE_ISATAP = 13,
+    TUNNEL_TYPE_TEREDO = 14,
+    TUNNEL_TYPE_IPHTTPS = 15,
+}
+
+pub type PTUNNEL_TYPE = *mut TUNNEL_TYPE;
+
+#[repr(C)]
 pub struct _IP_ADAPTER_ADDRESSES {
     pub Length: ULONG,
     pub IfIndex: DWORD,
@@ -306,9 +384,9 @@ impl _NET_LUID_Info {
 
     // 16 bits
     // The interface type as defined by the Internet Assigned Names Authority (IANA). 
-    //       Possible values for the interface type are listed in the Ipifcons.h include file.
-    //       The table below lists common values for the interface type although many other values 
-    //       are possible. 
+    // Possible values for the interface type are listed in the Ipifcons.h include file.
+    // The table below lists common values for the interface type although many other values 
+    // are possible. 
     #[inline]
     pub fn IfType(&self) -> ULONG64 {
         self.0 & 0b_00000000_00000000_00000000_00000000_00000000_00000000_11111111_11111111
@@ -369,32 +447,70 @@ pub type PIP_ADDRESS_PREFIX = *mut IP_ADDRESS_PREFIX;
 // https://msdn.microsoft.com/en-us/library/windows/desktop/aa814494(v=vs.85).aspx
 #[repr(C)]
 pub enum NL_ROUTE_PROTOCOL {
-    MIB_IPPROTO_OTHER = 1,    // The routing mechanism was not specified. 
-    MIB_IPPROTO_LOCAL = 2,    // A local interface.
+    // The routing mechanism was not specified. 
+    MIB_IPPROTO_OTHER = 1i32,
+    // A local interface.
+    MIB_IPPROTO_LOCAL = 2,
+    // A static route. This value is used to identify route information for 
+    // IP routing set through network management such as the 
+    // Dynamic Host Configuration Protocol (DCHP), 
+    // the Simple Network Management Protocol (SNMP), 
+    // or by calls to the CreateIpForwardEntry2, DeleteIpForwardEntry2, 
+    // or SetIpForwardEntry2 functions.
     MIB_IPPROTO_NETMGMT = 3,
+    // The result of an ICMP redirect.
     MIB_IPPROTO_ICMP = 4,
+    // The Exterior Gateway Protocol (EGP), a dynamic routing protocol.
     MIB_IPPROTO_EGP = 5,
+    // The Gateway-to-Gateway Protocol (GGP), a dynamic routing protocol.
     MIB_IPPROTO_GGP = 6,
+    // The Hellospeak protocol, a dynamic routing protocol. 
+    // This is a historical entry no longer in use and was an early 
+    // routing protocol used by the original ARPANET routers that ran special 
+    // software called the Fuzzball routing protocol, sometimes called Hellospeak, 
+    // as described in RFC 891 and RFC 1305. 
+    // For more information, see http://www.ietf.org/rfc/rfc891.txt and http://www.ietf.org/rfc/rfc1305.txt. 
     MIB_IPPROTO_HELLO = 7,
+    // The Berkeley Routing Information Protocol (RIP) or RIP-II, a dynamic routing protocol.
     MIB_IPPROTO_RIP = 8,
+    // The Intermediate System-to-Intermediate System (IS-IS) protocol, 
+    // a dynamic routing protocol. The IS-IS protocol was developed for 
+    // use in the Open Systems Interconnection (OSI) protocol suite. 
     MIB_IPPROTO_IS_IS = 9,
+    // The End System-to-Intermediate System (ES-IS) protocol, 
+    // a dynamic routing protocol. The ES-IS protocol was developed 
+    // for use in the Open Systems Interconnection (OSI) protocol suite. 
     MIB_IPPROTO_ES_IS = 10,
+    // The Cisco Interior Gateway Routing Protocol (IGRP), a dynamic routing protocol.
     MIB_IPPROTO_CISCO = 11,
+    // The Bolt, Beranek, and Newman (BBN) Interior Gateway Protocol (IGP) that 
+    // used the Shortest Path First (SPF) algorithm. This was an early dynamic routing protocol.
     MIB_IPPROTO_BBN = 12,
+    // The Open Shortest Path First (OSPF) protocol, a dynamic routing protocol.
     MIB_IPPROTO_OSPF = 13,
+    // The Border Gateway Protocol (BGP), a dynamic routing protocol.
     MIB_IPPROTO_BGP = 14,
+    // A Windows specific entry added originally by a routing protocol, but which is now static.
     MIB_IPPROTO_NT_AUTOSTATIC = 10002,
+    // A Windows specific entry added as a static route from the routing user interface or a routing command. 
     MIB_IPPROTO_NT_STATIC = 10006,
+    // A Windows specific entry added as an static route from the routing user interface or a routing command, 
+    // except these routes do not cause Dial On Demand (DOD).
     MIB_IPPROTO_NT_STATIC_NON_DOD = 10007,
 }
 
 #[repr(C)]
 pub enum NL_ROUTE_ORIGIN {
-    NlroManual = 0,              // A result of manual configuration. 
-    NlroWellKnown = 1,           // A well-known route.
-    NlroDHCP = 2,                // A result of DHCP configuration.
-    NlroRouterAdvertisement = 3, // The result of router advertisement.
-    Nlro6to4 = 4,                // A result of 6to4 tunneling.
+    // A result of manual configuration. 
+    NlroManual = 0i32,
+    // A well-known route.
+    NlroWellKnown = 1,
+    // A result of DHCP configuration.
+    NlroDHCP = 2,
+    // The result of router advertisement.
+    NlroRouterAdvertisement = 3,
+    // A result of 6to4 tunneling.
+    Nlro6to4 = 4,
 }
 
 #[repr(C)]
@@ -407,13 +523,13 @@ pub struct _MIB_IPFORWARD_ROW2 {
     pub ValidLifetime: ULONG,
     pub PreferredLifetime: ULONG,
     pub Metric: ULONG,
-    pub Protocol: NL_ROUTE_PROTOCOL,
+    pub Protocol: NL_ROUTE_PROTOCOL,   // int/i32
     pub Loopback: BOOLEAN,
     pub AutoconfigureAddress: BOOLEAN,
     pub Publish: BOOLEAN,
     pub Immortal: BOOLEAN,
     pub Age: ULONG,
-    pub Origin: NL_ROUTE_ORIGIN,
+    pub Origin: NL_ROUTE_ORIGIN,      // int/i32
 }
 
 pub type MIB_IPFORWARD_ROW2 = _MIB_IPFORWARD_ROW2;
