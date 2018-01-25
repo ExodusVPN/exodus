@@ -971,36 +971,35 @@ pub enum NL_LINK_LOCAL_ADDRESS_BEHAVIOR {
 
 // FIXME: 9 bits
 #[repr(C)]
-pub struct NL_INTERFACE_OFFLOAD_ROD(pub u16);
+pub struct NL_INTERFACE_OFFLOAD_ROD(pub [u8; 2]);
 
 impl NL_INTERFACE_OFFLOAD_ROD {
     pub fn NlChecksumSupported(&self) -> BOOLEAN {
-        self.0 >> 15
+        self.0[0] >> 7
     }
     pub fn NlOptionsSupported(&self) -> BOOLEAN {
-        (self.0 >> 14) & 0b_01
+        (self.0[0] >> 6) & 0b_01
     }
-
     pub fn TlDatagramChecksumSupported(&self) -> BOOLEAN {
-        (self.0 >> 13) & 0b_001
+        (self.0[0] >> 5) & 0b_001
     }
     pub fn TlStreamChecksumSupported(&self) -> BOOLEAN {
-        (self.0 >> 12) & 0b_0001
+        (self.0[0] >> 4) & 0b_0001
     }
     pub fn TlStreamOptionsSupported(&self) -> BOOLEAN {
-        (self.0 >> 11) & 0b_0000_1
+        (self.0[0] >> 3) & 0b_0000_1
     }
     pub fn TlStreamFastPathCompatible(&self) -> BOOLEAN {
-        (self.0 >> 10) & 0b_0000_01
+        (self.0[0] >> 2) & 0b_0000_01
     }
     pub fn TlDatagramFastPathCompatible(&self) -> BOOLEAN {
-        (self.0 >> 9) & 0b_0000_001
+        (self.0[0] >> 1) & 0b_0000_001
     }
     pub fn TlLargeSendOffloadSupported(&self) -> BOOLEAN {
-        (self.0 >> 8) & 0b_0000_0001
+        self.0[0] & 0b_0000_0001
     }
     pub fn TlGiantSendOffloadSupported(&self) -> BOOLEAN {
-        (self.0 >> 7) & 0b_0000_0000_1
+        self.0[1] >> 7
     }
 }
 
@@ -1038,24 +1037,12 @@ pub struct _MIB_IPINTERFACE_ROW {
     pub SupportsNeighborDiscovery: BOOLEAN,
     pub SupportsRouterDiscovery: BOOLEAN,
     pub ReachableTime: ULONG,
-    // pub TransmitOffload: NL_INTERFACE_OFFLOAD_ROD,  // 9 bits
-    // pub ReceiveOffload: NL_INTERFACE_OFFLOAD_ROD,   // 9 bits
-    // pub DisableDefaultRoutes: BOOLEAN,              // 8 bits
-    pub _last: u32,
-}
+    // C bitfields
+    pub TransmitOffload: NL_INTERFACE_OFFLOAD_ROD,
+    pub ReceiveOffload: NL_INTERFACE_OFFLOAD_ROD,
+    pub DisableDefaultRoutes: NL_INTERFACE_OFFLOAD_ROD,
 
-impl _MIB_IPINTERFACE_ROW {
-    pub fn TransmitOffload(&self) -> NL_INTERFACE_OFFLOAD_ROD {
-        NL_INTERFACE_OFFLOAD_ROD( ((self._last & 0b_11111111_10000000_00000000_00000000) >> 23)  as u16)
-    }
-
-    pub fn ReceiveOffload(&self) -> NL_INTERFACE_OFFLOAD_ROD {
-        NL_INTERFACE_OFFLOAD_ROD( ((self._last & 0b_00000000_01111111_11000000_00000000) >> 14) as u16)
-    }
-
-    pub fn DisableDefaultRoutes(&self) -> BOOLEAN {
-        ((self._last & 0b_00000000_00000000_00111111_11000000) >> 6) as BOOLEAN
-    }
+    pub DisableDefaultRoutes: BOOLEAN,
 }
 
 pub type MIB_IPINTERFACE_ROW = _MIB_IPINTERFACE_ROW;
