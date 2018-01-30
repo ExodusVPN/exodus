@@ -1,5 +1,7 @@
+#![feature(test)]
 
 /// VPN Server
+extern crate test;
 #[allow(unused_imports)]
 #[macro_use]
 extern crate logging;
@@ -27,6 +29,7 @@ pub mod signal;
 pub mod syscfg;
 pub mod crypto;
 pub mod compression;
+pub mod error;
 
 
 use std::env;

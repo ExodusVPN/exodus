@@ -1,5 +1,7 @@
+#![feature(test)]
 
 /// VPN Client
+extern crate test;
 #[allow(unused_imports)]
 #[macro_use]
 extern crate logging;
@@ -23,10 +25,12 @@ extern crate smoltcp;
 extern crate netif;
 
 
+
 pub mod signal;
 pub mod syscfg;
 pub mod crypto;
 pub mod compression;
+pub mod error;
 
 
 use std::env;
@@ -480,8 +484,8 @@ fn run (config: &ClientConfig) {
 
         let local_tun_ip = Ipv4Addr::from(NetworkEndian::read_u32(&udp_buf[1..5]));
         let local_public_ip = Ipv4Addr::from(NetworkEndian::read_u32(&udp_buf[5..9]));
-        let server_gateway_ip = Ipv4Addr::from(NetworkEndian::read_u32(&udp_buf[9..14]));
-        let tun_netmask = Ipv4Addr::from(NetworkEndian::read_u32(&udp_buf[14..18]));
+        let server_gateway_ip = Ipv4Addr::from(NetworkEndian::read_u32(&udp_buf[9..13]));
+        let tun_netmask = Ipv4Addr::from(NetworkEndian::read_u32(&udp_buf[13..17]));
         (local_tun_ip, local_public_ip, server_gateway_ip, tun_netmask)
     };
 

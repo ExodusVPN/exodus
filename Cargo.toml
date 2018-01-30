@@ -11,6 +11,13 @@ members = [
     "netif"
 ]
 
+[[bin]]
+name = "crypto_test"
+path = "src/crypto/mod.rs"
+
+# [[bin]]
+# name = "rsa_test"
+# path = "src/crypto/rsa.rs"
 
 [[bin]]
 name = "vpn"
@@ -20,6 +27,9 @@ path = "src/vpn.rs"
 name = "vpnd"
 path = "src/vpnd.rs"
 
+[[bin]]
+name = "iana_tool"
+path = "iana/main.rs"
 
 [dependencies]
 logging = { path = "./logging" }
@@ -30,7 +40,8 @@ bitflags = "1.0"
 byteorder = "1.2.1"
 rand = "0.4.1"
 snap = "0.2.3"
-openssl = "0.9.23"
+openssl = "0.10"
+
 mio-more = "0.1.0"
 ipnetwork = "0.12"
 
@@ -40,6 +51,11 @@ hwaddr   = { version = "0.1.3", default-features = false, features = [] }
 futures  = { version = "0.1.17", default-features = false, features = ["use_std"] }
 mio      = { version = "0.6.11", default-features = false, features = [] }
 tun      = { version = "0.4.2", default-features = false, features = ["mio"] }
+
+hyper = "0.11"
+hyper-tls = "0.1"
+ftp = "2.2"
+tokio-core = "0.1"
 
 [dependencies.smoltcp]
 git = "https://github.com/m-labs/smoltcp.git"
