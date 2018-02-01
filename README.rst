@@ -77,6 +77,72 @@ Debian 9:
     cp target/release/vpnd .
 
 
+OpenWRT 17.01.4:
+
+.. code:: bash
+    
+    wget "http://downloads.openwrt.org/releases/17.01.4/targets/x86/64/lede-17.01.4-x86-64-combined-ext4.img.gz"
+    tar -xvjf lede-17.01.4-x86-64-combined-ext4.img.gz
+    #dd if=lede-17.01.4-x86-64-combined-squashfs.img of=openwrt.img bs=100m conv=sync
+    #VBoxManage convertfromraw --format VMDK openwrt.img openwrt.vmdk
+
+    VBoxManage convertfromraw --format VMDK lede-17.01.4-x86-64-combined-ext4.img openwrt.vmdk
+    VBoxManage clonehd "openwrt.vmdk" "openwrt.vdi" --format vdi
+    VBoxManage modifyhd "openwrt.vdi" --resize 5120
+
+    opkg update
+    opkg install wget
+    opkg install curl
+    opkg install bash
+    opkg install vim
+    opkg install ca-certificates
+    opkg install openssl-util
+
+    touch ~/.bashrc
+    echo "export SSL_CERT_DIR=/etc/ssl/certs" >> ~/.bashrc
+    
+
+Cross
+---------
+
+Host: GNU/Linux
+
+.. code:: bash
+    
+    brew install qemu
+    brew install docker
+
+    docker pull japaric/x86_64-unknown-linux-gnu
+    docker pull japaric/x86_64-unknown-linux-musl
+    docker pull japaric/x86_64-unknown-freebsd
+    docker pull japaric/x86_64-unknown-netbsd
+
+    docker pull japaric/arm-unknown-linux-gnueabi
+    docker pull japaric/arm-linux-androideabi
+    docker pull japaric/armv7-unknown-linux-gnueabihf
+    docker pull japaric/armv7-linux-androideabi
+
+    docker pull japaric/aarch64-unknown-linux-gnu
+    docker pull japaric/aarch64-linux-android
+
+    docker pull japaric/mips-unknown-linux-gnu
+    docker pull japaric/mipsel-unknown-linux-gnu
+    docker pull japaric/mips64-unknown-linux-gnuabi64
+    docker pull japaric/mips64el-unknown-linux-gnuabi64
+
+    cargo install cross
+
+    cross build --bin vpn --release 
+    # For OpenWRT devices:
+    #     mips-unknown-linux-uclibc (15.05 and older) 
+    #     mips-unknown-linux-musl (post 15.05)
+    #     x86_64-unknown-linux-musl (post 15.05)
+    #     arm-unknown-linux-musl (post 15.05)
+    #     armv7-unknown-linux-musl (post 15.05)
+    cross build --bin vpn --target x86_64-unknown-linux-musl --release 
+
+
+
 Run
 -------
 

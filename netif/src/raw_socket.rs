@@ -4,22 +4,77 @@ use sys;
 
 use std::io;
 use std::mem;
-#[cfg(target_os = "linux")]
-use std::ptr;
-use std::ffi::CString;
-use std::time::Duration;
 use std::os::unix::io::RawFd;
 use std::os::unix::io::AsRawFd;
+use std::iter::Iterator;
+
+cfg_if! {
+    if #[cfg(any(target_os = "macos", target_os = "freebsd"))] {
+        use std::ffi::CString;
+        use std::time::Duration;
+    }
+}
 
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum LinkLayer {
-    /// macOS loopback or utun (macOS Only).
+    /// macOS loopback or utun, Linux tun without `IFF_NO_PI` flag
     Null,
     /// Ethernet Frame
     Eth,
-    /// Raw IP Packet
+    /// Raw IP Packet (IPv4 Packet / IPv6 Packet)
     Ip,
+}
+
+#[cfg(any(target_os = "macos", target_os = "freebsd"))]
+const BPF_HDR_SIZE: usize = mem::size_of::<sys::bpf_hdr>();
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Reader<'a> {
+    buf: &'a [u8],
+    len: usize,
+    start: usize
+}
+
+impl <'a>Iterator for Reader<'a> {
+    type Item = (usize, usize);
+
+    #[cfg(any(target_os = "macos", target_os = "freebsd"))]
+    fn next(&mut self) -> Option<Self::Item> {
+        let len = self.len;
+        let start = self.start;
+        if start >= len  {
+            None
+        } else {
+            let bpf_buf = &self.buf[start..start+BPF_HDR_SIZE];
+            let bpf_packet = bpf_buf.as_ptr() as *const sys::bpf_hdr;
+            let bh_hdrlen = unsafe { (*bpf_packet).bh_hdrlen } as usize ;
+            let bh_datalen = unsafe { (*bpf_packet).bh_datalen } as usize;
+            
+            if bh_datalen + bh_hdrlen > len as usize {
+                None
+            } else {
+                self.start = start + sys::BPF_WORDALIGN((bh_datalen + bh_hdrlen) as isize) as usize;
+                let bpos = start + bh_hdrlen;
+                let epos = start + bh_hdrlen + bh_datalen;
+                let pos = (bpos, epos);
+                Some(pos)
+            }
+        }
+    }
+
+    #[cfg(all(target_os = "linux"))]
+    fn next(&mut self) -> Option<Self::Item> {
+        let len = self.len;
+        let start = self.start;
+        if start >= len  {
+            None
+        } else {
+            self.start = start + len;
+            let pos = (start, len);
+            Some(pos)
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -27,41 +82,35 @@ pub struct RawSocket {
     fd: sys::c_int,
     dt: LinkLayer,
     blen: usize,
-    #[cfg(any(target_os = "macos", target_os = "freebsd"))]
-    len: usize,
-    #[cfg(any(target_os = "macos", target_os = "freebsd"))]
-    start: Option<usize>
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", target_env = "gnu"))]
 impl RawSocket {
-    pub fn open(ifname: &str) -> Result<RawSocket, io::Error> {
+    pub fn with_ifname(ifname: &str) -> Result<RawSocket, io::Error> {
         let flags = sys::if_name_to_flags(ifname).unwrap();
         let link_layer = 
             if flags & sys::IFF_LOOPBACK != 0 {
-                // Loopback: IFF_UP | IFF_LOOPBACK | IFF_RUNNING
-                // LinkLayer::Loopback
                 LinkLayer::Eth
             } else if flags & sys::IFF_BROADCAST != 0 {
-                // TAP: IFF_UP | IFF_BROADCAST | IFF_RUNNING | IFF_MULTICAST
                 LinkLayer::Eth
             } else if flags & sys::IFF_POINTOPOINT != 0 {
-                // TUN: POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP
-                LinkLayer::Ip
+                if flags & sys::IFF_NO_PI as i32 != 0 {
+                    LinkLayer::Ip
+                } else {
+                    LinkLayer::Null
+                }
             } else {
-                // unknow interface
                 return Err(io::Error::new(io::ErrorKind::Other, "link layer unknow"))
             };
-
         let protocol = match link_layer {
-            // LinkLayer::Loopback => (sys::ETH_P_LOOP as u16).to_be(),
-            LinkLayer::Eth => (sys::ETH_P_ALL as u16).to_be(),
-            LinkLayer::Ip => (sys::ETH_P_IP as u16).to_be(),
-            _ => return Err(io::Error::new(io::ErrorKind::Other, "link layer unknow"))
+            LinkLayer::Eth | LinkLayer::Null => (sys::ETH_P_ALL as u16).to_be(),
+            LinkLayer::Ip => (sys::ETH_P_IP as u16).to_be()
         };
 
         let fd = unsafe {
-            sys::socket(sys::AF_PACKET, sys::SOCK_RAW | sys::SOCK_NONBLOCK, protocol as i32)
+            // NOTE: async io use `mio` is better.
+            // sys::socket(sys::AF_PACKET, sys::SOCK_RAW | sys::SOCK_NONBLOCK, protocol as i32)
+            sys::socket(sys::AF_PACKET, sys::SOCK_RAW, protocol as i32)
         };
 
         if fd == -1 {
@@ -95,8 +144,6 @@ impl RawSocket {
     }
     
     pub fn link_layer(&self) -> LinkLayer {
-        // https://github.com/torvalds/linux/blob/master/include/uapi/linux/if_ether.h#L46
-        // http://man7.org/linux/man-pages/man7/packet.7.html
         self.dt
     }
 
@@ -104,65 +151,35 @@ impl RawSocket {
         self.blen
     }
 
-    pub fn recv(&mut self, buffer: &mut [u8]) -> Result<usize, io::Error> {
+    pub fn recv(&mut self, buf: &mut [u8]) -> Result<Reader, io::Error> {
         let len = unsafe {
             sys::recv(self.fd, 
-                      buffer.as_mut_ptr() as *mut sys::c_void,
-                      buffer.len(), 0)
+                      buf.as_mut_ptr() as *mut sys::c_void,
+                      buf.len(), 0)
         };
-        if len == -1 {
+        if len < 0 {
             Err(io::Error::last_os_error())
         } else {
-            Ok(len as usize)
+            Ok(Reader {
+                buf: unsafe { mem::transmute(buf) } ,
+                len: len as usize,
+                start: 0,
+            })
         }
     }
 
-    pub fn send(&mut self, buffer: &[u8]) -> Result<usize, io::Error> {
+    pub fn send(&mut self, buf: &[u8]) -> Result<usize, io::Error> {
         let len = unsafe {
             sys::send(self.fd,
-                      buffer.as_ptr() as *const sys::c_void,
-                      buffer.len(),
+                      buf.as_ptr() as *const sys::c_void,
+                      buf.len(),
                       0)
         };
 
-        if len == -1 {
+        if len < 0 {
             Err(io::Error::last_os_error())
         } else {
             Ok(len as usize)
-        }
-    }
-
-    pub fn write(&mut self, buffer: &[u8]) -> Result<usize, io::Error> {
-        self.send(buffer)
-    }
-
-    pub fn await(&self, millis: Option<u64>) -> Result<(), io::Error> {
-        unsafe {
-            let mut readfds = mem::uninitialized::<sys::fd_set>();
-            sys::FD_ZERO(&mut readfds);
-            sys::FD_SET(self.fd, &mut readfds);
-
-            let mut writefds = mem::uninitialized::<sys::fd_set>();
-            sys::FD_ZERO(&mut writefds);
-
-            let mut exceptfds = mem::uninitialized::<sys::fd_set>();
-            sys::FD_ZERO(&mut exceptfds);
-
-            let mut timeout = sys::timeval { tv_sec: 0, tv_usec: 0 };
-            let timeout_ptr =
-                if let Some(millis) = millis {
-                    timeout.tv_usec = (millis * 1_000) as sys::suseconds_t;
-                    &mut timeout as *mut _
-                } else {
-                    ptr::null_mut()
-                };
-
-            let res = sys::select(self.fd + 1, &mut readfds, &mut writefds, &mut exceptfds, timeout_ptr);
-            if res == -1 {
-                Err(io::Error::last_os_error())
-            } else {
-                Ok(())
-            }
         }
     }
 }
@@ -260,7 +277,7 @@ impl RawSocket {
         }
     }
 
-    pub fn open(ifname: &str) -> Result<RawSocket, io::Error> {
+    pub fn with_ifname(ifname: &str) -> Result<RawSocket, io::Error> {
         match RawSocket::open_bpf() {
             Ok(bpf_fd) => {
                 // Set header complete mode
@@ -296,14 +313,13 @@ impl RawSocket {
                     _ => return Err(io::Error::new(io::ErrorKind::Other, "get datalink layer failure."))
                 };
                 let blen = RawSocket::get_blen(bpf_fd).unwrap();
-                Ok(RawSocket { fd: bpf_fd, dt: link_layer, blen: blen, len: 0, start: None })
+                Ok(RawSocket { fd: bpf_fd, dt: link_layer, blen: blen })
             },
             Err(e) => Err(e)
         }
     }
 
     pub fn link_layer(&self) -> LinkLayer {
-        // https://github.com/apple/darwin-xnu/blob/master/bsd/net/bpf.h#L276
         self.dt
     }
 
@@ -311,52 +327,21 @@ impl RawSocket {
         self.blen
     }
 
-    pub fn read(&mut self, buf: &mut [u8]) -> Result<Option<(usize, usize)>, io::Error> {
-        let buf_ptr = buf.as_mut_ptr();
-        match self.start {
-            None => {
-                let len = unsafe { sys::read(self.fd, buf_ptr as *mut sys::c_void, self.blen) };
-                if len < 0 {
-                    return Err(io::Error::last_os_error());
-                } else if len == 0 {
-                    return Ok(None);
-                } else {
-                    self.len = len as usize;
-                    self.start = Some(0);
-                    return Ok(None);
-                }
-            },
-            Some(start) => {
-                // c (20), kernel (18)
-                // https://github.com/apple/darwin-xnu/blob/master/bsd/net/bpf.h#L231
-                let bpf_hdr_size = mem::size_of::<sys::bpf_hdr>();
+    pub fn recv(&mut self, buf: &mut [u8]) -> Result<Reader, io::Error> {
+        let len = unsafe { sys::read(self.fd, buf.as_mut_ptr() as *mut sys::c_void, self.blen) };
 
-                let len = self.len;
-                if start >= len  {
-                    self.len = 0;
-                    self.start = None;
-                    return Ok(None);
-                } else {
-                    let bpf_buf = &buf[start..start+bpf_hdr_size];
-                    let bpf_packet = bpf_buf.as_ptr() as *const sys::bpf_hdr;
-                    let bh_hdrlen = unsafe { (*bpf_packet).bh_hdrlen } as usize ;
-                    let bh_datalen = unsafe { (*bpf_packet).bh_datalen } as usize;
-                    
-                    if bh_datalen + bh_hdrlen > len as usize {
-                        self.len = 0;
-                        self.start = None;
-                        return Ok(None);
-                    } else {
-                        self.start = Some(start + sys::BPF_WORDALIGN((bh_datalen + bh_hdrlen) as isize) as usize);
-                        let packet_pos = (start+bh_hdrlen, start+bh_hdrlen+bh_datalen);
-                        return Ok(Some(packet_pos));
-                    }
-                }
-            }
+        if len < 0 {
+            Err(io::Error::last_os_error())
+        } else {
+            Ok(Reader {
+                buf: unsafe { mem::transmute(buf) } ,
+                len: len as usize,
+                start: 0,
+            })
         }
     }
 
-    pub fn write(&self, buf: &[u8]) -> Result<usize, io::Error> {
+    pub fn send(&self, buf: &[u8]) -> Result<usize, io::Error> {
         let ptr = buf.as_ptr();
         let size = buf.len();
         

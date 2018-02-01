@@ -241,7 +241,26 @@ fn boot() -> Result<ServerConfig, io::Error> {
 
 #[cfg(target_os = "linux")]
 fn run(config: &ServerConfig) {
-    let gateway_interface_ip = Ipv4Addr::new(0, 0, 0, 0);
+    // let gateway_interface_ip = Ipv4Addr::new(0, 0, 0, 0);
+    let gateway_interface_ip = {
+        let ifindex = netif::sys::if_name_to_index(&config.default_ifname);
+        let mut addrs = vec![];
+        for iface in netif::interface::interfaces() {
+            if iface.index() == ifindex {
+                match iface.addr(){
+                    Some(addr) => {
+                        if !addr.is_loopback() {
+                            addrs.push(addr);
+                        }
+                    },
+                    None => { }
+                }
+            }
+        }
+
+        assert_eq!(addrs.len() > 0, true);
+        addrs[0]
+    };
     let server_socket_addr = SocketAddr::new(IpAddr::V4(gateway_interface_ip), config.server_udp_port);
 
     let tun_ip = Ipv4Addr::from(u32::from(config.tun_network.ip()) + 1);

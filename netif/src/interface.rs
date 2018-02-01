@@ -63,14 +63,15 @@ pub struct Interface {
     v6_addr: Option<Ipv6Network>,
 }
 
-
 impl Interface {
     pub fn with_index(ifindex: u32) -> Result<Interface, io::Error> {
         let ifname = {
             let ifname_buf: [u8; sys::IF_NAMESIZE] = [0u8; sys::IF_NAMESIZE];
             let size = unsafe {
                 let ifname_cstr = CStr::from_bytes_with_nul_unchecked(&ifname_buf);
+                
                 let ptr = ifname_cstr.as_ptr() as *mut i8;
+
                 sys::if_indextoname(ifindex, ptr);
                 let mut pos: usize = ifname_buf.len() - 1;
                 while pos != 0 {

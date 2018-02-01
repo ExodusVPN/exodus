@@ -8,25 +8,30 @@ use std::ptr;
 use std::mem;
 use std::ffi::CString;
 
+#[cfg(target_env = "gnu")]
+type FLAG_TYPE = libc::c_ulong;
+#[cfg(target_env = "musl")]
+type FLAG_TYPE = libc::c_int;
+
 // https://github.com/torvalds/linux/blob/master/include/uapi/linux/sockios.h
-pub const SIOCGIFADDR: sys::c_ulong = 0x8915;
+pub const SIOCGIFADDR: FLAG_TYPE = 0x8915;
 
-pub const SIOCGIFHWADDR: sys::c_ulong = 0x8927;
+pub const SIOCGIFHWADDR: FLAG_TYPE = 0x8927;
 
-pub const SIOCGIFFLAGS: libc::c_ulong = 0x8913;
-pub const SIOCSIFFLAGS: libc::c_ulong = 0x8914;
+pub const SIOCGIFFLAGS: FLAG_TYPE = 0x8913;
+pub const SIOCSIFFLAGS: FLAG_TYPE = 0x8914;
 
-pub const SIOCGIFMTU: libc::c_ulong = 0x00008921;
-pub const SIOCSIFMTU: libc::c_ulong = 0x00008922;
+pub const SIOCGIFMTU: FLAG_TYPE = 0x00008921;
+pub const SIOCSIFMTU: FLAG_TYPE = 0x00008922;
 
-pub const SIOCGIFMETRIC: libc::c_ulong = 0x0000891d;
-pub const SIOCSIFMETRIC: libc::c_ulong = 0x0000891e;
+pub const SIOCGIFMETRIC: FLAG_TYPE = 0x0000891d;
+pub const SIOCSIFMETRIC: FLAG_TYPE = 0x0000891e;
 
-pub const SIOCGIFINDEX: libc::c_ulong = 0x8933;
+pub const SIOCGIFINDEX: FLAG_TYPE = 0x8933;
 
-pub const TUNSETIFF:    libc::c_ulong = 0x400454CA;
-pub const PACKET_ADD_MEMBERSHIP: libc::c_int = 1;
-pub const PACKET_MR_PROMISC: libc::c_int = 1;
+pub const TUNSETIFF:    FLAG_TYPE = 0x400454CA;
+pub const PACKET_ADD_MEMBERSHIP: FLAG_TYPE = 1;
+pub const PACKET_MR_PROMISC: FLAG_TYPE = 1;
 
 // route flags
 // https://github.com/torvalds/linux/blob/master/include/uapi/linux/route.h
@@ -144,8 +149,7 @@ pub fn if_name_to_flags(ifname: &str) -> Result<i32, io::Error> {
         pub ifr_name: [sys::c_char; sys::IF_NAMESIZE],
         pub ifr_flags: sys::c_short,
     }
-
-
+    
     let mut req: ifreq = unsafe { mem::zeroed() };
     unsafe {
         ptr::copy_nonoverlapping(ifname.as_ptr() as *const sys::c_char,
