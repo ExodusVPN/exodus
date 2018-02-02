@@ -27,7 +27,7 @@ branch = "master"
 
 [target.'cfg(unix)'.dependencies.nix]
 git = "https://github.com/nix-rust/nix.git"
-branch = "master"
+rev = "29eca60c18cab1c02479b72cc3215a7c9cd5921f"
 
 
 [dependencies.smoltcp]

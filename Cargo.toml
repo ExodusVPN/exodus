@@ -3,7 +3,6 @@ name = "exodus"
 version = "0.1.0"
 authors = ["luozijun <gnulinux@126.com>"]
 
-
 [workspace]
 members = [
     "logging",
@@ -11,13 +10,13 @@ members = [
     "netif"
 ]
 
-[[bin]]
-name = "crypto_test"
-path = "src/crypto/mod.rs"
+# [[bin]]
+# name = "crypto_test"
+# path = "src/crypto/mod.rs"
 
 # [[bin]]
-# name = "rsa_test"
-# path = "src/crypto/rsa.rs"
+# name = "iana_tool"
+# path = "iana/main.rs"
 
 [[bin]]
 name = "vpn"
@@ -26,10 +25,6 @@ path = "src/vpn.rs"
 [[bin]]
 name = "vpnd"
 path = "src/vpnd.rs"
-
-[[bin]]
-name = "iana_tool"
-path = "iana/main.rs"
 
 [dependencies]
 logging = { path = "./logging" }
@@ -73,8 +68,7 @@ branch = "master"
 
 [target.'cfg(unix)'.dependencies.nix]
 git = "https://github.com/nix-rust/nix.git"
-branch = "master"
-
+rev = "29eca60c18cab1c02479b72cc3215a7c9cd5921f"
 
 [profile.dev]
 opt-level = 0

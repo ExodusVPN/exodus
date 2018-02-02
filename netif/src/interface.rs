@@ -1,47 +1,19 @@
 #![cfg(any(target_os = "macos", target_os = "freebsd", target_os = "linux"))]
 
+use nix::ifaddrs::{InterfaceAddress, getifaddrs};
+use nix::net::if_::InterfaceFlags;
+use nix::sys::socket::{LinkAddr, SockAddr};
+use ipnetwork::Ipv6Network;
+
 use HwAddr;
 use sys;
-use nix;
-use nix::sys::socket::{LinkAddr, SockAddr};
-use nix::ifaddrs::InterfaceAddress;
-pub use ipnetwork::Ipv6Network;
 
-use std::net::IpAddr;
-use std::net::Ipv4Addr;
-use std::net::Ipv6Addr;
-use std::ffi::CStr;
-use std::ffi::CString;
-
-use std::fmt;
-use std::io;
-use std::mem;
+use std::{io, fmt, mem};
+use std::net::{IpAddr, Ipv4Addr};
+use std::ffi::{CStr, CString};
 
 
-pub type Flags = nix::net::if_::InterfaceFlags;
-
-// #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-// pub struct LoopbackInterface {
-//     name : String,
-//     index: u32,
-//     flags: Flags,
-//     mtu  : u32,
-//     v4_addr: Ipv4Addr,
-//     netmask: Ipv4Addr,
-//     v6_addr: Ipv6Network
-// }
-
-// #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-// pub struct TapInterface {
-//     name : String,
-//     index: u32,
-//     flags: Flags,
-//     mtu  : u32,
-//     v4_addr: Ipv4Addr,
-//     netmask: Ipv4Addr,
-//     broadcast: Ipv4Addr,
-//     v6_addr: Ipv6Network
-// }
+pub type Flags = InterfaceFlags;
 
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -135,7 +107,7 @@ impl Interface {
         
         let mut fill_flags = false;
 
-        for ifaddr in nix::ifaddrs::getifaddrs().unwrap() {
+        for ifaddr in getifaddrs().unwrap() {
             if ifname != ifaddr.interface_name.as_str() {
                 continue;
             }
@@ -321,8 +293,8 @@ fn fill (ifaddr: &InterfaceAddress, iface: &mut Interface){
 
 pub fn interfaces () -> Vec<Interface> {
     let mut ifaces: Vec<Interface> = vec![];
-    for ifaddr in nix::ifaddrs::getifaddrs().unwrap() {
-        let name = ifaddr.interface_name.clone();
+    for ifaddr in getifaddrs().unwrap() {
+        let name: String = ifaddr.interface_name.clone();
         
         let mut found = false;
 

@@ -457,12 +457,10 @@ fn run (config: &ClientConfig) {
         s.set_read_timeout(Some(Duration::new(10, 0))).unwrap();
         s.set_write_timeout(Some(Duration::new(10, 0))).unwrap();
         s.connect(&config.server_socket_addr).unwrap();
-        info!("connect to {}", config.server_socket_addr);
-        s.set_read_timeout(None).unwrap();
-        s.set_write_timeout(None).unwrap();
+        info!("connect to {} with timeout 10s", config.server_socket_addr);
         s
     };
-
+    
     let mut udp_buf = [0u8; 1600];
     let mut tun_buf = [0u8; 1600];
 
@@ -503,6 +501,8 @@ fn run (config: &ClientConfig) {
 
     info!("tun device running at {} --> {} netmask: {}", tun_ip, server_tun_ip, tun_netmask);
 
+    udp_socket.set_read_timeout(None).unwrap();
+    udp_socket.set_write_timeout(None).unwrap();
     let udp_socket_raw_fd = mio::net::UdpSocket::from_socket(udp_socket).unwrap();
 
 
