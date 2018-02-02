@@ -75,36 +75,6 @@ impl Method {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Output {
-    inner: Vec<u8>
-}
-
-impl Output {
-    pub fn new() -> Output {
-        Output { inner: Vec::new() }
-    }
-
-    pub fn len(&self) -> usize {
-        self.inner.len()
-    }
-
-    pub fn ensure_size(&mut self, size: usize) {
-        if self.inner.len() < size {
-            self.inner.resize(size, 0u8);
-        }
-    }
-
-    pub fn seek_to(&mut self, pos: usize) -> &mut [u8] {
-        &mut self.inner[pos..]
-    }
-
-    pub fn range(&self, start: usize, end: usize) -> &[u8] {
-        &self.inner[start..end]
-    }
-}
-
-
 
 #[derive(Clone)]
 pub struct Aes {
@@ -194,8 +164,12 @@ impl Aes {
         self.block_size
     }
 
-    pub fn encrypt(&mut self, input: &[u8], output: &mut Output) -> Result<usize, ErrorStack> {
-        output.ensure_size(input.len() + self.block_size);
+    pub fn encrypt(&mut self, input: &[u8], output: &mut Vec<u8>) -> Result<usize, ErrorStack> {
+        // output.ensure_size(input.len() + self.block_size);
+        let output_size = input.len() + self.block_size;
+        if output.len() < output_size {
+            output.resize(output_size, 0u8);
+        }
 
         let iv = match self.iv {
             Some(ref iv_) => Some(&iv_[..]),
@@ -206,11 +180,11 @@ impl Aes {
             Ok(mut encrypter) => {
                 encrypter.pad(true);
                 let mut size = 0;
-                match encrypter.update(input, &mut output.seek_to(0) ) {
+                match encrypter.update(input, &mut output[0..] ) {
                     Ok(amt) => { size += amt; }
                     Err(e) => return Err(e)
                 };
-                match encrypter.finalize(&mut output.seek_to(size) ) {
+                match encrypter.finalize(&mut output[size..] ) {
                     Ok(amt) => { size += amt; }
                     Err(e) => return Err(e)
                 };
@@ -220,9 +194,12 @@ impl Aes {
         }
     }
 
-    pub fn decrypt(&mut self, input: &[u8], output: &mut Output) -> Result<usize, ErrorStack> {
-        output.ensure_size(input.len() + self.block_size);
-        
+    pub fn decrypt(&mut self, input: &[u8], output: &mut Vec<u8>) -> Result<usize, ErrorStack> {
+        let output_size = input.len() + self.block_size;
+        if output.len() < output_size {
+            output.resize(output_size, 0u8);
+        }
+
         let iv = match self.iv {
             Some(ref iv_) => Some(&iv_[..]),
             None => None,
@@ -232,11 +209,11 @@ impl Aes {
             Ok(mut decrypter) => {
                 decrypter.pad(true);
                 let mut size = 0;
-                match decrypter.update(input, &mut output.seek_to(0) ) {
+                match decrypter.update(input, &mut output[..] ) {
                     Ok(amt) => { size += amt; }
                     Err(e) => return Err(e)
                 };
-                match decrypter.finalize(&mut output.seek_to(size) ) {
+                match decrypter.finalize(&mut output[size..] ) {
                     Ok(amt) => { size += amt; }
                     Err(e) => return Err(e)
                 };
@@ -254,20 +231,20 @@ fn test_aes_128_ecb() {
     let mut aes = Aes::new(Method::AES_128_ECB, &key, &iv).unwrap();
     
     let input = "Hello, 世界！".as_bytes();
-    let mut output = Output::new();
+    let mut output = Vec::new();
 
     let size = aes.encrypt(&input, &mut output).unwrap();
 
-    assert_eq!(&output.range(0, size),
+    assert_eq!(&&output[..size],
                &[24, 81, 44, 120, 55, 161, 223, 115, 74, 93, 72, 214, 45, 35, 172, 
                  124, 148, 132, 227, 154, 235, 252, 241, 245, 23, 135, 177, 114,
                  206, 186, 27, 245]);
 
-    let input2 = &output.range(0, size).to_vec();
+    let input2 = &output[0..size].to_vec();
     let size2 = aes.decrypt(&input2,
                             &mut output).unwrap();
 
-    assert_eq!(&output.range(0, size2),
+    assert_eq!(&&output[..size2],
                &input);
 }
 
@@ -279,20 +256,20 @@ fn test_aes_256_ecb() {
     let mut aes = Aes::new(Method::AES_256_ECB, &key, &iv).unwrap();
     
     let input = "Hello, 世界！".as_bytes();
-    let mut output = Output::new();
+    let mut output = Vec::new();
 
     let size = aes.encrypt(&input, &mut output).unwrap();
 
-    assert_eq!(&output.range(0, size),
+    assert_eq!(&&output[..size],
                &[207, 239, 14, 41, 204, 100, 239, 24, 45, 53, 210, 145, 57, 234, 65, 
                  179, 230, 211, 35, 133, 151, 16, 46, 203, 118, 40, 13, 241, 233, 
                  253, 140, 48]);
 
-    let input2 = &output.range(0, size).to_vec();
+    let input2 = &output[..size].to_vec();
     let size2 = aes.decrypt(&input2,
                             &mut output).unwrap();
 
-    assert_eq!(&output.range(0, size2),
+    assert_eq!(&&output[..size2],
                &input);
 }
 
@@ -303,19 +280,19 @@ fn test_aes_128_cbc() {
     let mut aes = Aes::new(Method::AES_128_CBC, &key, &iv).unwrap();
     
     let input = "Hello, 世界！".as_bytes();
-    let mut output = Output::new();
+    let mut output = Vec::new();
 
     let size = aes.encrypt(&input, &mut output).unwrap();
 
-    assert_eq!(&output.range(0, size),
+    assert_eq!(&&output[..size],
                &[182, 64, 139, 210, 40, 243, 31, 73, 213, 175, 48, 2, 108, 254, 136,
                  9, 88, 220, 255, 20, 11, 48, 5, 42, 42, 55, 9, 142, 88, 181, 16, 239]);
 
-    let input2 = &output.range(0, size).to_vec();
+    let input2 = &output[..size].to_vec();
     let size2 = aes.decrypt(&input2,
                             &mut output).unwrap();
 
-    assert_eq!(&output.range(0, size2),
+    assert_eq!(&&output[..size2],
                &input);
 }
 
@@ -328,20 +305,20 @@ fn test_aes_256_cbc() {
     let mut aes = Aes::new(Method::AES_256_CBC, &key, &iv).unwrap();
     
     let input = "Hello, 世界！".as_bytes();
-    let mut output = Output::new();
+    let mut output = Vec::new();
 
     let size = aes.encrypt(&input, &mut output).unwrap();
 
-    assert_eq!(&output.range(0, size),
+    assert_eq!(&&output[..size],
                &[254, 117, 99, 81, 126, 75, 21, 111, 217, 254, 124, 194, 255, 130, 161,
                  15, 107, 222, 251, 16, 108, 191, 148, 80, 72, 130, 160, 134, 22, 155, 
                  29, 116]);
 
-    let input2 = &output.range(0, size).to_vec();
+    let input2 = &output[..size].to_vec();
     let size2 = aes.decrypt(&input2,
                             &mut output).unwrap();
 
-    assert_eq!(&output.range(0, size2),
+    assert_eq!(&&output[..size2],
                &input);
 }
 
@@ -352,7 +329,7 @@ fn bench_aes_128_ecb_encrypt(b: &mut test::Bencher) {
                            "IV CODE".as_bytes()).unwrap();
     
     let mut input = [0u8; 1500];
-    let mut output = Output::new();
+    let mut output = Vec::new();
 
     openssl::rand::rand_bytes(&mut input).unwrap();
 
@@ -368,13 +345,13 @@ fn bench_aes_128_ecb_decrypt(b: &mut test::Bencher) {
                           "IV CODE".as_bytes()).unwrap();
     
     let mut input = [0u8; 1500];
-    let mut output = Output::new();
+    let mut output = Vec::new();
 
     openssl::rand::rand_bytes(&mut input).unwrap();
 
     let size = aes.encrypt(&input, &mut output).unwrap();
 
-    let sinput = &output.range(0, size).to_vec();
+    let sinput = &output[..size].to_vec();
 
     b.iter(|| {
         aes.decrypt(&sinput, &mut output).unwrap();
@@ -388,7 +365,7 @@ fn bench_aes_128_cbc_encrypt(b: &mut test::Bencher) {
                           "IV CODE".as_bytes()).unwrap();
     
     let mut input = [0u8; 1500];
-    let mut output = Output::new();
+    let mut output = Vec::new();
 
     openssl::rand::rand_bytes(&mut input).unwrap();
 
@@ -404,13 +381,13 @@ fn bench_aes_128_cbc_decrypt(b: &mut test::Bencher) {
                           "IV CODE".as_bytes()).unwrap();
     
     let mut input = [0u8; 1500];
-    let mut output = Output::new();
+    let mut output = Vec::new();
 
     openssl::rand::rand_bytes(&mut input).unwrap();
 
     let size = aes.encrypt(&input, &mut output).unwrap();
 
-    let sinput = &output.range(0, size).to_vec();
+    let sinput = &output[..size].to_vec();
 
     b.iter(|| {
         aes.decrypt(&sinput, &mut output).unwrap();
@@ -424,7 +401,7 @@ fn bench_aes_256_ecb_encrypt(b: &mut test::Bencher) {
                           "IV CODE".as_bytes()).unwrap();
     
     let mut input = [0u8; 1500];
-    let mut output = Output::new();
+    let mut output = Vec::new();
 
     openssl::rand::rand_bytes(&mut input).unwrap();
 
@@ -440,13 +417,13 @@ fn bench_aes_256_ecb_decrypt(b: &mut test::Bencher) {
                           "IV CODE".as_bytes()).unwrap();
     
     let mut input = [0u8; 1500];
-    let mut output = Output::new();
+    let mut output = Vec::new();
 
     openssl::rand::rand_bytes(&mut input).unwrap();
 
     let size = aes.encrypt(&input, &mut output).unwrap();
 
-    let sinput = &output.range(0, size).to_vec();
+    let sinput = &output[..size].to_vec();
 
     b.iter(|| {
         aes.decrypt(&sinput, &mut output).unwrap();
@@ -460,7 +437,7 @@ fn bench_aes_256_cbc_encrypt(b: &mut test::Bencher) {
                            "IV CODE".as_bytes()).unwrap();
     
     let mut input = [0u8; 1500];
-    let mut output = Output::new();
+    let mut output = Vec::new();
 
     openssl::rand::rand_bytes(&mut input).unwrap();
 
@@ -476,13 +453,13 @@ fn bench_aes_256_cbc_decrypt(b: &mut test::Bencher) {
                           "IV CODE".as_bytes()).unwrap();
     
     let mut input = [0u8; 1500];
-    let mut output = Output::new();
+    let mut output = Vec::new();
 
     openssl::rand::rand_bytes(&mut input).unwrap();
 
     let size = aes.encrypt(&input, &mut output).unwrap();
 
-    let sinput = &output.range(0, size).to_vec();
+    let sinput = &output[..size].to_vec();
 
     b.iter(|| {
         aes.decrypt(&sinput, &mut output).unwrap();
