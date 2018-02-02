@@ -460,7 +460,7 @@ fn run (config: &ClientConfig) {
         info!("connect to {} with timeout 10s", config.server_socket_addr);
         s
     };
-    
+
     let mut udp_buf = [0u8; 1600];
     let mut tun_buf = [0u8; 1600];
 
@@ -493,7 +493,7 @@ fn run (config: &ClientConfig) {
             .address(tun_ip)
             .netmask(tun_netmask)
             .destination(server_tun_ip)
-            .mtu(1500)
+            .mtu(1500-30)
             .name(config.tun_ifname.clone())
             .up();
         tun::create(&tun_config).expect("can't create tun device.")
