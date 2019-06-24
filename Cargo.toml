@@ -3,6 +3,10 @@ name = "exodus"
 version = "0.1.0"
 authors = ["luozijun <luozijun.assistant@gmail.com>"]
 edition = "2018"
+exclude = [
+    "assets/",
+]
+
 
 [workspace]
 members = [
@@ -25,7 +29,7 @@ smoltcp  = { version = "0.5", default-features = false, features = [ "std", "log
 
 crypto      = { path = "crates/crypto" }
 compression = { path = "crates/compression" }
-
+znet        = {  git = "https://github.com/ExodusVPN/znet.git" }
 
 [profile.dev]
 opt-level = 0
@@ -35,7 +39,7 @@ lto = false
 debug-assertions = true
 codegen-units = 3
 panic = 'unwind'
-incremental = true
+incremental = false
 
 [profile.release]
 opt-level = 3

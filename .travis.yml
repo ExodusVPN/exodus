@@ -1,0 +1,82 @@
+
+language: rust
+cache: cargo
+
+matrix:
+  fast_finish: false
+  allow_failures:
+    - rust: stable
+      os: linux
+    - rust: stable
+      os: osx
+  os:
+    - linux:
+      dist: xenial
+    - osx:
+      osx_image: xcode10.1
+  include:
+    - name: "GNU/Linux Rust Stable"
+      os: linux
+      rust: stable
+      script:
+        - cargo build --release --all
+        - cargo test --release --all
+
+    - name: "GNU/Linux Rust Nightly"
+      os: linux
+      rust: nightly
+      script:
+        - cargo build --release --all
+        - cargo test --release --all
+        - cargo doc --release --no-deps --all
+        # - cp target/release/esc target/release/esc-$TRAVIS_TAG-x86_64-unknow-linux
+        # - cp target/release/esi target/release/esi-$TRAVIS_TAG-x86_64-unknow-linux
+      # deploy:
+      #   - name: Deploy Github Pages
+      #     os: linux
+      #     rust: nightly
+      #     provider: pages
+      #     local-dir: target/doc
+      #     skip_cleanup: true
+      #     github_token: $GITHUB_TOKEN  # Set in the settings page of your repository, as a secure variable
+      #     keep_history: true
+      #     target-branch: gh-pages
+      #     on:
+      #       branch: master
+      #   - name: $TRAVIS_TAG
+      #     provider: releases
+      #     api_key: $GITHUB_TOKEN # "GITHUB OAUTH TOKEN"
+      #     skip_cleanup: true
+      #     file:
+      #       - "target/release/esc-$TRAVIS_TAG-x86_64-unknow-linux"
+      #       - "target/release/esi-$TRAVIS_TAG-x86_64-unknow-linux"
+      #     on:
+      #       tags: true
+      #       branch: master
+
+    - name: "macOS Rust Stable"
+      os: osx
+      rust: stable
+      script:
+        - cargo build --release --all
+        - cargo test --release --all
+    
+    - name: "macOS Rust Nightly"
+      os: osx
+      rust: nightly
+      script:
+        - cargo build --release --all
+        - cargo test --release --all
+        # - cp target/release/esc target/release/esc-$TRAVIS_TAG-x86_64-apple-darwin
+        # - cp target/release/esi target/release/esi-$TRAVIS_TAG-x86_64-apple-darwin
+      # deploy:
+      #   - name: $TRAVIS_TAG
+      #     provider: releases
+      #     api_key: $GITHUB_TOKEN # "GITHUB OAUTH TOKEN"
+      #     skip_cleanup: true
+      #     file:
+      #       - "target/release/esc-$TRAVIS_TAG-x86_64-apple-darwin"
+      #       - "target/release/esi-$TRAVIS_TAG-x86_64-apple-darwin"
+      #     on:
+      #       tags: true
+      #       branch: master
