@@ -1,4 +1,4 @@
-Exodus: Ciphertext and plaintext
+Exodus
 ====================================
 
 .. image:: https://badges.gitter.im/Join%20Chat.svg
