@@ -11,10 +11,6 @@ Exodus: Ciphertext and plaintext
 
 
 
-.. image:: assets/logo.jpg
-    :scale: 10 %
-
-
 :Date: 10/03 2017
 
 .. contents::
