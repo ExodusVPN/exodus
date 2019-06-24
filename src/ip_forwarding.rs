@@ -4,10 +4,8 @@ mod sys {
     use sysctl;
     
     use std::io;
-
-    #[cfg(any(target_os = "ios", target_os = "macos"))]
+    
     const IPV4_KEY: &str = "net.inet.ip.forwarding";
-    #[cfg(any(target_os = "ios", target_os = "macos"))]
     const IPV6_KEY: &str = "net.inet6.ip.forwarding";
 
     #[inline]
