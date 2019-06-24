@@ -1,12 +1,12 @@
 #[macro_use]
 extern crate log;
 extern crate env_logger;
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "android", target_os = "linux"))]
 extern crate libc;
 extern crate ctrlc;
 extern crate mio;
 extern crate tun;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "ios", target_os = "macos", target_os = "freebsd"))]
 extern crate sysctl;
 extern crate smoltcp;
 extern crate crypto;
@@ -15,6 +15,7 @@ extern crate znet;
 
 
 pub mod signal;
+pub mod sys;
 pub mod ip_forwarding;
 
 

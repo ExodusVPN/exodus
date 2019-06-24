@@ -1,5 +1,5 @@
 
-#[cfg(any(target_os = "ios", target_os = "macos"))]
+#[cfg(any(target_os = "ios", target_os = "macos", target_os = "freebsd"))]
 mod sys {
     use sysctl;
     
@@ -9,11 +9,6 @@ mod sys {
     const IPV4_KEY: &str = "net.inet.ip.forwarding";
     #[cfg(any(target_os = "ios", target_os = "macos"))]
     const IPV6_KEY: &str = "net.inet6.ip.forwarding";
-
-    #[cfg(any(target_os = "android", target_os = "linux"))]
-    const IPV4_KEY: &str = "net.ipv4.ip_forward";
-    #[cfg(any(target_os = "android", target_os = "linux"))]
-    const IPV6_KEY: &str = "net.ipv6.ip_forward";
 
     #[inline]
     fn value_to_bool(value: sysctl::CtlValue) -> Result<bool, io::Error> {
@@ -81,21 +76,24 @@ mod sys {
 }
 
 
-#[cfg(any(target_os = "android", target_os = "linux"))]
+#[cfg(all(
+    any(target_os = "android", target_os = "linux"),
+    target_env = "gnu",
+))]
 mod sys {
-    use libc::{ c_int, c_void, };
-    
+    use libc::{ c_int, c_void, size_t, };
+
     use std::io;
     use std::ptr;
-
-    pub const CTL_NET: c_int = 3;        // Networking
+    
+    pub const CTL_NET: c_int  = 3;        // Networking
     
     pub const NET_IPV4: c_int = 5;
     pub const NET_IPV6: c_int = 12;
-
-    pub const NET_IPV4_FORWARD: c_int = 8;
+    
+    pub const NET_IPV4_FORWARD: c_int    = 8;
     pub const NET_IPV6_FORWARDING: c_int = 1;
-
+    
 
     #[inline]
     pub fn ipv4_forwarding() -> Result<bool, io::Error> {
@@ -189,4 +187,85 @@ mod sys {
     }
 }
 
+
+#[cfg(all(
+    any(target_os = "android", target_os = "linux"),
+    target_env = "musl",
+))]
+mod sys {
+    use std::fs::OpenOptions;
+    use std::io::{ self, Write, Read, };
+
+    // const IPV4_KEY: &str = "net.ipv4.ip_forward";
+    // const IPV6_KEY: &str = "net.ipv6.ip_forward";
+    const IPV4_KEY: &str = "/proc/sys/net/ipv4/ip_forward";
+    const IPV6_KEY: &str = "/proc/sys/net/ipv6/ip_forwarding";
+
+    #[inline]
+    pub fn ipv4_forwarding() -> Result<bool, io::Error> {
+        let mut file = OpenOptions::new().read(true).write(false).open(IPV4_KEY)?;
+        let mut buffer = [b'0'];
+        file.read_exact(&mut buffer)?;
+
+        Ok(buffer[0] == b'1')
+    }
+
+    #[inline]
+    pub fn enable_ipv4_forwarding() -> Result<bool, io::Error> {
+        let mut file = OpenOptions::new().read(false).write(true).open(IPV4_KEY)?;
+        let mut buffer = [b'1'];
+        file.write_all(&mut buffer)?;
+
+        ipv4_forwarding()
+    }
+
+    #[inline]
+    pub fn disable_ipv4_forwarding() -> Result<bool, io::Error> {
+        let mut file = OpenOptions::new().read(false).write(true).open(IPV4_KEY)?;
+        let mut buffer = [b'0'];
+        file.write_all(&mut buffer)?;
+
+        ipv4_forwarding()
+    }
+
+    #[inline]
+    pub fn ipv6_forwarding() -> Result<bool, io::Error> {
+        let mut file = OpenOptions::new().read(true).write(false).open(IPV4_KEY)?;
+        let mut buffer = [b'0'];
+        file.read_exact(&mut buffer)?;
+
+        Ok(buffer[0] == b'1')
+    }
+
+    #[inline]
+    pub fn enable_ipv6_forwarding() -> Result<bool, io::Error> {
+        let mut file = OpenOptions::new().read(false).write(true).open(IPV6_KEY)?;
+        let mut buffer = [b'1'];
+        file.read_exact(&mut buffer)?;
+
+        ipv6_forwarding()
+    }
+
+    #[inline]
+    pub fn disable_ipv6_forwarding() -> Result<bool, io::Error> {
+        let mut file = OpenOptions::new().read(false).write(true).open(IPV4_KEY)?;
+        let mut buffer = [b'0'];
+        file.read_exact(&mut buffer)?;
+
+        ipv6_forwarding()
+    }
+}
+
+
+#[cfg(any(
+    all(
+        any(target_os = "android", target_os = "linux"),
+        target_env = "gnu"
+    ),
+    all(
+        any(target_os = "android", target_os = "linux"),
+        target_env = "musl"
+    ),
+    any(target_os = "ios", target_os = "macos", target_os = "freebsd")
+))]
 pub use self::sys::*;

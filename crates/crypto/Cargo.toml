@@ -8,12 +8,13 @@ edition = "2018"
 chacha20-poly1305-aead = "0.1"
 ed25519-dalek = "1.0.0-pre.1"
 
-[target.'cfg(any(target_arch = "x86_64", target_arch = "x86"))'.dependencies.miscreant]
-version = "0.4"
-features = ["default"]
+[target.'cfg(any(target_arch = "x86_64", target_arch = "x86"))'.dependencies]
+miscreant = { version = "0.4", features = ["default"] }
 
-[target.'cfg(not(any(target_arch = "x86_64", target_arch = "x86")))'.dependencies.miscreant]
-version = "0.4"
-features = ["default", "soft-aes"]
+[target.'cfg(not(any(target_arch = "x86_64", target_arch = "x86")))'.dependencies]
+miscreant = { version = "0.4", features = ["default", "soft-aes"] }
 
 [features]
+default = [ "asm" ]
+nightly = [ "ed25519-dalek/nightly" ]
+asm     = [ "ed25519-dalek/asm", "chacha20-poly1305-aead/simd_asm" ]
