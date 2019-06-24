@@ -1,14 +1,10 @@
-
-
-use std::sync::atomic::{ATOMIC_BOOL_INIT, AtomicBool, Ordering};
-
 use ctrlc;
 
-static RUNNING: AtomicBool = ATOMIC_BOOL_INIT;
+use std::sync::atomic::{AtomicBool, Ordering};
 
+static RUNNING: AtomicBool = AtomicBool::new(true);
 
 pub fn init() {
-    RUNNING.store(true, Ordering::Relaxed);
     ctrlc::set_handler(move || {
         info!("graceful shutdown ...");
         RUNNING.store(false, Ordering::Relaxed);

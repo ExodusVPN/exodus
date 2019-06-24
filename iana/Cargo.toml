@@ -1,7 +1,0 @@
-[package]
-name = "iana"
-version = "0.1.20171021"
-authors = ["luozijun <gnulinux@126.com>"]
-
-[dependencies]
-
