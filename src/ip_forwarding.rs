@@ -6,8 +6,8 @@ mod sys {
     use std::io;
     
     const IPV4_KEY: &str = "net.inet.ip.forwarding";
-    const IPV6_KEY: &str = "net.inet6.ip.forwarding";
-
+    const IPV6_KEY: &str = "net.inet6.ip6.forwarding";
+    
     #[inline]
     fn value_to_bool(value: sysctl::CtlValue) -> Result<bool, io::Error> {
         match value {
@@ -195,10 +195,11 @@ mod sys {
     use std::io::{ self, Write, Read, };
 
     // const IPV4_KEY: &str = "net.ipv4.ip_forward";
-    // const IPV6_KEY: &str = "net.ipv6.ip_forward";
+    // const IPV6_KEY: &str = "net.ipv6.conf.all.forwarding";
     const IPV4_KEY: &str = "/proc/sys/net/ipv4/ip_forward";
-    const IPV6_KEY: &str = "/proc/sys/net/ipv6/ip_forwarding";
-
+    // /proc/sys/net/ipv6/conf/default/forwarding
+    const IPV6_KEY: &str = "/proc/sys/net/ipv6/conf/all/forwarding";
+    
     #[inline]
     pub fn ipv4_forwarding() -> Result<bool, io::Error> {
         let mut file = OpenOptions::new().read(true).write(false).open(IPV4_KEY)?;
