@@ -44,6 +44,10 @@ impl Translation {
     pub fn relay_addr(&self) -> Ipv4Addr {
         self.relay_addr
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.map.is_empty()
+    }
     
     pub fn len(&self) -> usize {
         self.map.len()
