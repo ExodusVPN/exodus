@@ -14,15 +14,12 @@ extern crate compression;
 extern crate znet;
 
 
-pub mod signal;
 pub mod sys;
+pub mod signal;
 pub mod ip_forwarding;
+pub mod nat;
 
 
 fn main() {
-    println!("{:?}", ip_forwarding::ipv4_forwarding());
-    println!("{:?}", ip_forwarding::enable_ipv4_forwarding());
-    println!("{:?}", ip_forwarding::ipv4_forwarding());
-    println!("{:?}", ip_forwarding::disable_ipv4_forwarding());
-    println!("{:?}", ip_forwarding::ipv4_forwarding());
+    
 }
