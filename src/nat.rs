@@ -32,7 +32,7 @@ pub struct Value {
 pub struct Translation {
     relay_addr: Ipv4Addr,
     map: HashMap<Key, Value>,
-    map2: HashMap<u16, Key>,
+    map2: HashMap<(Protocol, u16), Key>,
 }
 
 impl Translation {
@@ -55,12 +55,12 @@ impl Translation {
         self.map.len()
     }
     
-    pub fn is_mapped_port(&self, relay_port: u16) -> bool {
-        self.map2.contains_key(&relay_port)
+    pub fn is_mapped_port(&self, protocol: Protocol, relay_port: u16) -> bool {
+        self.map2.contains_key(&(protocol, relay_port))
     }
     
-    pub fn get_key(&self, relay_port: u16) -> Option<&Key> {
-        self.map2.get(&relay_port)
+    pub fn get_key(&self, protocol: Protocol, relay_port: u16) -> Option<&Key> {
+        self.map2.get(&(protocol, relay_port))
     }
 
     pub fn get_value(&self, key: &Key) -> Option<&Value> {
@@ -85,7 +85,7 @@ impl Translation {
                 // let src_port = tcp_packet.src_port();
                 let dst_port = tcp_packet.dst_port();
                 
-                match self.get_key(dst_port) {
+                match self.get_key(Protocol::Tcp, dst_port) {
                     Some(key) => {
                         // 复原数据包
                         tcp_packet.set_dst_port(key.src_port);
@@ -110,7 +110,7 @@ impl Translation {
                 // let src_port = udp_packet.src_port();
                 let dst_port = udp_packet.dst_port();
                 
-                match self.get_key(dst_port) {
+                match self.get_key(Protocol::Udp, dst_port) {
                     Some(key) => {
                         // 复原数据包
                         udp_packet.set_dst_port(key.src_port);
@@ -164,7 +164,7 @@ impl Translation {
                     // 检查该连接是否活跃
                     match socket.take_error() {
                         Ok(Some(_)) | Err(_) => {
-                            let _ = self.map2.remove(&value.relay_port);
+                            let _ = self.map2.remove(&(protocol, value.relay_port));
                             let _ = self.map.remove(&key);
                             // 关闭文件描述符
                             drop(socket);
@@ -189,7 +189,7 @@ impl Translation {
 
                     let _ = self.map.insert(key, value);
                     relay_port = Some(relay_port2);
-                    let _ = self.map2.insert(relay_port2, key);
+                    let _ = self.map2.insert((protocol, relay_port2), key);
 
                     // 避免 Rust 自动关闭该文件描述符
                     mem::forget(socket);
@@ -225,7 +225,7 @@ impl Translation {
                     // 检查该连接是否活跃
                     match socket.take_error() {
                         Ok(Some(_)) | Err(_) => {
-                            let _ = self.map2.remove(&value.relay_port);
+                            let _ = self.map2.remove(&(protocol, value.relay_port));
                             let _ = self.map.remove(&key);
                             // 关闭文件描述符
                             drop(socket);
@@ -249,7 +249,7 @@ impl Translation {
 
                     let _ = self.map.insert(key, value);
                     relay_port = Some(relay_port2);
-                    let _ = self.map2.insert(relay_port2, key);
+                    let _ = self.map2.insert((protocol, relay_port2), key);
 
                     // 避免 Rust 自动关闭该文件描述符
                     mem::forget(socket);
