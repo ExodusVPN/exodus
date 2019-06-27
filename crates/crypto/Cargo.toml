@@ -5,8 +5,10 @@ authors = ["luozijun <luozijun.assistant@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+rand                   = "0.6"
+base64                 = "0.10"
+ed25519-dalek          = "1.0.0-pre.1"
 chacha20-poly1305-aead = "0.1"
-ed25519-dalek = "1.0.0-pre.1"
 
 [target.'cfg(any(target_arch = "x86_64", target_arch = "x86"))'.dependencies]
 miscreant = { version = "0.4", features = ["default"] }
