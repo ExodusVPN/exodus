@@ -1,10 +1,10 @@
-use smoltcp::wire::{ IpProtocol, Ipv4Packet, TcpPacket, UdpPacket, };
+use smoltcp::wire::{ IpProtocol, IpAddress, Ipv4Address, Ipv4Packet, TcpPacket, UdpPacket, };
 
 use std::io;
 use std::mem;
 use std::collections::HashMap;
 use std::os::unix::io::{ AsRawFd, FromRawFd, RawFd, };
-use std::net::{ IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener, UdpSocket, };
+use std::net::{ SocketAddr, SocketAddrV4, TcpListener, UdpSocket, };
 
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -16,9 +16,9 @@ pub enum Protocol {
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct Key {
-    pub src_addr: Ipv4Addr,
+    pub src_addr: Ipv4Address,
     pub src_port: u16,
-    pub dst_addr: Ipv4Addr,
+    pub dst_addr: Ipv4Address,
     pub dst_port: u16,
     pub protocol: Protocol,
 }
@@ -30,20 +30,20 @@ pub struct Value {
 }
 
 pub struct Translation {
-    relay_addr: Ipv4Addr,
+    relay_addr: Ipv4Address,
     map: HashMap<Key, Value>,
     map2: HashMap<(Protocol, u16), Key>,
 }
 
 impl Translation {
-    pub fn new(relay_addr: Ipv4Addr) -> Self {
+    pub fn new(relay_addr: Ipv4Address) -> Self {
         let map = HashMap::new();
         let map2 = HashMap::new();
 
         Self { relay_addr, map, map2 }
     }
     
-    pub fn relay_addr(&self) -> Ipv4Addr {
+    pub fn relay_addr(&self) -> Ipv4Address {
         self.relay_addr
     }
 
@@ -74,8 +74,8 @@ impl Translation {
     /// 还原数据包
     pub fn demasquerading(&mut self, mut packet: &mut [u8]) -> Result<(), io::Error> {
         let mut ipv4_packet = Ipv4Packet::new_unchecked(&mut packet);
-        let src_addr = Ipv4Addr::from(ipv4_packet.src_addr());
-        // let dst_addr = Ipv4Addr::from(ipv4_packet.dst_addr());
+        let src_addr = ipv4_packet.src_addr();
+        // let dst_addr = ipv4_packet.dst_addr();
 
         match ipv4_packet.protocol() {
             IpProtocol::Tcp => {
@@ -89,7 +89,7 @@ impl Translation {
                     Some(key) => {
                         // 复原数据包
                         tcp_packet.set_dst_port(key.src_port);
-                        tcp_packet.fill_checksum(&IpAddr::from(src_addr).into(), &IpAddr::from(key.src_addr).into() );
+                        tcp_packet.fill_checksum(&IpAddress::from(src_addr), &IpAddress::from(key.src_addr).into() );
                         ipv4_packet.set_dst_addr(key.src_addr.into());
                         // NOTE: 暂不清楚是否可以省去校验码的工作，猜测这个工作应该是在驱动层完成的，内核协议栈应该不会去检查这个。
                         //       这个需要带确认。
@@ -114,7 +114,7 @@ impl Translation {
                     Some(key) => {
                         // 复原数据包
                         udp_packet.set_dst_port(key.src_port);
-                        udp_packet.fill_checksum(&IpAddr::from(src_addr).into(), &IpAddr::from(key.src_addr).into() );
+                        udp_packet.fill_checksum(&IpAddress::from(src_addr), &IpAddress::from(key.src_addr));
                         ipv4_packet.set_dst_addr(key.src_addr.into());
                         // NOTE: 暂不清楚是否可以省去校验码的工作，猜测这个工作应该是在驱动层完成的，内核协议栈应该不会去检查这个。
                         //       这个需要带确认。
@@ -135,8 +135,8 @@ impl Translation {
     /// 映射/伪装 数据包
     pub fn masquerading(&mut self, mut packet: &mut [u8]) -> Result<(), io::Error> {
         let mut ipv4_packet = Ipv4Packet::new_unchecked(&mut packet);
-        let src_addr = Ipv4Addr::from(ipv4_packet.src_addr());
-        let dst_addr = Ipv4Addr::from(ipv4_packet.dst_addr());
+        let src_addr = ipv4_packet.src_addr();
+        let dst_addr = ipv4_packet.dst_addr();
 
         match ipv4_packet.protocol() {
             IpProtocol::Tcp => {
@@ -177,7 +177,7 @@ impl Translation {
 
                 if relay_port.is_none() {
                     // 为该连接创建映射
-                    let socket = TcpListener::bind(SocketAddrV4::new(self.relay_addr, 0))?;
+                    let socket = TcpListener::bind(SocketAddrV4::new(self.relay_addr.into(), 0))?;
                     let socket_addr = match socket.local_addr()? {
                         SocketAddr::V4(addr) => addr,
                         _ => unreachable!(),
@@ -196,7 +196,7 @@ impl Translation {
                 }
 
                 tcp_packet.set_src_port(relay_port.unwrap());
-                tcp_packet.fill_checksum(&IpAddr::from(self.relay_addr).into(), &IpAddr::from(dst_addr).into() );
+                tcp_packet.fill_checksum(&IpAddress::from(self.relay_addr), &IpAddress::from(dst_addr));
                 ipv4_packet.fill_checksum();
 
                 Ok(())
@@ -237,7 +237,7 @@ impl Translation {
                 }
 
                 if relay_port.is_none() {
-                    let socket = UdpSocket::bind(SocketAddrV4::new(self.relay_addr, 0))?;
+                    let socket = UdpSocket::bind(SocketAddrV4::new(self.relay_addr.into(), 0))?;
                     let socket_addr = match socket.local_addr()? {
                         SocketAddr::V4(addr) => addr,
                         _ => unreachable!(),
@@ -256,7 +256,7 @@ impl Translation {
                 }
 
                 udp_packet.set_src_port(relay_port.unwrap());
-                udp_packet.fill_checksum(&IpAddr::from(self.relay_addr).into(), &IpAddr::from(dst_addr).into());
+                udp_packet.fill_checksum(&IpAddress::from(self.relay_addr), &IpAddress::from(dst_addr));
                 ipv4_packet.fill_checksum();
 
                 Ok(())
@@ -272,7 +272,7 @@ fn test_tcp() {
     let mut buffer = [0u8; 1500];
     let mut packet = &mut buffer[..];
 
-    let make_packet = |mut packet: &mut [u8], src_addr: Ipv4Addr, src_port: u16, dst_addr: Ipv4Addr, dst_port: u16| {
+    let make_packet = |mut packet: &mut [u8], src_addr: Ipv4Address, src_port: u16, dst_addr: Ipv4Address, dst_port: u16| {
         let mut ipv4_packet = Ipv4Packet::new_unchecked(&mut packet);
         ipv4_packet.set_version(4);
         ipv4_packet.set_header_len(20);
@@ -289,12 +289,12 @@ fn test_tcp() {
         ipv4_packet.set_dst_addr(dst_addr.into());
     };
 
-    let relay_addr = "127.0.0.1".parse::<Ipv4Addr>().unwrap();
+    let relay_addr = "127.0.0.1".parse::<Ipv4Address>().unwrap();
     let mut nat = Translation::new(relay_addr);
 
-    let src_addr = "127.0.0.1".parse::<Ipv4Addr>().unwrap();
+    let src_addr = "127.0.0.1".parse::<Ipv4Address>().unwrap();
     let src_port = 3000u16;
-    let dst_addr = "8.8.8.8".parse::<Ipv4Addr>().unwrap();
+    let dst_addr = "8.8.8.8".parse::<Ipv4Address>().unwrap();
     let dst_port = 443u16;
     let protocol = Protocol::Tcp;
 
@@ -329,7 +329,7 @@ fn test_udp() {
     let mut buffer = [0u8; 1500];
     let mut packet = &mut buffer[..];
 
-    let make_packet = |mut packet: &mut [u8], src_addr: Ipv4Addr, src_port: u16, dst_addr: Ipv4Addr, dst_port: u16| {
+    let make_packet = |mut packet: &mut [u8], src_addr: Ipv4Address, src_port: u16, dst_addr: Ipv4Address, dst_port: u16| {
         let mut ipv4_packet = Ipv4Packet::new_unchecked(&mut packet);
         ipv4_packet.set_version(4);
         ipv4_packet.set_header_len(20);
@@ -346,12 +346,12 @@ fn test_udp() {
         ipv4_packet.set_dst_addr(dst_addr.into());
     };
 
-    let relay_addr = "127.0.0.1".parse::<Ipv4Addr>().unwrap();
+    let relay_addr = "127.0.0.1".parse::<Ipv4Address>().unwrap();
     let mut nat = Translation::new(relay_addr);
 
-    let src_addr = "127.0.0.1".parse::<Ipv4Addr>().unwrap();
+    let src_addr = "127.0.0.1".parse::<Ipv4Address>().unwrap();
     let src_port = 3000u16;
-    let dst_addr = "8.8.8.8".parse::<Ipv4Addr>().unwrap();
+    let dst_addr = "8.8.8.8".parse::<Ipv4Address>().unwrap();
     let dst_port = 443u16;
     let protocol = Protocol::Udp;
 
