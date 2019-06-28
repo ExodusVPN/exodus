@@ -12,13 +12,13 @@ exclude = [
 members = [
     "crates/crypto",
     "crates/compression",
+    # "crates/sysconfig",
 ]
 
 [dependencies]
 log        = "0.4"
 env_logger = { version = "0.6", default-features = false, features = [ "termcolor", "atty", "humantime" ] }
-rand       = "0.6"
-byteorder  = "1.3"
+# byteorder  = "1.3"
 clap       = "2.33"
 
 mio      = { version = "0.6", default-features = false }
@@ -38,7 +38,7 @@ sysctl  = "0.3"
 
 [features]
 default = [ "nightly" ]
-nightly = [ "crypto/nightly", "rand/nightly" ]
+nightly = [ "crypto/nightly" ]
 
 
 [profile.dev]

@@ -75,14 +75,12 @@ impl Translation {
     pub fn demasquerading(&mut self, mut packet: &mut [u8]) -> Result<(), io::Error> {
         let mut ipv4_packet = Ipv4Packet::new_unchecked(&mut packet);
         let src_addr = ipv4_packet.src_addr();
-        // let dst_addr = ipv4_packet.dst_addr();
-
+        
         match ipv4_packet.protocol() {
             IpProtocol::Tcp => {
                 let payload = ipv4_packet.payload_mut();
                 
                 let mut tcp_packet = TcpPacket::new_unchecked(payload);
-                // let src_port = tcp_packet.src_port();
                 let dst_port = tcp_packet.dst_port();
                 
                 match self.get_key(Protocol::Tcp, dst_port) {
@@ -105,9 +103,7 @@ impl Translation {
             },
             IpProtocol::Udp => {
                 let payload = ipv4_packet.payload_mut();
-                
                 let mut udp_packet = UdpPacket::new_unchecked(payload);
-                // let src_port = udp_packet.src_port();
                 let dst_port = udp_packet.dst_port();
                 
                 match self.get_key(Protocol::Udp, dst_port) {
