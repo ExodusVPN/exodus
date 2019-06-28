@@ -17,6 +17,6 @@ miscreant = { version = "0.4", features = ["default"] }
 miscreant = { version = "0.4", features = ["default", "soft-aes"] }
 
 [features]
-default = [ "asm" ]
+default = [ ]
 nightly = [ "ed25519-dalek/nightly", "rand/nightly" ]
 asm     = [ "ed25519-dalek/asm", "chacha20-poly1305-aead/simd_asm" ]
