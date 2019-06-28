@@ -74,6 +74,7 @@ pub type TunDevice = tun::platform::Device;
 pub struct VpnServer {
     config  :        VpnServerConfig,
     tun_addr:        Ipv4Address,
+    tun_netmask:     Ipv4Address,
     dhcp_start_addr: u32,
     dhcp_end_addr:   u32,
     dhcp_next_addr:  u32,
@@ -160,6 +161,7 @@ impl VpnServer {
         Ok(VpnServer {
             config,
             tun_addr: tun_addr.into(),
+            tun_netmask: tun_netmask.into(),
             dhcp_start_addr,
             dhcp_end_addr,
             dhcp_next_addr,
@@ -197,7 +199,6 @@ impl VpnServer {
             for event in events.iter() {
                 match event.token() {
                     UDP_TOKEN => {
-                        info!("UDP TOKEN.");
                         let (amt, remote_socket_addr) = self.udp_socket.recv_from(&mut self.buffer)?;
                         let remote_socket_addr = match remote_socket_addr {
                             SocketAddr::V4(v4_addr) => v4_addr,
@@ -229,6 +230,9 @@ impl VpnServer {
                                 // 构建数据包
                                 (&mut self.buffer[..4]).copy_from_slice(&DHCP_RES_PACKET_SIGNATURE);
                                 (&mut self.buffer[4..8]).copy_from_slice(&dhcp_addr.0);
+
+                                (&mut self.buffer[8..12]).copy_from_slice(&self.tun_addr.0);
+                                (&mut self.buffer[12..16]).copy_from_slice(&self.tun_netmask.0);
 
                                 let message = &self.buffer[..8];
                                 self.udp_socket.send_to(&message, &(remote_socket_addr.into()))?;
@@ -269,7 +273,11 @@ impl VpnServer {
                                         && !dst_ip.is_unspecified();
 
                                     if is_global_ip {
+                                        #[cfg(target_os = "linux")]
                                         self.tun_device.write(&packet)?;
+
+                                        #[cfg(target_os = "macos")]
+                                        self.tun_device.write(&self.buffer[..packet.len() + 4])?;
                                     }
                                 }
                             },
@@ -459,6 +467,10 @@ impl VpnServer {
                                     &mut tun_packet[..4].copy_from_slice(&TUNNEL_PACKET_SIGNATURE);
                                     &mut tun_packet[4..packet_len+4].copy_from_slice(&packet);
 
+                                    #[cfg(target_os = "linux")]
+                                    self.tun_device.write(&tun_packet[4..packet_len+4])?;
+
+                                    #[cfg(target_os = "macos")]
                                     self.tun_device.write(&tun_packet[..packet_len+4])?;
                                 },
                                 LinkLayer::Ip => {
@@ -482,13 +494,13 @@ impl VpnServer {
                                     if !self.nat.is_mapped_port(protocol, dst_port) {;
                                         continue;
                                     }
-                                    
+
                                     let packet_len = packet.len();
                                     let mut packet = unsafe { std::slice::from_raw_parts_mut(packet.as_ptr() as *mut _, packet_len) };
                                     // 步骤二: 地址复原
                                     self.nat.demasquerading(&mut packet)?;
 
-                                    println!("NATs: {:?}", self.nat.len());
+                                    debug!("NATs: {:?}", self.nat.len());
 
                                     // 步骤三: 写入 TUN 设备
                                     assert_eq!(packet_len <= 1500, true);
@@ -498,6 +510,10 @@ impl VpnServer {
                                     &mut tun_packet[..4].copy_from_slice(&TUNNEL_PACKET_SIGNATURE);
                                     &mut tun_packet[4..packet_len+4].copy_from_slice(&packet);
                                     
+                                    #[cfg(target_os = "linux")]
+                                    self.tun_device.write(&tun_packet[4..packet_len+4])?;
+                                    
+                                    #[cfg(target_os = "macos")]
                                     self.tun_device.write(&tun_packet[..packet_len+4])?;
                                 }
                             }
