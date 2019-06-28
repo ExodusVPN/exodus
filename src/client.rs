@@ -268,7 +268,6 @@ impl VpnClient {
                         
                         if amt <= 4 {
                             // NOTE: 畸形数据包，这里我们直接忽略
-                            debug!("畸形的数据包");
                             continue;
                         }
 
@@ -291,6 +290,7 @@ impl VpnClient {
                             _                   => continue,
                         }
                         // debug!("tun device send to udp socket.");
+                        debug!("tun device send to udp socket:\n{}", PrettyPrinter::<Ipv4Packet<&[u8]>>::new("", &packet));
                         self.udp_socket.send(&self.buffer[..packet.len()+4])?;
                     },
                     _ => {

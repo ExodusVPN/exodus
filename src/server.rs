@@ -323,9 +323,8 @@ impl VpnServer {
                                                 //      sudo sysctl net.inet6.ip6.forwarding=1
                                                 //
                                                 // 当然，我们 ExodusVPN 实现了自己的 NAT 映射表，所以我们不再需要使用操作系统自带的防火墙机制
-                                                // info!("UDP try NATs ...");
+                                                
                                                 let packet_len = packet.len();
-                                                // let mut packet = unsafe { std::slice::from_raw_parts_mut(packet.as_ptr() as *mut _, packet_len) };
                                                 let mut packet = &mut self.buffer[4..amt];
 
                                                 // 步骤一: 地址转换（NAT）
