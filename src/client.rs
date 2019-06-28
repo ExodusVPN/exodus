@@ -202,9 +202,7 @@ impl VpnClient {
             if !signal::is_running() {
                 // 通知断开链接，不再需要处理错误
                 let _ = self.udp_socket.send(&BYE_PACKET_SIGNATURE);
-                std::process::Command::new("/sbin/route").arg("delete default").output().expect("failed to execute process");
-                // sudo route add default 172.16.0.1
-                std::process::Command::new("/sbin/route").arg("add default 192.168.199.1").output().expect("failed to execute process");
+                // TODO: 清理系统配置
                 break;
             }
 

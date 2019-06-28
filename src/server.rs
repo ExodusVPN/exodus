@@ -138,7 +138,7 @@ impl VpnServer {
         tun_cidr, &config.tun_ifname,);
 
         std::thread::sleep(std::time::Duration::new(1, 0));
-        
+
         if config.egress_iface_kind == InterfaceKind::Internet {
             // TODO: 一些网络环境没有以太网，直接接入了 因特网。
             //       据我所知，好像 `搬瓦工` 这个 VPS 提供商的系统就是这样配置的。
@@ -155,8 +155,6 @@ impl VpnServer {
 
         let sa = SocketAddrV4::new(config.egress_iface_addr.into(), config.tunnel_service_udp_port);
         let mut udp_socket = mio::net::UdpSocket::bind(&sa.into())?;
-
-        // std::thread::sleep(std::time::Duration::new(2, 0));
 
         Ok(VpnServer {
             config,
@@ -189,6 +187,7 @@ impl VpnServer {
 
         loop {
             if !signal::is_running() {
+                // TODO: 清理系统配置
                 break;
             }
 
