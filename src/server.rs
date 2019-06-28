@@ -124,7 +124,7 @@ impl VpnServer {
         // NOTE:
         // 这里需要为系统配置 静态路由
         // Linux
-        //      sudo route add -net 172.16.0.0/16  dev utun10
+        //      sudo route add -net 172.16.0.0/16  dev utun9
         // macOS
         //      sudo route add -net 172.16.0.0/16 -interface utun8
         // 
@@ -132,12 +132,25 @@ impl VpnServer {
         // 目前临时使用 命令行程序 去配置这些数据
 
         warn!("为系统路由表添加静态路由:
-        Linux: sudo route add -net {}  dev {}
+        Linux: sudo route add -net {} dev {}
         macOS: sudo route add -net {} -interface {}",
         tun_cidr, &config.tun_ifname,
         tun_cidr, &config.tun_ifname,);
 
-        std::thread::sleep(std::time::Duration::new(2, 0));
+        #[cfg(target_os = "linux")]
+        let arg = format!("add -net {} dev {}", tun_cidr, &config.tun_ifname);
+
+        #[cfg(target_os = "macos")]
+        let arg = format!("add -net {} -interface {}", tun_cidr, &config.tun_ifname);
+
+        println!("Args: {:?}", arg);
+
+        // let output = std::process::Command::new("/sbin/route").arg(arg).output().expect("failed to execute process");
+        // io::stdout().write_all(&output.stdout).unwrap();
+        // io::stderr().write_all(&output.stderr).unwrap();
+
+        std::thread::sleep(std::time::Duration::new(1, 0));
+
 
         if config.egress_iface_kind == InterfaceKind::Internet {
             // TODO: 一些网络环境没有以太网，直接接入了 因特网。
@@ -157,7 +170,7 @@ impl VpnServer {
         let mut udp_socket = mio::net::UdpSocket::bind(&sa.into())?;
 
         // std::thread::sleep(std::time::Duration::new(2, 0));
-
+        
         Ok(VpnServer {
             config,
             tun_addr: tun_addr.into(),
@@ -175,15 +188,15 @@ impl VpnServer {
     }
 
     pub fn run_forever(&mut self) -> Result<(), io::Error> {
-        let mut events = mio::Events::with_capacity(1024);
+        let mut events = mio::Events::with_capacity(2048);
         let poll = mio::Poll::new().unwrap();
 
         let egress_device_raw_fd = self.egress_device.as_raw_fd();
         let egress_device = mio::unix::EventedFd(&egress_device_raw_fd);
 
-        poll.register(&egress_device, TAP_TOKEN, mio::Ready::readable(), mio::PollOpt::edge())?;
-        poll.register(&self.tun_device, TUN_TOKEN, mio::Ready::readable(), mio::PollOpt::edge())?;
+        // poll.register(&self.tun_device, TUN_TOKEN, mio::Ready::readable(), mio::PollOpt::edge())?;
         poll.register(&self.udp_socket, UDP_TOKEN, mio::Ready::readable(), mio::PollOpt::edge())?;
+        poll.register(&egress_device, TAP_TOKEN, mio::Ready::readable(), mio::PollOpt::edge())?;
 
         let timeout = std::time::Duration::new(2, 0);
 
@@ -210,7 +223,7 @@ impl VpnServer {
                             self.buffer[2], self.buffer[3], 
                         ];
 
-                        let packet = &self.buffer[4..amt];
+                        let mut packet = &self.buffer[4..amt];
 
                         match packet_signature {
                             DHCP_REQ_PACKET_SIGNATURE => {
@@ -234,32 +247,35 @@ impl VpnServer {
                                 (&mut self.buffer[8..12]).copy_from_slice(&self.tun_addr.0);
                                 (&mut self.buffer[12..16]).copy_from_slice(&self.tun_netmask.0);
 
-                                let message = &self.buffer[..8];
+                                let message = &self.buffer[..16];
                                 self.udp_socket.send_to(&message, &(remote_socket_addr.into()))?;
                                 
                                 if dhcp_addr != Ipv4Address::UNSPECIFIED {
                                     debug!("为 {} 分配虚拟地址: {}", remote_socket_addr, dhcp_addr);
                                     self.neighbor.insert(dhcp_addr, remote_socket_addr);
                                 }
+
+                                continue;
                             },
                             DHCP_RES_PACKET_SIGNATURE => {
                                 continue;
                             },
                             TUNNEL_PACKET_SIGNATURE => {
+                                // debug!("tunnel packet ...");
                                 let ipv4_packet = Ipv4Packet::new_unchecked(&packet);
                                 let src_ip = ipv4_packet.src_addr();
                                 let dst_ip = ipv4_packet.dst_addr();
-
+                                // println!("{}", PrettyPrinter::print(&ipv4_packet) );
                                 // 确保要送达的地址的不是 发送者自己 以及 VPN 服务器
                                 // TODO:
                                 // 
-
                                 if self.config.tun_cidr.contains_addr(&dst_ip) {
                                     // 子网路由，直接发送，不需要经过 TUN 设备中继
                                     // TODO: 以后需要增加身份认证机制
                                     if let Some(remote_addr) = self.neighbor.get(&dst_ip) {
                                         let message = &self.buffer[..packet.len() + 4];
                                         let addr = (*remote_addr).into();
+                                        debug!("udp packet write to UDP Socket.");
                                         // NOTE: 这里的错误不再需要处理
                                         let _ = self.udp_socket.send_to(&message, &addr);
                                     }
@@ -271,17 +287,131 @@ impl VpnServer {
                                         && !dst_ip.is_broadcast()
                                         // && !dst_ip.is_documentation()
                                         && !dst_ip.is_unspecified();
-
+                                    
+                                    // debug!("udp packet write to TUN Device: {:?}", packet);
                                     if is_global_ip {
-                                        #[cfg(target_os = "linux")]
-                                        self.tun_device.write(&packet)?;
 
-                                        #[cfg(target_os = "macos")]
-                                        self.tun_device.write(&self.buffer[..packet.len() + 4])?;
+                                        // #[cfg(target_os = "linux")]
+                                        // self.tun_device.write(&packet)?;
+
+                                        // #[cfg(target_os = "macos")]
+                                        // self.tun_device.write(&self.buffer[..packet.len() + 4])?;
+
+                                        // NAT
+                                        match IpVersion::of_packet(&packet) {
+                                            Ok(IpVersion::Ipv4) => { },
+                                            Ok(IpVersion::Ipv6) => continue, // NOTE: 暂不支持处理 IPv6
+                                            _                   => continue,
+                                        }
+                                        // drop(ipv4_packet)
+                                        let ipv4_packet = Ipv4Packet::new_unchecked(&packet);
+                                        let ipv4_protocol = ipv4_packet.protocol();
+                                        let dst_ip = ipv4_packet.dst_addr();
+                                        
+                                        // 路由机制
+                                        match self.neighbor.get(&dst_ip) {
+                                            Some(brother_udp_socket_addr) => {
+                                                //       如果该包是传递给 Tun Network 成员的
+                                                //       则直接通过该 地址对应的 UDP 地址发送出去
+                                                let addr = std::net::SocketAddr::from(*brother_udp_socket_addr);
+                                                debug!("Send UDP Packet to UDP Socket ...");
+                                                self.udp_socket.send_to(&packet, &addr)?;
+                                            },
+                                            None => {
+                                                // NOTE: 地址转换映射 (NAT)
+                                                // 目标地址 在 TUN Network 之外
+                                                // 这里需要做地址转换
+                                                // 如果使用操作系统的转换机制，那么在 Linux 下可以使用 iptables
+                                                // 在 macOS 下面使用 pfctl 之类的防火墙工具
+                                                // 
+                                                // 示例:
+                                                // Linux: 
+                                                //      sudo iptables -t nat -A POSTROUTING -s 172.16.10.1/24 -o enp0s3 -j MASQUERADE
+                                                //      sudo iptables -A OUTPUT -o utun10 -j ACCEPT
+                                                // macOS: 
+                                                //      sudo pfctl -s state
+                                                //      sudo pfctl -s nat
+                                                //      https://www.openbsd.org/faq/pf/nat.html
+                                                // 
+                                                // 注意: 大部分时候你使用操作系统防火墙做 地址转换(NAT) 时，需要预先配置系统的转发规则设定
+                                                // Linux
+                                                //      sudo sysctl net.ipv4.ip_forward=1
+                                                //      sudo sysctl net.ipv4.conf.all.forwarding=1  # 注: 上面这条 路径被广泛使用
+                                                //      sudo sysctl net.ipv6.conf.all.forwarding=1
+                                                // macOS
+                                                //      sudo sysctl net.inet.ip.forwarding=1
+                                                //      sudo sysctl net.inet6.ip6.forwarding=1
+                                                //
+                                                // 当然，我们 ExodusVPN 实现了自己的 NAT 映射表，所以我们不再需要使用操作系统自带的防火墙机制
+                                                // info!("UDP try NATs ...");
+                                                let packet_len = packet.len();
+                                                let mut packet = unsafe { std::slice::from_raw_parts_mut(packet.as_ptr() as *mut _, packet_len) };
+
+                                                // 步骤一: 地址转换（NAT）
+                                                self.nat.masquerading(&mut packet)?;
+                                                // info!("UDP NATs: {:?}", self.nat.len());
+
+                                                // 步骤二: 当前的 Packet 数据中的来源地址已经被修改
+                                                //        现在我们通过 RawSocket 把这份 Packet 通过默认的 NetInterface 发送出去
+                                                match self.egress_device.link_layer() {
+                                                    LinkLayer::IpWithPI(prefix_len) => {
+                                                        // 流量出口设备为 TUN 类型的设备
+                                                        // WARN:
+                                                        //      考虑到这种网络环境极其少见
+                                                        //      所以这里不再考虑实现它
+                                                        unimplemented!()
+                                                    },
+                                                    LinkLayer::Eth => {
+                                                        // 流量出口设备为以太网设备
+                                                        // NOTE:
+                                                        //      由于我们的 TUN 设备里面传递的是 IP 层数据包
+                                                        //      所以这个时候我们需要组装出一个以太网数据包(EthernetFrame)
+                                                        const ETH_HDR_LEN: usize = 14;
+                                                        assert_eq!(packet.len() <= 1500, true);
+                                                        
+                                                        let mut eth_packet = [0u8; 1500 + ETH_HDR_LEN];
+                                                        let eth_packet_len = packet.len() + ETH_HDR_LEN;
+                                                        &mut eth_packet[ETH_HDR_LEN..eth_packet_len].copy_from_slice(&packet);
+
+                                                        let mut ethernet_frame = EthernetFrame::new_unchecked(&mut eth_packet[..]);
+                                                        ethernet_frame.set_src_addr(self.config.egress_iface_hwaddr.unwrap());
+                                                        ethernet_frame.set_dst_addr(self.config.egress_iface_gateway_hwaddr.unwrap());
+                                                        ethernet_frame.set_ethertype(EthernetProtocol::Ipv4);
+
+                                                        // DEBUG: 测试数据包校验码
+                                                        let eframe = EthernetFrame::new_checked(&eth_packet[..]).unwrap();
+                                                        let v4_packet = Ipv4Packet::new_checked(&eth_packet[ETH_HDR_LEN..]).unwrap();
+                                                        let v4_src_addr = v4_packet.src_addr();
+                                                        let v4_dst_addr = v4_packet.dst_addr();
+                                                        assert!(v4_packet.verify_checksum());
+                                                        let v4_tcp_packet = TcpPacket::new_checked(v4_packet.payload()).unwrap();
+                                                        assert!(
+                                                            v4_tcp_packet.verify_checksum(&v4_src_addr.into(), &v4_dst_addr.into())
+                                                        );
+
+                                                        debug!("udp packet send to egress device\n{}", 
+                                                            PrettyPrinter::print(&v4_packet));
+                                                        
+                                                        self.egress_device.send(&eth_packet[..eth_packet_len])?;
+                                                    },
+                                                    LinkLayer::Ip => {
+                                                        // 流量出口设备为因特网设备
+                                                        // NOTE:
+                                                        //      这种网络环境在个人用户当中相当少见，
+                                                        //      一般出现在一些小型的 VPS 提供商当中
+                                                        //      如: 搬瓦工 VPS
+                                                        self.egress_device.send(&packet)?;
+                                                    },
+                                                }
+                                            },
+                                        }
+                                    } else {
+                                        error!("无法送达的目标地址: {}", dst_ip);
                                     }
                                 }
                             },
                             BYE_PACKET_SIGNATURE => {
+                                debug!("bye packet ...");
                                 let mut peer_tun_addr: Option<Ipv4Address> = None;
 
                                 for (tun_ip, udp_addr) in &self.neighbor {
@@ -298,35 +428,41 @@ impl VpnServer {
                                 continue;
                             },
                             _ => {
+                                debug!("unknow packet signature: {:?}", packet_signature);
                                 continue;
                             }
                         }
                     },
-                    TUN_TOKEN => {
-                        #[cfg(target_os = "macos")]
-                        let amt = self.tun_device.read(&mut self.buffer)?;
+                    #[cfg(target_os = "linux")]
+                    TAP_TOKEN => {
+                        let amt = self.egress_device.recv(&mut self.buffer)?;
+                        match self.egress_device.link_layer() {
+                            LinkLayer::IpWithPI(prefix_len) => {
+                                unimplemented!()
+                            },
+                            LinkLayer::Eth => {
 
-                        // NOTE: Linux 的 TUN 设备默认设置了 IFF_NO_PI 标志
-                        //       没有携带 Packet Infomation，所以这里我们给它预留 4 个 Bytes 空间
-                        #[cfg(target_os = "linux")]
-                        self.buffer.copy_from_slice(&TUNNEL_PACKET_SIGNATURE);
-                        #[cfg(target_os = "linux")]
-                        let amt = self.tun_device.read(&mut self.buffer[4..])?;
-                        
-                        if amt <= 4 {
-                            // NOTE: 畸形数据包，这里我们直接忽略
-                            continue;
+                            },
+                            _ => {
+                                unimplemented!()
+                            },
                         }
 
-                        let packet_signature = [
-                            self.buffer[0], self.buffer[1], 
-                            self.buffer[2], self.buffer[3], 
-                        ];
+                        let ethernet_frame = EthernetFrame::new_unchecked(&self.buffer[..amt]);
+                        match ethernet_frame.ethertype() {
+                            EthernetProtocol::Ipv4 => {
+                                
+                            },
+                            _ => {
+                                debug!("Ethernet Protocol is not IPv4: {}", ethernet_frame.ethertype());
+                                continue;
+                            }
+                        }
+                        // info!("{}", PrettyPrinter::print(&ethernet_frame));
 
-                        #[cfg(target_os = "macos")]
-                        assert_eq!(packet_signature, TUNNEL_PACKET_SIGNATURE);
+                        const ETH_HDR_LEN: usize = 14;
 
-                        let mut packet = &mut self.buffer[4..amt + 4];
+                        let mut packet = &mut self.buffer[ETH_HDR_LEN..amt];
 
                         match IpVersion::of_packet(&packet) {
                             Ok(IpVersion::Ipv4) => { },
@@ -335,7 +471,45 @@ impl VpnServer {
                         }
 
                         let ipv4_packet = Ipv4Packet::new_unchecked(&packet);
-                        let ipv4_protocol = ipv4_packet.protocol();
+
+                        let (protocol, dst_port) = match ipv4_packet.protocol() {
+                            IpProtocol::Tcp => {
+                                let payload = ipv4_packet.payload();
+                                let tcp_packet = TcpPacket::new_unchecked(payload);
+                                // let src_port = tcp_packet.src_port();
+                                let dst_port = tcp_packet.dst_port();
+
+                                (nat::Protocol::Tcp, dst_port)
+                            },
+                            _ => {
+                                continue;
+                            },
+                        };
+
+                        // 步骤一: 检查该端口是否被 地址转换（NAT）服务转换过
+                        if !self.nat.is_mapped_port(protocol, dst_port) {;
+                            continue;
+                        }
+
+                        debug!("find TAP device mapped packet ...", );
+                        
+                        // let mut packet = &self.buffer[4 + ETH_HDR_LEN..amt + 4 + ETH_HDR_LEN];
+                        let packet_len = packet.len();
+                        // let mut packet = unsafe { std::slice::from_raw_parts_mut(packet.as_ptr() as *mut _, packet_len) };
+                        // 步骤二: 地址复原
+                        if let Err(e) = self.nat.demasquerading(&mut packet) {
+                            error!("{}\n{:?}", PrettyPrinter::<Ipv4Packet<&[u8]>>::new("", &packet), e);
+                            continue;
+                        }
+
+                        // let ipv4_packet = Ipv4Packet::new_unchecked(&packet);
+
+                        // info!("{}", PrettyPrinter::<Ipv4Packet<&[u8]>>::new("", &packet));
+                        println!("TAP - NATs: {:?}", self.nat.len());
+
+                        // drop(ipv4_packet)
+                        let ipv4_packet = Ipv4Packet::new_unchecked(&packet);
+                        // let ipv4_protocol = ipv4_packet.protocol();
                         let dst_ip = ipv4_packet.dst_addr();
                         
                         // 路由机制
@@ -344,37 +518,32 @@ impl VpnServer {
                                 //       如果该包是传递给 Tun Network 成员的
                                 //       则直接通过该 地址对应的 UDP 地址发送出去
                                 let addr = std::net::SocketAddr::from(*brother_udp_socket_addr);
+                                
+
+                                let mut packet = &mut self.buffer[ETH_HDR_LEN - 4..amt];
+
+                                // &mut packet[ETH_HDR_LEN - 4.. ETH_HDR_LEN].copy_from_slice(&TUNNEL_PACKET_SIGNATURE);
+                                packet[0] = TUNNEL_PACKET_SIGNATURE[0];
+                                packet[1] = TUNNEL_PACKET_SIGNATURE[1];
+                                packet[2] = TUNNEL_PACKET_SIGNATURE[2];
+                                packet[3] = TUNNEL_PACKET_SIGNATURE[3];
+
+                                debug!("tap packet send to udp socket : {} -> {:?}", &addr, &packet[..8]);
                                 self.udp_socket.send_to(&packet, &addr)?;
+
+                                continue;
                             },
                             None => {
-                                // NOTE: 地址转换映射 (NAT)
-                                // 目标地址 在 TUN Network 之外
-                                // 这里需要做地址转换
-                                // 如果使用操作系统的转换机制，那么在 Linux 下可以使用 iptables
-                                // 在 macOS 下面使用 pfctl 之类的防火墙工具
-                                // 
-                                // 示例:
-                                // Linux: 
-                                //      sudo iptables -t nat -A POSTROUTING -s 172.16.10.1/24 -o enp0s3 -j MASQUERADE
-                                //      sudo iptables -A OUTPUT -o utun10 -j ACCEPT
-                                // macOS: 
-                                //      sudo pfctl -s state
-                                //      sudo pfctl -s nat
-                                //      https://www.openbsd.org/faq/pf/nat.html
-                                // 
-                                // 注意: 大部分时候你使用操作系统防火墙做 地址转换(NAT) 时，需要预先配置系统的转发规则设定
-                                // Linux
-                                //      sudo sysctl net.ipv4.ip_forward=1
-                                //      sudo sysctl net.ipv4.conf.all.forwarding=1  # 注: 上面这条 路径被广泛使用
-                                //      sudo sysctl net.ipv6.conf.all.forwarding=1
-                                // macOS
-                                //      sudo sysctl net.inet.ip.forwarding=1
-                                //      sudo sysctl net.inet6.ip6.forwarding=1
-                                //
-                                // 当然，我们 ExodusVPN 实现了自己的 NAT 映射表，所以我们不再需要使用操作系统自带的防火墙机制
-                                
+                                error!("TAP 数据包无法路由到 虚拟局域网: 找不到 UDP SOCKET ADDR.");
+                                continue;
+                                // info!("UDP try NATs ...");
+                                let packet_len = packet.len();
+                                let mut packet = unsafe { std::slice::from_raw_parts_mut(packet.as_ptr() as *mut _, packet_len) };
+
                                 // 步骤一: 地址转换（NAT）
                                 self.nat.masquerading(&mut packet)?;
+                                // info!("UDP NATs: {:?}", self.nat.len());
+
                                 // 步骤二: 当前的 Packet 数据中的来源地址已经被修改
                                 //        现在我们通过 RawSocket 把这份 Packet 通过默认的 NetInterface 发送出去
                                 match self.egress_device.link_layer() {
@@ -394,14 +563,18 @@ impl VpnServer {
                                         assert_eq!(packet.len() <= 1500, true);
                                         
                                         let mut eth_packet = [0u8; 1500 + ETH_HDR_LEN];
-                                        &mut eth_packet[ETH_HDR_LEN..].copy_from_slice(&packet);
-
                                         let eth_packet_len = packet.len() + ETH_HDR_LEN;
+                                        &mut eth_packet[ETH_HDR_LEN..eth_packet_len].copy_from_slice(&packet);
+
+                                        
 
                                         let mut ethernet_frame = EthernetFrame::new_unchecked(&mut eth_packet[..]);
                                         ethernet_frame.set_src_addr(self.config.egress_iface_hwaddr.unwrap());
                                         ethernet_frame.set_dst_addr(self.config.egress_iface_gateway_hwaddr.unwrap());
                                         ethernet_frame.set_ethertype(EthernetProtocol::Ipv4);
+
+                                        debug!("tap rnated packet send to egress device\n{}",
+                                            PrettyPrinter::print(&ethernet_frame));
 
                                         self.egress_device.send(&eth_packet[..eth_packet_len])?;
                                     },
@@ -416,10 +589,15 @@ impl VpnServer {
                                 }
                             },
                         }
+
                     },
+                    #[cfg(target_os = "macos")]
                     TAP_TOKEN => {
+                        debug!("TAP device packet read ...");
+
                         // 检查流量出口设备中的传入流量是否有送达 TUN Device 的流量
                         let amt = self.egress_device.recv(&mut self.buffer)?;
+
                         for (start, end) in BufferReader::new(&self.buffer, amt) {
                             match self.egress_device.link_layer() {
                                 LinkLayer::IpWithPI(prefix_len) => {
@@ -452,12 +630,14 @@ impl VpnServer {
                                         continue;
                                     }
 
+                                    println!("mapped packet ...", );
+
                                     let packet_len = packet.len();
                                     let mut packet = unsafe { std::slice::from_raw_parts_mut(packet.as_ptr() as *mut _, packet_len) };
                                     // 步骤二: 地址复原
                                     self.nat.demasquerading(&mut packet)?;
 
-                                    println!("NATs: {:?}", self.nat.len());
+                                    println!("TAP - NATs: {:?}", self.nat.len());
 
                                     // 步骤三: 写入 TUN 设备
                                     assert_eq!(packet_len <= 1500, true);
@@ -466,6 +646,8 @@ impl VpnServer {
                                     
                                     &mut tun_packet[..4].copy_from_slice(&TUNNEL_PACKET_SIGNATURE);
                                     &mut tun_packet[4..packet_len+4].copy_from_slice(&packet);
+
+                                    debug!("tap packet write to tun device.");
 
                                     #[cfg(target_os = "linux")]
                                     self.tun_device.write(&tun_packet[4..packet_len+4])?;
@@ -512,7 +694,7 @@ impl VpnServer {
                                     
                                     #[cfg(target_os = "linux")]
                                     self.tun_device.write(&tun_packet[4..packet_len+4])?;
-                                    
+
                                     #[cfg(target_os = "macos")]
                                     self.tun_device.write(&tun_packet[..packet_len+4])?;
                                 }

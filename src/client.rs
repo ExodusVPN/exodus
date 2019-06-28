@@ -94,12 +94,12 @@ impl VpnClient {
                     ];
                     
                     if amt < 16 || packet_signature != DHCP_RES_PACKET_SIGNATURE {
-                        return Err(io::Error::new(io::ErrorKind::InvalidData, "DHCP 失败！"))
+                        return Err(io::Error::new(io::ErrorKind::InvalidData, "DHCP 失败: 未知协议！"))
                     }
 
                     let tun_addr = Ipv4Address::from_bytes(&buffer[4..8]);
                     if tun_addr == Ipv4Address::UNSPECIFIED {
-                        return Err(io::Error::new(io::ErrorKind::InvalidData, "DHCP 失败！"))
+                        return Err(io::Error::new(io::ErrorKind::InvalidData, "DHCP 失败: 无可用地址！"))
                     }
 
                     let tun_gateway_addr = Ipv4Address::from_bytes(&buffer[8..12]);
@@ -120,7 +120,7 @@ impl VpnClient {
 
         }
     }
-    
+
     pub fn new(config: VpnClientConfig) -> Result<Self, io::Error> {
         // 172.16.0.0/16
         let local_addr: SocketAddr  = SocketAddrV4::new(config.egress_iface_addr.into(), 0).into();
@@ -165,7 +165,7 @@ impl VpnClient {
         // NOTE:
         // 这里需要为系统配置 静态路由
         // Linux
-        //      sudo route add -net 172.16.0.0/16  dev utun10
+        //      sudo route add -net 172.16.0.0/16  dev utun9
         // macOS
         //      sudo route add -net 172.16.0.0/16 -interface utun8
         // 
@@ -173,12 +173,29 @@ impl VpnClient {
         // 目前临时使用 命令行程序 去配置这些数据
         let tun_cidr = Ipv4Cidr::from_netmask(dhcp_state.tun_addr, dhcp_state.tun_netmask).unwrap();
         warn!("为系统路由表添加静态路由:
-        Linux: sudo route add -net {}  dev {}
+        Linux: sudo route add -net {} dev {}
         macOS: sudo route add -net {} -interface {}",
         tun_cidr, &config.tun_ifname,
         tun_cidr, &config.tun_ifname,);
+        
+        #[cfg(target_os = "linux")]
+        let arg = format!("add -net {}  dev {}", tun_cidr, &config.tun_ifname);
+        #[cfg(target_os = "macos")]
+        let arg = format!("add -net {} -interface {}", tun_cidr, &config.tun_ifname);
 
-        std::thread::sleep(std::time::Duration::new(2, 0));
+        // let output = std::process::Command::new("/sbin/route").arg(arg).output().expect("failed to execute process");
+        // io::stdout().write_all(&output.stdout).unwrap();
+        // io::stderr().write_all(&output.stderr).unwrap();
+
+        // sudo route add <server_ip> 192.168.199.1
+        std::process::Command::new("/sbin/route").arg("add 119.28.213.41 192.168.199.1").output().expect("failed to execute process");
+
+        // sudo route delete default
+        std::process::Command::new("/sbin/route").arg("delete default").output().expect("failed to execute process");
+        // sudo route add default 172.16.0.1
+        std::process::Command::new("/sbin/route").arg("add default 172.16.0.1").output().expect("failed to execute process");
+
+        std::thread::sleep(std::time::Duration::new(1, 0));
 
         Ok(VpnClient {
             config,
@@ -202,6 +219,9 @@ impl VpnClient {
             if !signal::is_running() {
                 // 通知断开链接，不再需要处理错误
                 let _ = self.udp_socket.send(&BYE_PACKET_SIGNATURE);
+                std::process::Command::new("/sbin/route").arg("delete default").output().expect("failed to execute process");
+                // sudo route add default 172.16.0.1
+                std::process::Command::new("/sbin/route").arg("add default 192.168.199.1").output().expect("failed to execute process");
                 break;
             }
 
@@ -214,6 +234,12 @@ impl VpnClient {
                     UDP_TOKEN => {
                         let amt = self.udp_socket.recv(&mut self.buffer)?;
 
+                        if amt <= 4 {
+                            // NOTE: 畸形数据包，这里我们直接忽略
+                            debug!("畸形的数据包");
+                            continue;
+                        }
+
                         let packet_signature = [
                             self.buffer[0], self.buffer[1], 
                             self.buffer[2], self.buffer[3], 
@@ -223,21 +249,27 @@ impl VpnClient {
 
                         match packet_signature {
                             DHCP_REQ_PACKET_SIGNATURE => {
+                                debug!("DHCP Request packet signature.");
                                 continue;
                             },
                             DHCP_RES_PACKET_SIGNATURE => {
+                                debug!("DHCP Response packet signature.");
                                 continue;
                             },
                             TUNNEL_PACKET_SIGNATURE => {
+                                debug!("\n{}", PrettyPrinter::<Ipv4Packet<&[u8]>>::new("", &packet));
+
                                 #[cfg(target_os = "macos")]
-                                self.tun_device.write(&self.buffer[..amt])?;
-                                #[cfg(target_os = "linux")]
-                                self.tun_device.write(&self.packet)?;
+                                let packet = &self.buffer[..amt];
+                                
+                                debug!("{:?}", &packet);
+                                self.tun_device.write(&packet)?;
                             },
                             BYE_PACKET_SIGNATURE => {
                                 continue;
                             },
-                            _ => {
+                            n => {
+                                debug!("unknow packet signature: {:?}", n);
                                 continue;
                             }
                         }
@@ -249,12 +281,13 @@ impl VpnClient {
                         // NOTE: Linux 的 TUN 设备默认设置了 IFF_NO_PI 标志
                         //       没有携带 Packet Infomation，所以这里我们给它预留 4 个 Bytes 空间
                         #[cfg(target_os = "linux")]
-                        self.buffer.copy_from_slice(&TUNNEL_PACKET_SIGNATURE);
+                        &mut self.buffer[..4].copy_from_slice(&TUNNEL_PACKET_SIGNATURE);
                         #[cfg(target_os = "linux")]
                         let amt = self.tun_device.read(&mut self.buffer[4..])?;
                         
                         if amt <= 4 {
                             // NOTE: 畸形数据包，这里我们直接忽略
+                            debug!("畸形的数据包");
                             continue;
                         }
 
@@ -266,15 +299,18 @@ impl VpnClient {
                         #[cfg(target_os = "macos")]
                         assert_eq!(packet_signature, TUNNEL_PACKET_SIGNATURE);
 
-                        let mut packet = &mut self.buffer[4..amt + 4];
+                        #[cfg(target_os = "linux")]
+                        let mut packet = &self.buffer[4..amt + 4];
+                        #[cfg(target_os = "macos")]
+                        let mut packet = &self.buffer[4..amt];
 
                         match IpVersion::of_packet(&packet) {
                             Ok(IpVersion::Ipv4) => { },
                             Ok(IpVersion::Ipv6) => continue, // NOTE: 暂不支持处理 IPv6
                             _                   => continue,
                         }
-
-                        self.udp_socket.send(&packet)?;
+                        // debug!("tun device send to udp socket.");
+                        self.udp_socket.send(&self.buffer[..packet.len()+4])?;
                     },
                     _ => {
                         continue;
