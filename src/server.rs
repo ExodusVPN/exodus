@@ -137,21 +137,8 @@ impl VpnServer {
         tun_cidr, &config.tun_ifname,
         tun_cidr, &config.tun_ifname,);
 
-        #[cfg(target_os = "linux")]
-        let arg = format!("add -net {} dev {}", tun_cidr, &config.tun_ifname);
-
-        #[cfg(target_os = "macos")]
-        let arg = format!("add -net {} -interface {}", tun_cidr, &config.tun_ifname);
-
-        println!("Args: {:?}", arg);
-
-        // let output = std::process::Command::new("/sbin/route").arg(arg).output().expect("failed to execute process");
-        // io::stdout().write_all(&output.stdout).unwrap();
-        // io::stderr().write_all(&output.stderr).unwrap();
-
         std::thread::sleep(std::time::Duration::new(1, 0));
-
-
+        
         if config.egress_iface_kind == InterfaceKind::Internet {
             // TODO: 一些网络环境没有以太网，直接接入了 因特网。
             //       据我所知，好像 `搬瓦工` 这个 VPS 提供商的系统就是这样配置的。

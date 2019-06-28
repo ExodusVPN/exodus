@@ -178,23 +178,6 @@ impl VpnClient {
         tun_cidr, &config.tun_ifname,
         tun_cidr, &config.tun_ifname,);
         
-        #[cfg(target_os = "linux")]
-        let arg = format!("add -net {}  dev {}", tun_cidr, &config.tun_ifname);
-        #[cfg(target_os = "macos")]
-        let arg = format!("add -net {} -interface {}", tun_cidr, &config.tun_ifname);
-
-        // let output = std::process::Command::new("/sbin/route").arg(arg).output().expect("failed to execute process");
-        // io::stdout().write_all(&output.stdout).unwrap();
-        // io::stderr().write_all(&output.stderr).unwrap();
-
-        // sudo route add <server_ip> 192.168.199.1
-        std::process::Command::new("/sbin/route").arg("add 119.28.213.41 192.168.199.1").output().expect("failed to execute process");
-
-        // sudo route delete default
-        std::process::Command::new("/sbin/route").arg("delete default").output().expect("failed to execute process");
-        // sudo route add default 172.16.0.1
-        std::process::Command::new("/sbin/route").arg("add default 172.16.0.1").output().expect("failed to execute process");
-
         std::thread::sleep(std::time::Duration::new(1, 0));
 
         Ok(VpnClient {
