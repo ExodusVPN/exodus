@@ -11,45 +11,17 @@ use smoltcp::wire::{
 
 use crate::nat;
 use crate::signal;
-
+use crate::vpn::{
+    InterfaceKind,
+    TAP_TOKEN, TUN_TOKEN, UDP_TOKEN,
+    DHCP_REQ_PACKET_SIGNATURE, DHCP_RES_PACKET_SIGNATURE,
+    TUNNEL_PACKET_SIGNATURE, BYE_PACKET_SIGNATURE,
+};
 
 use std::collections::HashMap;
 use std::io::{self, Read, Write};
 use std::os::unix::io::AsRawFd;
 use std::net::{ IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener, UdpSocket, };
-
-
-const EXODUS_VPN_IP_PROTOCOL_DHCP: IpProtocol = IpProtocol::Unknown(197);
-const EXODUS_VPN_IP_PROTOCOL_ICMP: IpProtocol = IpProtocol::Unknown(198);
-const EXODUS_VPN_IP_PROTOCOL_TCP: IpProtocol  = IpProtocol::Unknown(199);
-const EXODUS_VPN_IP_PROTOCOL_UDP: IpProtocol  = IpProtocol::Unknown(200);
-
-
-const TAP_TOKEN: mio::Token    = mio::Token(10);
-const TUN_TOKEN: mio::Token    = mio::Token(11);
-const UDP_TOKEN: mio::Token    = mio::Token(12);
-const VPN_SERVER_TOKEN: mio::Token  = mio::Token(13);
-const VPN_CLIENT_TOKEN: mio::Token  = mio::Token(14);
-const DHCP_SERVER_TOKEN: mio::Token = mio::Token(15);
-
-
-const DEFAULT_VPN_SERVER_TUNNEL_PORT: u16  = 9050;
-const DEFAULT_VPN_SERVER_DHCP_PORT: u16    = 9051;
-
-
-#[derive(Clone, Copy, Debug, Hash, Eq, PartialEq)]
-pub enum InterfaceKind {
-    Ethernet,
-    // TAP Interface
-    Internet,
-}
-
-
-pub const DHCP_REQ_PACKET_SIGNATURE: [u8; 4] = [255, 255, 255, 200];
-pub const DHCP_RES_PACKET_SIGNATURE: [u8; 4] = [255, 255, 255, 201];
-// NOTE: 同时也是 macOS 系统里面 TUN 的 IPv4Packet 签名
-pub const TUNNEL_PACKET_SIGNATURE: [u8; 4]   = [000, 000, 000, 002];
-pub const BYE_PACKET_SIGNATURE: [u8; 4]      = [255, 255, 255, 255];
 
 
 #[derive(Debug, Clone)]
