@@ -197,17 +197,56 @@ impl Mib {
 
     // Set Value By Mib
     #[inline]
-    pub fn set_value(&self, val: &Value) -> Result<Value, io::Error> {
-        let val_ptr = val.as_ptr();
-        let size = val.size();
-        let bytes = unsafe { std::slice::from_raw_parts(val_ptr, size) };
-        
+    pub fn set_value(&self, val: Value) -> Result<Value, io::Error> {
         let mut file = OpenOptions::new().read(false).write(true).open(&self.path)?;
-        file.write_all(bytes)?;
-        
+
+        match val {
+            Value::String(s) => {
+                file.write_all(s.as_bytes())?;
+            },
+            Value::Struct { buffer, .. } => {
+                file.write_all(&buffer)?;
+            },
+            Value::I8(v) => {
+                let s = v.to_string();
+                file.write_all(&s.as_bytes())?;
+            },
+            Value::I16(v) => {
+                let s = v.to_string();
+                file.write_all(&s.as_bytes())?;
+            },
+            Value::I32(v) => {
+                let s = v.to_string();
+                file.write_all(&s.as_bytes())?;
+            },
+            Value::I64(v) => {
+                let s = v.to_string();
+                file.write_all(&s.as_bytes())?;
+            },
+            Value::U8(v) => {
+                let s = v.to_string();
+                file.write_all(&s.as_bytes())?;
+            },
+            Value::U16(v) => {
+                let s = v.to_string();
+                file.write_all(&s.as_bytes())?;
+            },
+            Value::U32(v) => {
+                let s = v.to_string();
+                file.write_all(&s.as_bytes())?;
+            },
+            Value::U64(v) => {
+                let s = v.to_string();
+                file.write_all(&s.as_bytes())?;
+            },
+            Value::Raw(buffer) => {
+                file.write_all(&buffer)?;
+            },
+        }
+
         self.value()
     }
-    
+
     // Get metadata ( ValueKind )
     #[inline]
     pub fn metadata(&self) -> Result<Metadata, io::Error> {

@@ -3,9 +3,8 @@ extern crate libc;
 mod sys;
 pub use self::sys::*;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Value {
-    Node(Vec<u8>),
     String(String),
     Struct { buffer: Vec<u8>, indication: String },
     I8(i8),
@@ -26,7 +25,6 @@ pub enum Value {
 impl Value {
     pub fn as_ptr(&self) -> *const u8 {
         match self {
-            Value::Node(v) => v.as_ptr(),
             Value::String(v) => v.as_ptr(),
             Value::Struct { buffer, .. } => buffer.as_ptr(),
             Value::I8(v) => v as *const i8 as *const u8,
@@ -45,7 +43,6 @@ impl Value {
 
     pub fn size(&self) -> usize {
         match self {
-            Value::Node(v) => v.len(),
             Value::String(v) => v.len(),
             Value::Struct { buffer, .. } => buffer.len(),
             Value::I8(_) | Value::U8(_) => 1,

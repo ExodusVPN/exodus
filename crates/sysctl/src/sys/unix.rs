@@ -458,8 +458,12 @@ pub fn get(mib: &Mib) -> Result<Value, io::Error> {
     let value_kind = metadata.kind();
     let value_format = metadata.format;
 
+    if value_kind == Kind::Node {
+        return Err(io::Error::new(io::ErrorKind::Other, "Can not get value from a Node."));
+    }
+    
     let value = match value_kind {
-        Kind::Node => Value::Node(buf),
+        Kind::Node => unreachable!(),
         Kind::String => {
             let s = unsafe { CStr::from_bytes_with_nul_unchecked(&buf) };
             Value::String(s.to_string_lossy().to_string())
