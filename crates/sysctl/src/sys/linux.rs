@@ -2,7 +2,6 @@ use crate::Value;
 
 use libc;
 
-use std::mem;
 use std::str::FromStr;
 use std::io::{self, Read, Write};
 use std::fs::{OpenOptions, ReadDir,};
@@ -80,7 +79,7 @@ pub const TABLE: &[(&'static str, Kind)] = &[
 ];
 
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Kind {
     Node,
     String,
@@ -123,10 +122,6 @@ impl Mib {
     // Get Value by Mib
     #[inline]
     pub fn value(&self) -> Result<Value, io::Error> {
-        if !self.path.is_file() {
-            return Err(io::Error::new(io::ErrorKind::Other, "Can not get value from a Node."));
-        }
-        
         let name = self.name()?;
         let mut kind = Kind::Unknow;
         for item in TABLE {
@@ -134,6 +129,10 @@ impl Mib {
                 kind = item.1;
                 break;
             }
+        }
+
+        if !self.path.is_file() || kind == Kind::Node {
+            return Err(io::Error::new(io::ErrorKind::Other, "Can not get value from a Node."));
         }
 
         let mut file = OpenOptions::new().read(true).write(false).open(&self.path)?;
@@ -144,75 +143,51 @@ impl Mib {
             buf.truncate(buf.len() - 1);
         }
 
+        let val_s = unsafe { std::str::from_utf8_unchecked(&buf) };
+
         let val = match kind {
             Kind::Node => unreachable!(),
             Kind::String => unsafe { Value::String(String::from_utf8_unchecked(buf)) },
             Kind::Struct => Value::Struct { buffer: buf, indication: "".to_string() },
-            Kind::I8 => Value::Int(*buf.get(0).unwrap_or(&0) as _),
+            Kind::I8 => {
+                let n = val_s.parse::<i8>()
+                            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{}", e)))?;
+                Value::I8(n)
+            },
             Kind::I16 => {
-                let n: i16 = unsafe {
-                    std::mem::transmute([*buf.get(0).unwrap_or(&0), *buf.get(1).unwrap_or(&0)])
-                };
-                Value::Int(n as _)
+                let n = val_s.parse::<i16>()
+                            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{}", e)))?;
+                Value::I16(n)
             }
             Kind::I32 => {
-                let n: i32 = unsafe {
-                    std::mem::transmute([
-                        *buf.get(0).unwrap_or(&0),
-                        *buf.get(1).unwrap_or(&0),
-                        *buf.get(2).unwrap_or(&0),
-                        *buf.get(3).unwrap_or(&0),
-                    ])
-                };
-                Value::Int(n as _)
+                let n = val_s.parse::<i32>()
+                            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{}", e)))?;
+                Value::I32(n)
             }
             Kind::I64 => {
-                let n: i64 = unsafe {
-                    std::mem::transmute([
-                        *buf.get(0).unwrap_or(&0),
-                        *buf.get(1).unwrap_or(&0),
-                        *buf.get(2).unwrap_or(&0),
-                        *buf.get(3).unwrap_or(&0),
-                        *buf.get(4).unwrap_or(&0),
-                        *buf.get(5).unwrap_or(&0),
-                        *buf.get(6).unwrap_or(&0),
-                        *buf.get(7).unwrap_or(&0),
-                    ])
-                };
-                Value::Int(n as _)
+                let n = val_s.parse::<i64>()
+                            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{}", e)))?;
+                Value::I64(n)
             }
-            Kind::U8 => Value::Int(*buf.get(0).unwrap_or(&0) as _),
+            Kind::U8 => {
+                let n = val_s.parse::<u8>()
+                            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{}", e)))?;
+                Value::U8(n)
+            },
             Kind::U16 => {
-                let n: u16 = unsafe {
-                    std::mem::transmute([*buf.get(0).unwrap_or(&0), *buf.get(1).unwrap_or(&0)])
-                };
-                Value::Int(n as _)
+                let n = val_s.parse::<u16>()
+                            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{}", e)))?;
+                Value::U16(n)
             }
             Kind::U32 => {
-                let n: u32 = unsafe {
-                    std::mem::transmute([
-                        *buf.get(0).unwrap_or(&0),
-                        *buf.get(1).unwrap_or(&0),
-                        *buf.get(2).unwrap_or(&0),
-                        *buf.get(3).unwrap_or(&0),
-                    ])
-                };
-                Value::Int(n as _)
+                let n = val_s.parse::<u32>()
+                            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{}", e)))?;
+                Value::U32(n)
             }
             Kind::U64 => {
-                let n: u64 = unsafe {
-                    std::mem::transmute([
-                        *buf.get(0).unwrap_or(&0),
-                        *buf.get(1).unwrap_or(&0),
-                        *buf.get(2).unwrap_or(&0),
-                        *buf.get(3).unwrap_or(&0),
-                        *buf.get(4).unwrap_or(&0),
-                        *buf.get(5).unwrap_or(&0),
-                        *buf.get(6).unwrap_or(&0),
-                        *buf.get(7).unwrap_or(&0),
-                    ])
-                };
-                Value::Int(n as _)
+                let n = val_s.parse::<u64>()
+                            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{}", e)))?;
+                Value::U64(n)
             }
             Kind::Unknow => Value::Raw(buf),
         };
@@ -222,12 +197,17 @@ impl Mib {
 
     // Set Value By Mib
     #[inline]
-    pub fn set_value(&self, val: &[u8]) -> Result<Value, io::Error> {
+    pub fn set_value(&self, val: &Value) -> Result<Value, io::Error> {
+        let val_ptr = val.as_ptr();
+        let size = val.size();
+        let bytes = unsafe { std::slice::from_raw_parts(val_ptr, size) };
+        
         let mut file = OpenOptions::new().read(false).write(true).open(&self.path)?;
-        file.write_all(val)?;
+        file.write_all(bytes)?;
+        
         self.value()
     }
-
+    
     // Get metadata ( ValueKind )
     #[inline]
     pub fn metadata(&self) -> Result<Metadata, io::Error> {

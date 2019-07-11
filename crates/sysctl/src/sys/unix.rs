@@ -164,7 +164,7 @@ pub struct ctlname {
     pub ctl_type: libc::c_int,       // type of name
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Kind {
     Node,
     String,
@@ -542,12 +542,12 @@ pub fn get(mib: &Mib) -> Result<Value, io::Error> {
                 indication: value_format,
             }
         }
-        Kind::I8 => Value::Int(*buf.get(0).unwrap_or(&0) as _),
+        Kind::I8 => Value::I8(*buf.get(0).unwrap_or(&0) as _),
         Kind::I16 => {
             let n: i16 = unsafe {
                 std::mem::transmute([*buf.get(0).unwrap_or(&0), *buf.get(1).unwrap_or(&0)])
             };
-            Value::Int(n as _)
+            Value::I16(n)
         }
         Kind::I32 => {
             let n: i32 = unsafe {
@@ -558,7 +558,7 @@ pub fn get(mib: &Mib) -> Result<Value, io::Error> {
                     *buf.get(3).unwrap_or(&0),
                 ])
             };
-            Value::Int(n as _)
+            Value::I32(n)
         }
         Kind::I64 => {
             let n: i64 = unsafe {
@@ -573,14 +573,14 @@ pub fn get(mib: &Mib) -> Result<Value, io::Error> {
                     *buf.get(7).unwrap_or(&0),
                 ])
             };
-            Value::Int(n as _)
+            Value::I64(n)
         }
-        Kind::U8 => Value::Int(*buf.get(0).unwrap_or(&0) as _),
+        Kind::U8 => Value::U8(*buf.get(0).unwrap_or(&0)),
         Kind::U16 => {
             let n: u16 = unsafe {
                 std::mem::transmute([*buf.get(0).unwrap_or(&0), *buf.get(1).unwrap_or(&0)])
             };
-            Value::Int(n as _)
+            Value::U16(n)
         }
         Kind::U32 => {
             let n: u32 = unsafe {
@@ -591,7 +591,7 @@ pub fn get(mib: &Mib) -> Result<Value, io::Error> {
                     *buf.get(3).unwrap_or(&0),
                 ])
             };
-            Value::Int(n as _)
+            Value::U32(n)
         }
         Kind::U64 => {
             let n: u64 = unsafe {
@@ -606,7 +606,7 @@ pub fn get(mib: &Mib) -> Result<Value, io::Error> {
                     *buf.get(7).unwrap_or(&0),
                 ])
             };
-            Value::Int(n as _)
+            Value::U64(n)
         }
         Kind::Unknow(_) => Value::Raw(buf),
     };
