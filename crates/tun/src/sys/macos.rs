@@ -150,14 +150,14 @@ impl Device {
             return Err(Error::new(ErrorKind::InvalidInput, "invalid name"));
         }
 
-        let id = name[4..].parse::<c_uint>()
+        let id = name[4..].parse::<u8>()
                     .map_err(|_e| Error::new(ErrorKind::InvalidInput, "invalid name"))?;
         
         if id < 1 {
             return Err(Error::new(ErrorKind::InvalidInput, "invalid name"));
         }
         
-        let id = id - 1;
+        let id = id + 1;
 
         let (tun, ctl) = unsafe {
             let tun = libc::socket(PF_SYSTEM, libc::SOCK_DGRAM, SYSPROTO_CONTROL);
@@ -185,7 +185,7 @@ impl Device {
                 sc_len: mem::size_of::<sockaddr_ctl>() as _,
                 sc_family: AF_SYSTEM,
                 ss_sysaddr: AF_SYS_CONTROL,
-                sc_unit: id,
+                sc_unit: id as c_uint,
                 sc_reserved: [0; 5],
             };
 
