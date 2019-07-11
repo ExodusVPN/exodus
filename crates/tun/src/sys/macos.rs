@@ -1,14 +1,12 @@
 use super::SockAddr;
 
-use libc;
-use libc::{c_void, c_char, c_short, c_ushort, c_int, c_uint};
-use libc::{sockaddr};
+use libc::{self, sockaddr, c_void, c_char, c_short, c_ushort, c_int, c_uint};
 
 use std::ptr;
 use std::mem;
 use std::ffi::CStr;
 use std::net::Ipv4Addr;
-use std::io::{self, Read, Write, Error, ErrorKind};
+use std::io::{self, Error, ErrorKind};
 use std::os::unix::io::{RawFd, AsRawFd, IntoRawFd};
 
 
@@ -425,33 +423,6 @@ impl Device {
         }
     }
 }
-
-impl Read for Device {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let amount = unsafe { libc::read(self.tun, buf.as_mut_ptr() as *mut _, buf.len()) };
-        if amount < 0 {
-            return Err(io::Error::last_os_error());
-        }
-
-        Ok(amount as usize)
-    }
-}
-
-impl Write for Device {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        let amount = unsafe { libc::write(self.tun, buf.as_ptr() as *const _, buf.len()) };
-        if amount < 0 {
-            return Err(io::Error::last_os_error());
-        }
-
-        Ok(amount as usize)
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
-    }
-}
-
 
 impl AsRawFd for Device {
     fn as_raw_fd(&self) -> RawFd {

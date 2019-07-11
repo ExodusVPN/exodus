@@ -1,9 +1,10 @@
 use libc;
 
-use std::io;
 use std::mem;
 use std::ptr;
 use std::net::Ipv4Addr;
+use std::io::{self, Read, Write, Error, ErrorKind};
+use std::os::unix::io::AsRawFd;
 
 
 #[cfg(target_os = "linux")]
@@ -39,7 +40,7 @@ impl SockAddr {
     /// Create a new `SockAddr` from a generic `sockaddr`.
     pub fn new(value: &sockaddr) -> Result<Self, io::Error> {
         if value.sa_family != AF_INET {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "Invalid Address"))
+            return Err(Error::new(ErrorKind::InvalidInput, "Invalid Address"))
         }
 
         unsafe { Self::unchecked(value) }
@@ -97,6 +98,34 @@ impl Into<sockaddr> for SockAddr {
 impl Into<sockaddr_in> for SockAddr {
     fn into(self) -> sockaddr_in {
         self.0
+    }
+}
+
+
+
+impl Read for Device {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let amount = unsafe { libc::read(self.as_raw_fd(), buf.as_mut_ptr() as *mut _, buf.len()) };
+        if amount < 0 {
+            return Err(io::Error::last_os_error());
+        }
+
+        Ok(amount as usize)
+    }
+}
+
+impl Write for Device {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        let amount = unsafe { libc::write(self.as_raw_fd(), buf.as_ptr() as *const _, buf.len()) };
+        if amount < 0 {
+            return Err(io::Error::last_os_error());
+        }
+
+        Ok(amount as usize)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
     }
 }
 
