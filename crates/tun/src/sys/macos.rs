@@ -1,20 +1,30 @@
+use super::SockAddr;
+
+use libc;
 use libc::{c_void, c_char, c_short, c_ushort, c_int, c_uint};
 use libc::{sockaddr};
 
-pub const IFNAMSIZ: usize = 16;
+use std::ptr;
+use std::mem;
+use std::ffi::CStr;
+use std::net::Ipv4Addr;
+use std::io::{self, Read, Write, Error, ErrorKind};
+use std::os::unix::io::{RawFd, AsRawFd, IntoRawFd};
 
-pub const IFF_UP: c_short = 0x1;
+
+pub const IFNAMSIZ: usize      = 16;
+pub const IFF_UP: c_short      = 0x1;
 pub const IFF_RUNNING: c_short = 0x40;
 
-pub const AF_SYS_CONTROL: c_ushort = 2;
-pub const AF_SYSTEM: c_char = 32;
-pub const PF_SYSTEM: c_int = AF_SYSTEM as c_int;
-pub const SYSPROTO_CONTROL: c_int = 2;
-pub const UTUN_OPT_FLAGS: c_int  = 1;
-pub const UTUN_OPT_IFNAME: c_int = 2;
+pub const AF_SYS_CONTROL: c_ushort    = 2;
+pub const AF_SYSTEM: c_char           = 32;
+pub const PF_SYSTEM: c_int            = AF_SYSTEM as c_int;
+pub const SYSPROTO_CONTROL: c_int     = 2;
+pub const UTUN_OPT_FLAGS: c_int       = 1;
+pub const UTUN_OPT_IFNAME: c_int      = 2;
 pub const UTUN_FLAGS_NO_OUTPUT: c_int = 0x0001;
 pub const UTUN_FLAGS_NO_INPUT: c_int  = 0x0002;
-pub const UTUN_CONTROL_NAME: &str = "com.apple.net.utun_control";
+pub const UTUN_CONTROL_NAME: &str     = "com.apple.net.utun_control";
 
 
 
@@ -124,3 +134,346 @@ ioctl!(readwrite siocgifmtu with 'i', 51; ifreq);
 
 ioctl!(write siocaifaddr with 'i', 26; ifaliasreq);
 ioctl!(write siocdifaddr with 'i', 25; ifreq);
+
+
+#[derive(Debug)]
+pub struct Device {
+    tun: RawFd,
+    ctl: RawFd,
+}
+
+impl Device {
+    pub fn new(name: &str) -> Result<Self, io::Error> {
+        if name.len() > IFNAMSIZ {
+            return Err(Error::new(ErrorKind::InvalidInput, "name too long"));
+        }
+
+        if !name.starts_with("utun") {
+            return Err(Error::new(ErrorKind::InvalidInput, "invalid name"));
+        }
+
+        let id = name[4..].parse::<c_uint>()
+                    .map_err(|_e| Error::new(ErrorKind::InvalidInput, "invalid name"))?;
+        
+        if id < 1 {
+            return Err(Error::new(ErrorKind::InvalidInput, "invalid name"));
+        }
+        
+        let id = id - 1;
+
+        let (tun, ctl) = unsafe {
+            let tun = libc::socket(PF_SYSTEM, libc::SOCK_DGRAM, SYSPROTO_CONTROL);
+            if tun < 1 {
+                return Err(io::Error::last_os_error());
+            }
+
+            let mut info = ctl_info {
+                ctl_id: 0,
+                ctl_name: {
+                    let mut buffer = [0; 96];
+                    for (i, o) in UTUN_CONTROL_NAME.as_bytes().iter().zip(buffer.iter_mut()) {
+                        *o = *i as _;
+                    }
+                    buffer
+                },
+            };
+
+            if ctliocginfo(tun, &mut info as *mut _ as *mut _) < 0 {
+                return Err(io::Error::last_os_error());
+            }
+
+            let addr = sockaddr_ctl {
+                sc_id: info.ctl_id,
+                sc_len: mem::size_of::<sockaddr_ctl>() as _,
+                sc_family: AF_SYSTEM,
+                ss_sysaddr: AF_SYS_CONTROL,
+                sc_unit: id,
+                sc_reserved: [0; 5],
+            };
+
+            let ret = libc::connect(tun,
+                                    &addr as *const sockaddr_ctl as *const sockaddr,
+                                    mem::size_of_val(&addr) as libc::socklen_t);
+            if ret < 0 {
+                return Err(io::Error::last_os_error());
+            }
+
+            let ctl = libc::socket(libc::AF_INET, libc::SOCK_DGRAM, 0);
+            if ctl < 1 {
+                return Err(io::Error::last_os_error());
+            }
+
+            (tun, ctl)
+        };
+        
+        Ok(Device {
+            tun: tun,
+            ctl: ctl,
+        })
+    }
+
+    pub fn name(&self) -> Result<String, Error> {
+        let mut name = [0u8; 64];
+        let mut name_len: libc::socklen_t = 64;
+
+        let ret = unsafe {
+            libc::getsockopt(self.tun,
+                             SYSPROTO_CONTROL,
+                             UTUN_OPT_IFNAME,
+                             &mut name as *mut _ as *mut c_void,
+                             &mut name_len as *mut libc::socklen_t)
+        };
+
+        if ret < 0 {
+            return Err(io::Error::last_os_error());
+        }
+
+        let name_ptr = name.as_ptr() as *const c_char;
+        let tun_name = unsafe { CStr::from_ptr(name_ptr) }
+                        .to_string_lossy()
+                        .to_string();
+        Ok(tun_name)
+    }
+
+    pub fn address(&self) -> Result<Ipv4Addr, Error> {
+        let name = self.name()?;
+
+        unsafe {
+            let mut req: ifreq = mem::zeroed();
+            ptr::copy_nonoverlapping(name.as_ptr() as *const c_char, req.ifrn.name.as_mut_ptr(), name.len());
+
+            if siocgifaddr(self.ctl, &mut req) < 0 {
+                return Err(io::Error::last_os_error());
+            }
+
+            SockAddr::new(&req.ifru.addr).map(Into::into)
+        }
+    }
+
+    pub fn set_address<T: Into<Ipv4Addr>>(&mut self, value: T) -> Result<(), Error> {
+        let name = self.name()?;
+
+        unsafe {
+            let mut req: ifreq = mem::zeroed();
+            ptr::copy_nonoverlapping(name.as_ptr() as *const c_char, req.ifrn.name.as_mut_ptr(), name.len());
+
+            req.ifru.addr = SockAddr::from(value.into()).into();
+
+            if siocsifaddr(self.ctl, &req) < 0 {
+                return Err(io::Error::last_os_error());
+            }
+
+            Ok(())
+        }
+    }
+
+    pub fn destination(&self) -> Result<Ipv4Addr, Error> {
+        let name = self.name()?;
+
+        unsafe {
+            let mut req: ifreq = mem::zeroed();
+            ptr::copy_nonoverlapping(name.as_ptr() as *const c_char, req.ifrn.name.as_mut_ptr(), name.len());
+
+            if siocgifdstaddr(self.ctl, &mut req) < 0 {
+                return Err(io::Error::last_os_error());
+            }
+
+            SockAddr::new(&req.ifru.dstaddr).map(Into::into)
+        }
+    }
+
+    pub fn set_destination<T: Into<Ipv4Addr>>(&mut self, value: T) -> Result<(), Error> {
+        let name = self.name()?;
+        unsafe {
+            let mut req: ifreq = mem::zeroed();
+            ptr::copy_nonoverlapping(name.as_ptr() as *const c_char, req.ifrn.name.as_mut_ptr(), name.len());
+
+            req.ifru.dstaddr = SockAddr::from(value.into()).into();
+
+            if siocsifdstaddr(self.ctl, &req) < 0 {
+                return Err(io::Error::last_os_error());
+            }
+
+            Ok(())
+        }
+    }
+
+    pub fn broadcast(&self) -> Result<Ipv4Addr, Error> {
+        let name = self.name()?;
+        unsafe {
+            let mut req: ifreq = mem::zeroed();
+            ptr::copy_nonoverlapping(name.as_ptr() as *const c_char, req.ifrn.name.as_mut_ptr(), name.len());
+
+            if siocgifbrdaddr(self.ctl, &mut req) < 0 {
+                return Err(io::Error::last_os_error());
+            }
+
+            SockAddr::new(&req.ifru.broadaddr).map(Into::into)
+        }
+    }
+
+    pub fn set_broadcast<T: Into<Ipv4Addr>>(&mut self, value: T) -> Result<(), Error> {
+        let name = self.name()?;
+        unsafe {
+            let mut req: ifreq = mem::zeroed();
+            ptr::copy_nonoverlapping(name.as_ptr() as *const c_char, req.ifrn.name.as_mut_ptr(), name.len());
+
+            req.ifru.broadaddr = SockAddr::from(value.into()).into();
+
+            if siocsifbrdaddr(self.ctl, &req) < 0 {
+                return Err(io::Error::last_os_error());
+            }
+
+            Ok(())
+        }
+    }
+
+    pub fn netmask(&self) -> Result<Ipv4Addr, Error> {
+        let name = self.name()?;
+        unsafe {
+            let mut req: ifreq = mem::zeroed();
+            ptr::copy_nonoverlapping(name.as_ptr() as *const c_char, req.ifrn.name.as_mut_ptr(), name.len());
+
+
+            if siocgifnetmask(self.ctl, &mut req) < 0 {
+                return Err(io::Error::last_os_error());
+            }
+
+            SockAddr::unchecked(&req.ifru.addr).map(Into::into)
+        }
+    }
+
+    pub fn set_netmask<T: Into<Ipv4Addr>>(&mut self, value: T) -> Result<(), Error> {
+        let name = self.name()?;
+        unsafe {
+            let mut req: ifreq = mem::zeroed();
+            ptr::copy_nonoverlapping(name.as_ptr() as *const c_char, req.ifrn.name.as_mut_ptr(), name.len());
+
+            req.ifru.addr = SockAddr::from(value.into()).into();
+
+            if siocsifnetmask(self.ctl, &req) < 0 {
+                return Err(io::Error::last_os_error());
+            }
+
+            Ok(())
+        }
+    }
+
+    pub fn mtu(&self) -> Result<i32, Error> {
+        let name = self.name()?;
+        unsafe {
+            let mut req: ifreq = mem::zeroed();
+            ptr::copy_nonoverlapping(name.as_ptr() as *const c_char, req.ifrn.name.as_mut_ptr(), name.len());
+
+            if siocgifmtu(self.ctl, &mut req) < 0 {
+                return Err(io::Error::last_os_error());
+            }
+
+            Ok(req.ifru.mtu)
+        }
+    }
+
+    pub fn set_mtu(&mut self, value: i32) -> Result<(), Error> {
+        // Minimum MTU required of all links supporting IPv4. See RFC 791 § 3.1.
+        pub const IPV4_MIN_MTU: i32 = 576;
+        // Minimum MTU required of all links supporting IPv6. See RFC 8200 § 5.
+        // pub const IPV6_MIN_MTU: i32 = 1280;
+
+        if value < IPV4_MIN_MTU {
+            return Err(Error::new(ErrorKind::InvalidInput, "MTU is too small"));
+        }
+
+        let name = self.name()?;
+
+        unsafe {
+            let mut req: ifreq = mem::zeroed();
+            ptr::copy_nonoverlapping(name.as_ptr() as *const c_char, req.ifrn.name.as_mut_ptr(), name.len());
+
+            req.ifru.mtu = value;
+
+            if siocsifmtu(self.ctl, &req) < 0 {
+                return Err(io::Error::last_os_error());
+            }
+
+            Ok(())
+        }
+    }
+
+    pub fn enabled(&mut self, value: bool) -> Result<(), Error> {
+        let name = self.name()?;
+
+        unsafe {
+            let mut req: ifreq = mem::zeroed();
+            ptr::copy_nonoverlapping(name.as_ptr() as *const c_char, req.ifrn.name.as_mut_ptr(), name.len());
+
+            if siocgifflags(self.ctl, &mut req) < 0 {
+                return Err(io::Error::last_os_error());
+            }
+
+            if value {
+                req.ifru.flags |= IFF_UP | IFF_RUNNING;
+            }
+            else {
+                req.ifru.flags &= !IFF_UP;
+            }
+
+            if siocsifflags(self.ctl, &req) < 0 {
+                return Err(io::Error::last_os_error());
+            }
+
+            Ok(())
+        }
+    }
+}
+
+impl Read for Device {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let amount = unsafe { libc::read(self.tun, buf.as_mut_ptr() as *mut _, buf.len()) };
+        if amount < 0 {
+            return Err(io::Error::last_os_error());
+        }
+
+        Ok(amount as usize)
+    }
+}
+
+impl Write for Device {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        let amount = unsafe { libc::write(self.tun, buf.as_ptr() as *const _, buf.len()) };
+        if amount < 0 {
+            return Err(io::Error::last_os_error());
+        }
+
+        Ok(amount as usize)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+
+impl AsRawFd for Device {
+    fn as_raw_fd(&self) -> RawFd {
+        self.tun
+    }
+}
+
+impl IntoRawFd for Device {
+    fn into_raw_fd(self) -> RawFd {
+        self.tun
+    }
+}
+
+impl Drop for Device {
+    fn drop(&mut self) {
+        unsafe {
+            if self.ctl >= 0 {
+                libc::close(self.ctl);
+            }
+            if self.tun >= 0 {
+                libc::close(self.tun);
+            }
+        }
+    }
+}
