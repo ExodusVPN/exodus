@@ -2,7 +2,7 @@ use crate::Value;
 
 use libc;
 
-// use std::ptr;
+use std::mem;
 use std::str::FromStr;
 use std::io::{self, Read, Write};
 use std::fs::{OpenOptions, ReadDir,};
@@ -14,11 +14,14 @@ pub const CTL_MAXNAME: usize = 10;
 
 #[cfg(target_os = "linux")]
 const PATH_PREFIX: &'static str = "/proc/sys";
-#[cfg(not(target_os = "linux"))]
-const PATH_PREFIX: &'static str = concat!(env!("PWD"), "/proc/sys");
+
 
 #[cfg(target_os = "linux")]
 const ROOT_PATH: &'static str = "/proc/sys/kernel";
+
+// NOTE: for develop
+#[cfg(not(target_os = "linux"))]
+const PATH_PREFIX: &'static str = concat!(env!("PWD"), "/proc/sys");
 #[cfg(not(target_os = "linux"))]
 const ROOT_PATH: &'static str = concat!(env!("PWD"), "/proc/sys/kernel");
 
@@ -43,10 +46,37 @@ pub const CTL_FRV: libc::c_int = 9898; // frv specific sysctls
 // TODO:
 // Metadata Table
 pub const TABLE: &[(&'static str, Kind)] = &[
+    ("abi", Kind::Node),
+    ("abi.vsyscall32", Kind::I32),
+    
+    ("debug", Kind::Node),
+    ("dev", Kind::Node),
+    ("fs", Kind::Node),
+
     ("kernel", Kind::Node,),
-    ("kernel.ostype", Kind::I32,),
-    ("kernel.version", Kind::I32,),
-    ("kernel.osrelease", Kind::String,),
+    ("kernel.ostype", Kind::String),
+    ("kernel.osrelease", Kind::String),
+    ("kernel.version", Kind::String),
+    ("kernel.panic", Kind::I32),
+
+    ("net", Kind::Node),
+    ("net.ipv4", Kind::Node),
+    ("net.ipv4.ip_forward", Kind::I32),
+    ("net.ipv4.conf", Kind::Node),
+    ("net.ipv4.conf.all", Kind::Node),
+    ("net.ipv4.conf.all.forwarding", Kind::I32),
+    ("net.ipv4.conf.default", Kind::Node),
+    ("net.ipv4.conf.default.forwarding", Kind::I32),
+    ("net.ipv6", Kind::Node),
+    ("net.ipv6.conf", Kind::Node),
+    ("net.ipv6.conf.all", Kind::Node),
+    ("net.ipv6.conf.all.forwarding", Kind::I32),
+    ("net.ipv6.conf.default", Kind::Node),
+    ("net.ipv6.conf.default.forwarding", Kind::I32),
+
+    ("user", Kind::Node),
+    ("vm", Kind::Node),
+    ("vm.page-cluster", Kind::I32),
 ];
 
 
@@ -81,39 +111,125 @@ pub struct Mib {
 
 impl Mib {
     #[inline]
-    pub fn components(&self) -> &[libc::c_int] {
-        // &self.inner[..self.len]
-        unimplemented!()
-    }
-
     pub fn name(&self) -> Result<String, io::Error> {
-        let name = self.path.strip_prefix(PATH_PREFIX)
+        let name = self.path
+                        .strip_prefix(PATH_PREFIX)
                         .map_err(|e| io::Error::new(io::ErrorKind::NotFound, format!("{}", e)))?
                         .to_str()
-                        .ok_or(io::Error::new(io::ErrorKind::Other, "Not a utf-8 seqs"))?;
+                        .ok_or(io::Error::new(io::ErrorKind::Other, "Not a valid UTF-8 sequence"))?;
         Ok(name.replace("/", "."))
     }
     
     // Get Value by Mib
-    pub fn value(&self) -> Result<Vec<u8>, io::Error> {
+    #[inline]
+    pub fn value(&self) -> Result<Value, io::Error> {
         if !self.path.is_file() {
             return Err(io::Error::new(io::ErrorKind::Other, "Can not get value from a Node."));
         }
+        
+        let name = self.name()?;
+        let mut kind = Kind::Unknow;
+        for item in TABLE {
+            if name == item.0 {
+                kind = item.1;
+                break;
+            }
+        }
 
         let mut file = OpenOptions::new().read(true).write(false).open(&self.path)?;
-        let mut val = Vec::new();
-        file.read_to_end(&mut val)?;
+        let mut buf = Vec::new();
+        file.read_to_end(&mut buf)?;
+
+        if buf.ends_with(&[b'\n']) {
+            buf.truncate(buf.len() - 1);
+        }
+
+        let val = match kind {
+            Kind::Node => unreachable!(),
+            Kind::String => unsafe { Value::String(String::from_utf8_unchecked(buf)) },
+            Kind::Struct => Value::Struct { buffer: buf, indication: "".to_string() },
+            Kind::I8 => Value::Int(*buf.get(0).unwrap_or(&0) as _),
+            Kind::I16 => {
+                let n: i16 = unsafe {
+                    std::mem::transmute([*buf.get(0).unwrap_or(&0), *buf.get(1).unwrap_or(&0)])
+                };
+                Value::Int(n as _)
+            }
+            Kind::I32 => {
+                let n: i32 = unsafe {
+                    std::mem::transmute([
+                        *buf.get(0).unwrap_or(&0),
+                        *buf.get(1).unwrap_or(&0),
+                        *buf.get(2).unwrap_or(&0),
+                        *buf.get(3).unwrap_or(&0),
+                    ])
+                };
+                Value::Int(n as _)
+            }
+            Kind::I64 => {
+                let n: i64 = unsafe {
+                    std::mem::transmute([
+                        *buf.get(0).unwrap_or(&0),
+                        *buf.get(1).unwrap_or(&0),
+                        *buf.get(2).unwrap_or(&0),
+                        *buf.get(3).unwrap_or(&0),
+                        *buf.get(4).unwrap_or(&0),
+                        *buf.get(5).unwrap_or(&0),
+                        *buf.get(6).unwrap_or(&0),
+                        *buf.get(7).unwrap_or(&0),
+                    ])
+                };
+                Value::Int(n as _)
+            }
+            Kind::U8 => Value::Int(*buf.get(0).unwrap_or(&0) as _),
+            Kind::U16 => {
+                let n: u16 = unsafe {
+                    std::mem::transmute([*buf.get(0).unwrap_or(&0), *buf.get(1).unwrap_or(&0)])
+                };
+                Value::Int(n as _)
+            }
+            Kind::U32 => {
+                let n: u32 = unsafe {
+                    std::mem::transmute([
+                        *buf.get(0).unwrap_or(&0),
+                        *buf.get(1).unwrap_or(&0),
+                        *buf.get(2).unwrap_or(&0),
+                        *buf.get(3).unwrap_or(&0),
+                    ])
+                };
+                Value::Int(n as _)
+            }
+            Kind::U64 => {
+                let n: u64 = unsafe {
+                    std::mem::transmute([
+                        *buf.get(0).unwrap_or(&0),
+                        *buf.get(1).unwrap_or(&0),
+                        *buf.get(2).unwrap_or(&0),
+                        *buf.get(3).unwrap_or(&0),
+                        *buf.get(4).unwrap_or(&0),
+                        *buf.get(5).unwrap_or(&0),
+                        *buf.get(6).unwrap_or(&0),
+                        *buf.get(7).unwrap_or(&0),
+                    ])
+                };
+                Value::Int(n as _)
+            }
+            Kind::Unknow => Value::Raw(buf),
+        };
+
         Ok(val)
     }
 
     // Set Value By Mib
-    pub fn set_value(&self, val: &[u8]) -> Result<Vec<u8>, io::Error> {
+    #[inline]
+    pub fn set_value(&self, val: &[u8]) -> Result<Value, io::Error> {
         let mut file = OpenOptions::new().read(false).write(true).open(&self.path)?;
         file.write_all(val)?;
         self.value()
     }
 
     // Get metadata ( ValueKind )
+    #[inline]
     pub fn metadata(&self) -> Result<Metadata, io::Error> {
         unimplemented!()
     }
@@ -123,6 +239,7 @@ impl Mib {
         Err(io::Error::new(io::ErrorKind::Other, "Description not available on Linux"))
     }
 
+    #[inline]
     pub fn iter(&self) -> Result<MibIter, io::Error> {
         MibIter::new(&self.path)
     }
