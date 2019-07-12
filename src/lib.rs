@@ -7,20 +7,16 @@ extern crate env_logger;
 extern crate libc;
 extern crate ctrlc;
 extern crate mio;
+extern crate znet;
 extern crate tun;
-#[cfg(any(target_os = "ios", target_os = "macos", target_os = "freebsd"))]
-extern crate sysctl;
-extern crate smoltcp;
 extern crate crypto;
 extern crate compression;
-extern crate znet;
+extern crate smoltcp;
 
-
-pub mod sys;
 pub mod signal;
-pub mod ip_forwarding;
-pub mod nat;
 pub mod vpn;
+pub mod nat;
+
 
 pub use smoltcp::wire::{
     EthernetAddress, EthernetProtocol,
