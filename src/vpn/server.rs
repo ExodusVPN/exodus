@@ -79,6 +79,15 @@ impl VpnServer {
 
         warn!("为系统路由表添加静态路由:
         Linux:
+            # Clear iptables rules
+            sudo iptables -P INPUT ACCEPT;
+            sudo iptables -P FORWARD ACCEPT;
+            sudo iptables -P OUTPUT ACCEPT;
+            sudo iptables -t nat -F;
+            sudo iptables -t mangle -F;
+            sudo iptables -F;
+            sudo iptables -X;
+
             sudo sysctl -w net.ipv4.conf.all.forwarding=1
             sudo route add -net {} dev {}
             sudo iptables -t nat -A POSTROUTING -s {} -o enp0s3 -j MASQUERADE
@@ -124,7 +133,7 @@ impl VpnServer {
 
     fn handle_dhcp_req(&mut self, remote_socket_addr: SocketAddrV4) -> Result<(), io::Error> {
         let mut peer_tun_addr: Option<Ipv4Address> = None;
-        
+
         for addr_num in self.dhcp_start_addr .. self.dhcp_end_addr {
             let addr = Ipv4Address::from(std::net::Ipv4Addr::from(addr_num));
             if !self.neighbor.contains_key(&addr) {
@@ -170,7 +179,6 @@ impl VpnServer {
             // 子网路由，直接发送，不需要经过 TUN 设备中继
             // TODO: 以后需要增加身份认证机制
             if let Some(udp_socket_addr) = self.neighbor.get(&dst_ip) {
-                debug!("UDP packet write to UDP Socket.");
                 let message = &self.buffer[..packet.len() + 4];
                 let addr = (*udp_socket_addr).into();
                 let _ = self.udp_socket.send_to(&message, &addr);
@@ -183,8 +191,6 @@ impl VpnServer {
         
         let std_src_ip: Ipv4Addr = src_ip.into();
         if !std_src_ip.is_private() && !std_src_ip.is_global() {
-            // Note: 这需要每日构建版的 Rust 支持该方法
-            // 确保目标地址是 公网地址 或者 私有地址段
             debug!("[TAP NETWORK] 无法路由该地址: {}", dst_ip);
             return Ok(());
         }
@@ -194,20 +200,16 @@ impl VpnServer {
         #[cfg(target_os = "macos")]
         assert_eq!(&self.buffer[..4], TUNNEL_PACKET_SIGNATURE);
         
+        trace!("[UDP] IPv4 {} {} --> {} ...", ipv4_protocol, src_ip, dst_ip);
         self.tun_device.write(&packet)?;
-
-        debug!("[UDP] IPv4 {} {} --> {}", ipv4_protocol, src_ip, dst_ip);
 
         Ok(())
     }
 
     pub fn handle_tun_pkt(&mut self) -> Result<(), io::Error> {
-        debug!("read packet from TUN Device ...");
         #[cfg(target_os = "macos")]
         let amt = self.tun_device.read(&mut self.buffer)?;
 
-        // NOTE: Linux 的 TUN 设备默认设置了 IFF_NO_PI 标志
-        //       没有携带 Packet Infomation，所以这里我们给它预留 4 个 Bytes 空间
         #[cfg(target_os = "linux")]
         &mut self.buffer[..4].copy_from_slice(&TUNNEL_PACKET_SIGNATURE);
         #[cfg(target_os = "linux")]
@@ -243,9 +245,11 @@ impl VpnServer {
 
         if self.config.tun_cidr.contains_addr(&dst_ip) {
             if let Some(udp_socket_addr) = self.neighbor.get(&dst_ip) {
-                debug!("tun device send to udp socket:\n{}", PrettyPrinter::<Ipv4Packet<&[u8]>>::new("", &packet));
                 let message = &self.buffer[..packet.len() + 4];
                 let addr = (*udp_socket_addr).into();
+                
+                debug!("[TUN] IPv4 {} {} --> {} ...", ipv4_protocol, src_ip, dst_ip);
+
                 let _ = self.udp_socket.send_to(&message, &addr);
             } else {
                 debug!("[TUN NETWORK] 无法路由该地址: {}", dst_ip);
@@ -309,7 +313,6 @@ impl VpnServer {
                                 continue;
                             },
                             BYE_PACKET_SIGNATURE => {
-                                debug!("bye packet ...");
                                 let mut peer_tun_addr: Option<Ipv4Address> = None;
 
                                 for (tun_ip, udp_addr) in &self.neighbor {

@@ -219,7 +219,17 @@ impl VpnClient {
                                 continue;
                             },
                             TUNNEL_PACKET_SIGNATURE => {
-                                debug!("\x1b[31m UDP Pakcet send to TUN Device: \n{} \x1b[0m", PrettyPrinter::<Ipv4Packet<&[u8]>>::new("", &packet));
+                                // debug!("\x1b[31m [UDP] \x1b[0m", PrettyPrinter::<Ipv4Packet<&[u8]>>::new("", &packet));
+
+                                let ipv4_packet = Ipv4Packet::new_unchecked(&packet);
+                                let ipv4_protocol = ipv4_packet.protocol();
+                                let src_ip = ipv4_packet.src_addr();
+                                let dst_ip = ipv4_packet.dst_addr();
+
+                                debug!("[UDP] Forwarding IPv4 {} {} --> {} ...",
+                                    ipv4_protocol,
+                                    src_ip,
+                                    dst_ip);
 
                                 #[cfg(target_os = "macos")]
                                 let packet = &self.buffer[..amt];
@@ -239,8 +249,6 @@ impl VpnClient {
                         #[cfg(target_os = "macos")]
                         let amt = self.tun_device.read(&mut self.buffer)?;
 
-                        // NOTE: Linux 的 TUN 设备默认设置了 IFF_NO_PI 标志
-                        //       没有携带 Packet Infomation，所以这里我们给它预留 4 个 Bytes 空间
                         #[cfg(target_os = "linux")]
                         &mut self.buffer[..4].copy_from_slice(&TUNNEL_PACKET_SIGNATURE);
                         #[cfg(target_os = "linux")]
@@ -274,7 +282,7 @@ impl VpnClient {
                         let src_ip = ipv4_packet.src_addr();
                         let dst_ip = ipv4_packet.dst_addr();
 
-                        debug!("Forwarding IPv4 {} {} --> {} to {}:{} over UDP ...",
+                        trace!("[TUN] Forwarding IPv4 {} {} --> {} to {}:{} over UDP ...",
                             ipv4_protocol,
                             src_ip,
                             dst_ip,
