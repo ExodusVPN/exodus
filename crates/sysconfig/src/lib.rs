@@ -9,8 +9,8 @@ extern crate sysctl as sysctl_sys;
 extern crate core_foundation;
 #[cfg(target_os = "macos")]
 extern crate system_configuration;
-#[cfg(target_os = "macos")]
-extern crate pfctl;
+// #[cfg(target_os = "macos")]
+// extern crate pfctl;
 
 pub mod dns;
 pub mod sysctl;

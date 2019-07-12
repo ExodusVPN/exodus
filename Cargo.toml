@@ -27,7 +27,6 @@ smoltcp    = { version = "0.5", default-features = false, features = [ "std", "l
 tun         = { path = "crates/tun", features = ["mio"] }
 crypto      = { path = "crates/crypto" }
 compression = { path = "crates/compression" }
-znet        = {  git = "https://github.com/ExodusVPN/znet.git" }
 
 [features]
 default = [ "nightly", "asm" ]

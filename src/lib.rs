@@ -1,4 +1,6 @@
 #![allow(unused_imports, unused_mut, unused_variables, dead_code)]
+#![cfg_attr(feature = "nightly", feature(ip))]
+
 
 #[macro_use]
 extern crate log;
@@ -7,7 +9,7 @@ extern crate env_logger;
 extern crate libc;
 extern crate ctrlc;
 extern crate mio;
-extern crate znet;
+// extern crate znet;
 extern crate tun;
 extern crate crypto;
 extern crate compression;
@@ -15,7 +17,6 @@ extern crate smoltcp;
 
 pub mod signal;
 pub mod vpn;
-pub mod nat;
 
 
 pub use smoltcp::wire::{

@@ -1,6 +1,4 @@
 use mio;
-use znet;
-use znet::raw_socket::{BufferReader, LinkLayer, RawSocket};
 use smoltcp::wire::{
     PrettyPrinter,
     EthernetAddress, EthernetFrame, EthernetProtocol,
@@ -9,7 +7,7 @@ use smoltcp::wire::{
     TcpPacket, UdpPacket,
 };
 
-use crate::nat;
+// use crate::nat;
 use crate::signal;
 use crate::vpn::{
     TAP_TOKEN, TUN_TOKEN, UDP_TOKEN,
@@ -32,8 +30,6 @@ pub struct VpnClientConfig {
     pub vpn_server_port: u16,
 }
 
-pub type TunDevice = tun::platform::Device;
-
 #[derive(Debug, Clone)]
 pub struct DhcpState {
     tun_addr        : Ipv4Address,
@@ -45,20 +41,22 @@ pub struct VpnClient {
     config     : VpnClientConfig,
     dhcp_state : DhcpState,
     buffer     : [u8; 2048],
-    tun_device : TunDevice,
+    tun_device : tun::Device,
     udp_socket : mio::net::UdpSocket,
 }
 
 impl VpnClient {
     fn dhcp_request(config: &VpnClientConfig, udp_socket: &mut mio::net::UdpSocket) -> Result<DhcpState, io::Error> {
         let server_addr = &SocketAddrV4::new(config.vpn_server_addr.into(), config.vpn_server_port).into();
-        udp_socket.send_to(&DHCP_REQ_PACKET_SIGNATURE, &server_addr)?;
-
         let mut buffer = [0u8; 2048];
+
         loop {
+            udp_socket.send_to(&DHCP_REQ_PACKET_SIGNATURE, &server_addr)?;
+
             debug!("try recv dhcp response ...");
 
             if !signal::is_running() {
+
                 std::process::exit(0);
             }
 
@@ -90,7 +88,7 @@ impl VpnClient {
                 Err(e) => {
                     match e.kind() {
                         io::ErrorKind::WouldBlock => {
-                            std::thread::sleep(std::time::Duration::from_millis(200));
+                            std::thread::sleep(std::time::Duration::from_millis(600));
                             continue;
                         },
                         _ => return Err(e),
@@ -121,26 +119,12 @@ impl VpnClient {
         assert_eq!(local_addr1, local_addr2);
         debug!("connected!");
 
-        let mut tun_device: TunDevice = tun::create(
-            tun::Configuration::default()
-                .address(Ipv4Addr::from(dhcp_state.tun_addr))
-                    .netmask(Ipv4Addr::from(dhcp_state.tun_netmask))
-                    .destination(Ipv4Addr::from(dhcp_state.tun_gateway_addr))
-                    .mtu(1500-30-4)
-                    .name(&config.tun_ifname)
-                    .up())
-            .map_err(|e| {
-                match e.0 {
-                    tun::ErrorKind::Io(ioerror)       => ioerror,
-                    tun::ErrorKind::Msg(s)            => io::Error::new(io::ErrorKind::InvalidInput, s.clone()),
-                    tun::ErrorKind::Nul(nul_err)      => io::Error::new(io::ErrorKind::InvalidData, nul_err.clone()),
-                    tun::ErrorKind::ParseNum(pe)      => io::Error::new(io::ErrorKind::InvalidData, pe),
-                    tun::ErrorKind::NameTooLong       => io::Error::new(io::ErrorKind::InvalidData, "name too long"),
-                    tun::ErrorKind::InvalidAddress    => io::Error::from(io::ErrorKind::AddrNotAvailable),
-                    tun::ErrorKind::InvalidDescriptor => io::Error::from(io::ErrorKind::NotConnected),
-                    _ => unreachable!(),
-                }
-            })?;
+        let mut tun_device = tun::Device::new(&config.tun_ifname)?;
+        tun_device.set_address(dhcp_state.tun_addr)?;
+        tun_device.set_netmask(dhcp_state.tun_netmask)?;
+        tun_device.set_destination(dhcp_state.tun_gateway_addr)?;
+        tun_device.set_mtu(1500-30-4)?;
+        tun_device.enabled(true)?;
 
         // NOTE:
         // 这里需要为系统配置 静态路由
@@ -158,7 +142,7 @@ impl VpnClient {
         tun_cidr, &config.tun_ifname,
         tun_cidr, &config.tun_ifname,);
         
-        std::thread::sleep(std::time::Duration::new(1, 0));
+        // std::thread::sleep(std::time::Duration::new(1, 0));
 
         Ok(VpnClient {
             config,
@@ -218,12 +202,12 @@ impl VpnClient {
                                 continue;
                             },
                             TUNNEL_PACKET_SIGNATURE => {
-                                debug!("\n{}", PrettyPrinter::<Ipv4Packet<&[u8]>>::new("", &packet));
+                                debug!("\x1b[31m UDP Pakcet send to TUN Device: \n{} \x1b[0m", PrettyPrinter::<Ipv4Packet<&[u8]>>::new("", &packet));
 
                                 #[cfg(target_os = "macos")]
                                 let packet = &self.buffer[..amt];
                                 
-                                debug!("{:?}", &packet);
+                                // debug!("{:?}", &packet);
                                 self.tun_device.write(&packet)?;
                             },
                             BYE_PACKET_SIGNATURE => {
