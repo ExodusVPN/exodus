@@ -150,13 +150,13 @@ impl VpnClient {
             sudo route add -net {tun_cidr} -interface {tun_ifname}
 
             sudo route delete default
-            sudo route add default {tun_gateway}
+            sudo route add default {tun_addr}
             
             networksetup -setdnsservers \"Wi-Fi\" \"8.8.8.8\"
         ",
         tun_cidr=tun_cidr,
         tun_ifname=&config.tun_ifname,
-        tun_gateway=dhcp_state.tun_gateway_addr,
+        tun_addr=dhcp_state.tun_addr,
         server_addr=config.vpn_server_addr,
         );
         
@@ -220,13 +220,12 @@ impl VpnClient {
                             },
                             TUNNEL_PACKET_SIGNATURE => {
                                 // debug!("\x1b[31m [UDP] \x1b[0m", PrettyPrinter::<Ipv4Packet<&[u8]>>::new("", &packet));
-
                                 let ipv4_packet = Ipv4Packet::new_unchecked(&packet);
                                 let ipv4_protocol = ipv4_packet.protocol();
                                 let src_ip = ipv4_packet.src_addr();
                                 let dst_ip = ipv4_packet.dst_addr();
 
-                                debug!("[UDP] Forwarding IPv4 {} {} --> {} ...",
+                                trace!("[UDP] Forwarding IPv4 {} {} --> {} ...",
                                     ipv4_protocol,
                                     src_ip,
                                     dst_ip);

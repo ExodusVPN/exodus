@@ -136,6 +136,11 @@ impl VpnServer {
 
         for addr_num in self.dhcp_start_addr .. self.dhcp_end_addr {
             let addr = Ipv4Address::from(std::net::Ipv4Addr::from(addr_num));
+            for (k, v) in &self.neighbor {
+                if &remote_socket_addr == v {
+                    return Ok(());
+                }
+            }
             if !self.neighbor.contains_key(&addr) {
                 peer_tun_addr = Some(addr);
                 break;
@@ -247,8 +252,8 @@ impl VpnServer {
             if let Some(udp_socket_addr) = self.neighbor.get(&dst_ip) {
                 let message = &self.buffer[..packet.len() + 4];
                 let addr = (*udp_socket_addr).into();
-                
-                debug!("[TUN] IPv4 {} {} --> {} ...", ipv4_protocol, src_ip, dst_ip);
+
+                trace!("[TUN] IPv4 {} {} --> {} ...", ipv4_protocol, src_ip, dst_ip);
 
                 let _ = self.udp_socket.send_to(&message, &addr);
             } else {
