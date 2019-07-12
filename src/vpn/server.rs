@@ -74,17 +74,21 @@ impl VpnServer {
 
         // NOTE:
         // 这里需要为系统配置 静态路由
-        // Linux
-        //      sudo route add -net 172.16.0.0/16  dev utun9
-        // macOS
-        //      sudo route add -net 172.16.0.0/16 -interface utun8
-        // 
         // 在未来，这个会通过 C 库自动实现
         // 目前临时使用 命令行程序 去配置这些数据
 
         warn!("为系统路由表添加静态路由:
-        Linux: sudo route add -net {} dev {}
-        macOS: sudo route add -net {} -interface {}",
+        Linux:
+            sudo sysctl -w net.ipv4.conf.all.forwarding=1
+            sudo route add -net {} dev {}
+            sudo iptables -t nat -A POSTROUTING -s {} -o enp0s3 -j MASQUERADE
+            sudo iptables -A OUTPUT -o {} -j ACCEPT
+
+        macOS:
+            sudo route add -net {} -interface {}
+            待补充 ...
+        ",
+        tun_cidr, &config.tun_ifname,
         tun_cidr, &config.tun_ifname,
         tun_cidr, &config.tun_ifname,);
 
@@ -154,10 +158,9 @@ impl VpnServer {
         let ip_version = IpVersion::of_packet(&packet);
         if ip_version != Ok(IpVersion::Ipv4) {
             // 忽略
+            debug!("暂时只支持处理 IPv4 协议！");
             return Ok(());
         }
-
-        trace!("tunnel packet ...");
 
         let ipv4_packet = Ipv4Packet::new_unchecked(&packet);
         let ipv4_protocol = ipv4_packet.protocol();
@@ -172,6 +175,8 @@ impl VpnServer {
                 let message = &self.buffer[..packet.len() + 4];
                 let addr = (*udp_socket_addr).into();
                 let _ = self.udp_socket.send_to(&message, &addr);
+            } else {
+                debug!("[TUN NETWORK] 无法路由该地址: {}", dst_ip);
             }
 
             return Ok(());
@@ -181,8 +186,7 @@ impl VpnServer {
         if !std_src_ip.is_private() && !std_src_ip.is_global() {
             // Note: 这需要每日构建版的 Rust 支持该方法
             // 确保目标地址是 公网地址 或者 私有地址段
-            // 地址无法抵达，不做任何处理.
-            error!("无法送达的目标地址: {}", dst_ip);
+            debug!("[TAP NETWORK] 无法路由该地址: {}", dst_ip);
             return Ok(());
         }
         
@@ -192,7 +196,7 @@ impl VpnServer {
         assert_eq!(&self.buffer[..4], TUNNEL_PACKET_SIGNATURE);
         
         self.tun_device.write(&packet)?;
-        trace!("udp packet write to TUN Device: {:?}", packet);
+        debug!("IPv4 {} {} --> {}", ipv4_protocol, src_ip, dst_ip);
 
         Ok(())
     }
@@ -227,8 +231,8 @@ impl VpnServer {
         let mut packet = &self.buffer[4..amt];
 
         if Ok(IpVersion::Ipv4) != IpVersion::of_packet(&packet) {
-            // 暂时只支持 IPV4
-            return Ok(())
+            debug!("暂时只支持处理 IPv4 协议！");
+            return Ok(());
         }
         
         let ipv4_packet = Ipv4Packet::new_unchecked(&packet);
@@ -242,9 +246,13 @@ impl VpnServer {
                 let message = &self.buffer[..packet.len() + 4];
                 let addr = (*udp_socket_addr).into();
                 let _ = self.udp_socket.send_to(&message, &addr);
+            } else {
+                debug!("[TUN NETWORK] 无法路由该地址: {}", dst_ip);
             }
+        } else {
+            debug!("[TAP NETWORK] 无法路由该地址: {}", dst_ip);
         }
-
+        
         Ok(())
     }
 

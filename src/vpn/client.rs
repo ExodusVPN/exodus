@@ -56,7 +56,6 @@ impl VpnClient {
             debug!("try recv dhcp response ...");
 
             if !signal::is_running() {
-
                 std::process::exit(0);
             }
 
@@ -137,10 +136,29 @@ impl VpnClient {
         // 目前临时使用 命令行程序 去配置这些数据
         let tun_cidr = Ipv4Cidr::from_netmask(dhcp_state.tun_addr, dhcp_state.tun_netmask).unwrap();
         warn!("为系统路由表添加静态路由:
-        Linux: sudo route add -net {} dev {}
-        macOS: sudo route add -net {} -interface {}",
-        tun_cidr, &config.tun_ifname,
-        tun_cidr, &config.tun_ifname,);
+        Linux:
+            sudo route add -net {tun_cidr} dev {tun_ifname}
+            sudo route add -n {server_addr} gw 192.168.199.1
+
+            sudo route -n delete default
+            sudo route -n add default gw 172.16.10.13
+            # TODO: 配置 DNS ？
+        macOS:
+            route -n get default | grep interface | awk '{{print $2}}'
+            
+            sudo route add {server_addr} 192.168.199.1
+            sudo route add -net {tun_cidr} -interface {tun_ifname}
+
+            sudo route delete default
+            sudo route add default {tun_gateway}
+            
+            networksetup -setdnsservers \"Wi-Fi\" \"8.8.8.8\"
+        ",
+        tun_cidr=tun_cidr,
+        tun_ifname=&config.tun_ifname,
+        tun_gateway=dhcp_state.tun_gateway_addr,
+        server_addr=config.vpn_server_addr,
+        );
         
         // std::thread::sleep(std::time::Duration::new(1, 0));
 
@@ -248,13 +266,23 @@ impl VpnClient {
                         #[cfg(target_os = "macos")]
                         let mut packet = &self.buffer[4..amt];
 
-                        match IpVersion::of_packet(&packet) {
-                            Ok(IpVersion::Ipv4) => { },
-                            Ok(IpVersion::Ipv6) => continue, // NOTE: 暂不支持处理 IPv6
-                            _                   => continue,
+                        if IpVersion::of_packet(&packet) != Ok(IpVersion::Ipv4) {
+                            // 忽略
+                            debug!("暂时只支持处理 IPv4 协议！");
+                            continue;
                         }
-                        // debug!("tun device send to udp socket.");
-                        debug!("tun device send to udp socket:\n{}", PrettyPrinter::<Ipv4Packet<&[u8]>>::new("", &packet));
+
+                        let ipv4_packet = Ipv4Packet::new_unchecked(&packet);
+                        let ipv4_protocol = ipv4_packet.protocol();
+                        let src_ip = ipv4_packet.src_addr();
+                        let dst_ip = ipv4_packet.dst_addr();
+                        
+                        debug!("Forwarding IPv4 {} {} --> {} to {}:{} over UDP ...",
+                            ipv4_protocol,
+                            src_ip,
+                            dst_ip,
+                            self.config.vpn_server_addr,
+                            self.config.vpn_server_port);
                         self.udp_socket.send(&self.buffer[..packet.len()+4])?;
                     },
                     _ => {
