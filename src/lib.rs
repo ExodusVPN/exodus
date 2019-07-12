@@ -5,11 +5,8 @@
 #[macro_use]
 extern crate log;
 extern crate env_logger;
-#[cfg(any(target_os = "android", target_os = "linux"))]
-extern crate libc;
 extern crate ctrlc;
 extern crate mio;
-// extern crate znet;
 extern crate tun;
 extern crate crypto;
 extern crate compression;
