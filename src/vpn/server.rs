@@ -124,7 +124,7 @@ impl VpnServer {
 
     fn handle_dhcp_req(&mut self, remote_socket_addr: SocketAddrV4) -> Result<(), io::Error> {
         let mut peer_tun_addr: Option<Ipv4Address> = None;
-
+        
         for addr_num in self.dhcp_start_addr .. self.dhcp_end_addr {
             let addr = Ipv4Address::from(std::net::Ipv4Addr::from(addr_num));
             if !self.neighbor.contains_key(&addr) {
@@ -142,7 +142,7 @@ impl VpnServer {
         (&mut self.buffer[8..12]).copy_from_slice(&self.tun_addr.0);
         (&mut self.buffer[12..16]).copy_from_slice(&self.tun_netmask.0);
 
-        let message = &self.buffer[..16];
+        let message = &self.buffer[0..16];
         self.udp_socket.send_to(&message, &(remote_socket_addr.into()))?;
         
         if dhcp_addr != Ipv4Address::UNSPECIFIED {
@@ -157,8 +157,7 @@ impl VpnServer {
         let packet = &self.buffer[4..pkt_amt];
         let ip_version = IpVersion::of_packet(&packet);
         if ip_version != Ok(IpVersion::Ipv4) {
-            // 忽略
-            debug!("暂时只支持处理 IPv4 协议！");
+            trace!("暂时只支持处理 IPv4 协议！");
             return Ok(());
         }
 
@@ -196,12 +195,14 @@ impl VpnServer {
         assert_eq!(&self.buffer[..4], TUNNEL_PACKET_SIGNATURE);
         
         self.tun_device.write(&packet)?;
-        debug!("IPv4 {} {} --> {}", ipv4_protocol, src_ip, dst_ip);
+
+        debug!("[UDP] IPv4 {} {} --> {}", ipv4_protocol, src_ip, dst_ip);
 
         Ok(())
     }
 
     pub fn handle_tun_pkt(&mut self) -> Result<(), io::Error> {
+        debug!("read packet from TUN Device ...");
         #[cfg(target_os = "macos")]
         let amt = self.tun_device.read(&mut self.buffer)?;
 
@@ -213,7 +214,7 @@ impl VpnServer {
         let amt = self.tun_device.read(&mut self.buffer[4..])?;
         
         if amt <= 4 {
-            // NOTE: 畸形数据包，这里我们直接忽略
+            trace!("[TUN] 畸形的数据包！");
             return Ok(())
         }
 
@@ -231,7 +232,7 @@ impl VpnServer {
         let mut packet = &self.buffer[4..amt];
 
         if Ok(IpVersion::Ipv4) != IpVersion::of_packet(&packet) {
-            debug!("暂时只支持处理 IPv4 协议！");
+            trace!("[TUN] 暂时只支持处理 IPv4 协议！");
             return Ok(());
         }
         
@@ -252,7 +253,7 @@ impl VpnServer {
         } else {
             debug!("[TAP NETWORK] 无法路由该地址: {}", dst_ip);
         }
-        
+
         Ok(())
     }
 
@@ -333,9 +334,7 @@ impl VpnServer {
                     TUN_TOKEN => {
                         self.handle_tun_pkt()?;
                     },
-                    n => {
-                        warn!("Unknow Token: {:?}", n);
-                    }
+                    _ => unreachable!(),
                 }
             }
         }

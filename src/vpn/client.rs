@@ -87,7 +87,7 @@ impl VpnClient {
                 Err(e) => {
                     match e.kind() {
                         io::ErrorKind::WouldBlock => {
-                            std::thread::sleep(std::time::Duration::from_millis(600));
+                            std::thread::sleep(std::time::Duration::from_millis(200));
                             continue;
                         },
                         _ => return Err(e),
@@ -198,8 +198,7 @@ impl VpnClient {
                         let amt = self.udp_socket.recv(&mut self.buffer)?;
 
                         if amt <= 4 {
-                            // NOTE: 畸形数据包，这里我们直接忽略
-                            debug!("畸形的数据包");
+                            trace!("畸形的数据包");
                             continue;
                         }
 
@@ -225,7 +224,6 @@ impl VpnClient {
                                 #[cfg(target_os = "macos")]
                                 let packet = &self.buffer[..amt];
                                 
-                                // debug!("{:?}", &packet);
                                 self.tun_device.write(&packet)?;
                             },
                             BYE_PACKET_SIGNATURE => {
@@ -249,7 +247,7 @@ impl VpnClient {
                         let amt = self.tun_device.read(&mut self.buffer[4..])?;
                         
                         if amt <= 4 {
-                            // NOTE: 畸形数据包，这里我们直接忽略
+                            trace!("畸形的数据包");
                             continue;
                         }
 
@@ -267,8 +265,7 @@ impl VpnClient {
                         let mut packet = &self.buffer[4..amt];
 
                         if IpVersion::of_packet(&packet) != Ok(IpVersion::Ipv4) {
-                            // 忽略
-                            debug!("暂时只支持处理 IPv4 协议！");
+                            trace!("暂时只支持处理 IPv4 协议！");
                             continue;
                         }
 
@@ -276,7 +273,7 @@ impl VpnClient {
                         let ipv4_protocol = ipv4_packet.protocol();
                         let src_ip = ipv4_packet.src_addr();
                         let dst_ip = ipv4_packet.dst_addr();
-                        
+
                         debug!("Forwarding IPv4 {} {} --> {} to {}:{} over UDP ...",
                             ipv4_protocol,
                             src_ip,
@@ -285,9 +282,7 @@ impl VpnClient {
                             self.config.vpn_server_port);
                         self.udp_socket.send(&self.buffer[..packet.len()+4])?;
                     },
-                    _ => {
-                        continue;
-                    }
+                    _ => unreachable!(),
                 }
             }
         }
