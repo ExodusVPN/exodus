@@ -1,10 +1,6 @@
 Exodus
 ====================================
 
-.. image:: https://badges.gitter.im/Join%20Chat.svg
-    :alt: Join the chat at https://gitter.im/luozijun/exodus
-    :target: https://gitter.im/luozijun/exodus?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge
-
 .. image:: https://img.shields.io/badge/Telegram%20Group-https%3A%2F%2Ft.me%2FExodusProject-blue.svg
     :alt: Join the chat at https://t.me/ExodusProject
     :target: https://t.me/ExodusProject
@@ -27,6 +23,17 @@ VPN Client:
 
 *   macOS >= 10.13
 *   Linux > 3.0
+
+
+IPV4 私有 IP 段
+------------------
+
+Private IPv4 addresses:
+
+10.0.0.0/8      10.0.0.0    – 10.255.255.255
+172.16.0.0/12   172.16.0.0  – 172.31.255.255
+192.168.0.0/16  192.168.0.0 – 192.168.255.255
+
 
 
 状态
