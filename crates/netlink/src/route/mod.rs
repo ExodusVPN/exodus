@@ -36,7 +36,23 @@ impl RouteController {
     }
 
     pub fn routes<'a, 'b>(&'a mut self, buffer: &'b mut [u8]) -> Result<route::Routes<'a, 'b>, io::Error> {
-        unimplemented!()
+        let mut header = sys::nlmsghdr::default();
+        let ifinfo = sys::ifinfomsg::default();
+
+        header.nlmsg_type  = sys::RTM_GETROUTE;
+        header.nlmsg_flags = sys::NLM_F_REQUEST | sys::NLM_F_DUMP;
+        
+        let mut message = sys::Request::new(header, ifinfo);
+        message.fill_size();
+
+        self.nl_socket.send2(&message)?;
+
+        Ok(route::Routes {
+            socket: &mut self.nl_socket,
+            buffer: buffer,
+            packets: None,
+            is_done: false,
+        })
     }
 
     pub fn neighbours<'a, 'b>(&'a mut self, buffer: &'b mut [u8]) -> Result<neigh::Neighbours<'a, 'b>, io::Error> {
@@ -54,10 +70,8 @@ impl RouteController {
         Ok(neigh::Neighbours {
             socket: &mut self.nl_socket,
             buffer: buffer,
-            packet_ptr: None,
-            packet_len: 0,
+            packets: None,
             is_done: false,
-            ifindex: 0,
         })
     }
 

@@ -7,6 +7,7 @@ use libc;
 mod netlink;
 mod rtnetlink;
 
+use crate::packet::netlink::NetlinkPacket;
 pub use self::netlink::*;
 pub use self::rtnetlink::*;
 
@@ -225,56 +226,55 @@ impl NetlinkSocket {
         Ok(amt)
     }
 
-    pub fn recvmsg<'a>(&mut self, buf: &'a mut [u8], kind: u16) -> Result<&'a [u8], io::Error> {
+    pub fn recvmsg<'a>(&mut self, buf: &'a mut [u8]) -> Result<NetlinkPacketIter<'a>, io::Error> {
         let amt = self.recv(buf, 0)?;
+        Ok(NetlinkPacketIter {
+            buffer: &buf[..amt],
+            offset: 0,
+        })
+    }
+}
 
-        if amt == 0 {
-            return Ok(&buf[0..0]);
+pub const NL_MSG_LEN: usize = std::mem::size_of::<nlmsghdr>();
+
+pub struct NetlinkPacketIter<'a> {
+    buffer: &'a [u8],
+    offset: usize,
+}
+
+impl<'a> NetlinkPacketIter<'a> {
+    pub fn len(&self) -> usize {
+        self.buffer.len() - self.offset
+    }
+
+    pub fn offset(&self) -> usize {
+        self.offset
+    }
+}
+
+impl<'a> Iterator for NetlinkPacketIter<'a> {
+    type Item = Result<NetlinkPacket<&'a [u8]>, io::Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.len() < NL_MSG_LEN {
+            self.offset = self.buffer.len();
+            return None;
         }
 
-        let buf = &buf[..amt];
-        let header_len = std::mem::size_of::<nlmsghdr>();
-        if buf.len() < header_len {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "packet is too small."));
-        }
-
-        let mut header = nlmsghdr::default();
-        let header_bytes = header.as_bytes_mut();
-        header_bytes.copy_from_slice(&buf[..header_len]);
-
-        if header.nlmsg_type != kind {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "Unexpected Netlink Message Type."));
-        }
-        
-        let payload = &buf[header_len..amt];
-
-        if payload.len() == 0 {
-            return Ok(&buf[0..0]);
-        }
-        
-        match header.nlmsg_type {
-            NLMSG_NOOP => Ok(&buf[0..0]),
-            NLMSG_ERROR => {
-                if payload.len() < std::mem::size_of::<i32>() {
-                    return Err(io::Error::new(io::ErrorKind::InvalidData, "packet is too small."));
-                }
-                let error_code = i32::from_ne_bytes([
-                    payload[0], payload[1],
-                    payload[2], payload[3]
-                ]);
-                return Err(io::Error::from_raw_os_error(error_code));
+        let data = &self.buffer[self.offset..];
+        match NetlinkPacket::new_checked(data) {
+            Ok(pkt) => {
+                let start = self.offset;
+                self.offset += pkt.total_len();
+                let end = self.offset;
+                let pkt = NetlinkPacket::new_unchecked(&self.buffer[start..end]);
+                Some(Ok(pkt))
             },
-            NLMSG_DONE => Ok(&buf[0..0]),
-            NLMSG_OVERRUN => {
-                return Err(io::Error::new(io::ErrorKind::InvalidData, "Netlink Message Data lost"));
-            },
-            _ => {
-                // unreachable!("Unknow Netlink Message Type ({})", header.nlmsg_type);
-                Ok(payload)
-            }
+            Err(e) => Some(Err(e)),
         }
     }
 }
+
 
 impl AsRawFd for NetlinkSocket {
     fn as_raw_fd(&self) -> RawFd {

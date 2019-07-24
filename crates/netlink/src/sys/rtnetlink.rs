@@ -386,6 +386,20 @@ pub struct ifinfomsg {
     pub ifi_change: u32, // IFF_* change mask
 }
 
+impl Default for ifinfomsg {
+    fn default() -> Self {
+        Self {
+            ifi_family: 0,
+            ifi_pad: 0,
+            ifi_type: 0,
+            ifi_index: 0,
+            ifi_flags: 0,
+            ifi_change: 0,
+        }
+    }
+}
+
+
 // prefix information
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
