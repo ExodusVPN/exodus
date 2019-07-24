@@ -2,6 +2,7 @@
 // 
 // Adresses, links, neighbours, routing, traffic control, neighbour tables, …
 
+pub mod link;
 pub mod neigh;
 pub mod route;
 
@@ -26,7 +27,15 @@ impl RouteController {
         Ok(Self { nl_socket })
     }
 
-    pub fn links<'a, 'b>(&'a mut self, buffer: &'b mut [u8]) -> Result<Links<'a, 'b>, io::Error> {
+    pub fn links<'a, 'b>(&'a mut self, buffer: &'b mut [u8]) -> Result<link::Links<'a, 'b>, io::Error> {
+        unimplemented!()
+    }
+
+    pub fn addrs<'a, 'b>(&'a mut self, buffer: &'b mut [u8]) -> Result<link::Links<'a, 'b>, io::Error> {
+        unimplemented!()
+    }
+
+    pub fn routes<'a, 'b>(&'a mut self, buffer: &'b mut [u8]) -> Result<route::Routes<'a, 'b>, io::Error> {
         unimplemented!()
     }
 
@@ -64,15 +73,9 @@ impl RouteController {
 }
 
 
-pub struct Links<'a, 'b> {
-    socket: &'a mut sys::NetlinkSocket,
-    buffer: &'b mut [u8],
-}
 
-pub struct Routes<'a, 'b> {
-    socket: &'a mut sys::NetlinkSocket,
-    buffer: &'b mut [u8],
-}
+
+
 
 
 

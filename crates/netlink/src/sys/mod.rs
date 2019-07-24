@@ -239,14 +239,13 @@ impl NetlinkSocket {
         }
 
         let mut header = nlmsghdr::default();
-        let mut header_bytes = header.as_bytes_mut();
+        let header_bytes = header.as_bytes_mut();
         header_bytes.copy_from_slice(&buf[..header_len]);
 
         if header.nlmsg_type != kind {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "Unexpected Netlink Message Type."));
         }
-
-        let len = align(header.nlmsg_len as usize);
+        
         let payload = &buf[header_len..amt];
 
         if payload.len() == 0 {

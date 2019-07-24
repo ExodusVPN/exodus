@@ -1,6 +1,6 @@
 use crate::sys;
 
-use std::io::{self};
+use std::io;
 
 // Routing/neighbour discovery messages.
 
@@ -179,7 +179,7 @@ impl<'a, 'b> Neighbours<'a, 'b> {
 
                 let nl_attr_len = sys::align(nl_attr.nla_len as usize);
                 self.packet_len -= nl_attr_len;
-                let next_nl_attr_ptr = unsafe { ptr.add(nl_attr_len) };
+                let next_nl_attr_ptr = ptr.add(nl_attr_len);
 
                 if nl_attr.nla_type != 0 {
                     self.packet_ptr = Some(next_nl_attr_ptr);
@@ -190,7 +190,7 @@ impl<'a, 'b> Neighbours<'a, 'b> {
                 let ptr = ptr.add(std::mem::size_of::<sys::prefixmsg>() * 2);
                 
                 let (ptr, src_addr) = self.read_rtattr(ptr)?;
-                let (ptr, dst_addr) = self.read_rtattr(ptr)?;
+                let (_ptr, dst_addr) = self.read_rtattr(ptr)?;
 
                 let record = Neighbour {
                     ifindex: self.ifindex,
