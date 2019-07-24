@@ -11,7 +11,7 @@ use std::convert::TryFrom;
 
 // rtm_type
 #[repr(u8)]
-#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub enum RouteType {
     UNSPEC = 0,
     UNICAST,
@@ -45,7 +45,7 @@ impl TryFrom<u8> for RouteType {
 
 // rtm_protocol
 #[repr(u8)]
-#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub enum RouteProtocol {
     UNSPEC = 0,
     REDIRECT,
@@ -85,7 +85,7 @@ impl TryFrom<u8> for RouteProtocol {
 
 // rtm_scope
 #[repr(u8)]
-#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub enum RouteScope {
     UNIVERSE =   0,
     SITE     = 200,
@@ -112,7 +112,7 @@ impl TryFrom<u8> for RouteScope {
 }
 
 #[repr(u8)]
-#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub enum RouteTable {
     UNSPEC  = 0,
     COMPAT  = 252,
@@ -287,5 +287,22 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> RoutePacket<T> {
     pub fn set_family(&mut self, value: AddressFamily) {
         let data = self.buffer.as_mut();
         data[FAMILY] = value as u8;
+    }
+}
+
+
+impl<'a, T: AsRef<[u8]> + ?Sized> std::fmt::Display for RoutePacket<&'a T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "RoutePacket {{ family: {:?}, dst_len: {}, src_len: {}, tos: {}, table: {:?}, protocol: {:?}, scope: {:?}, kind: {:?}, flags: {:?}, attrs: {:?} }}",
+                self.family(),
+                self.dst_len(),
+                self.src_len(),
+                self.tos(),
+                self.table(),
+                self.protocol(),
+                self.scope(),
+                self.kind(),
+                self.flags(),
+                self.payload())
     }
 }
