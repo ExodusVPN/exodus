@@ -59,6 +59,8 @@ use std::convert::TryFrom;
 // 
 
 
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+pub struct MacAddr(pub [u8; 6]);
 
 
 #[repr(u8)]
@@ -66,6 +68,18 @@ use std::convert::TryFrom;
 pub enum AddressFamily {
     Ipv4 = 2,
     Ipv6 = 10,
+}
+
+impl TryFrom<u8> for AddressFamily {
+    type Error = ();
+
+    fn try_from(value: u8) -> Result<Self, ()> {
+        match value {
+            2  => Ok(AddressFamily::Ipv4),
+            10 => Ok(AddressFamily::Ipv6),
+            _  => Err(()),
+        }
+    }
 }
 
 bitflags! {
@@ -114,7 +128,6 @@ const PAYLOAD: usize        = 12;
 
 // attrs
 const SRC_ADDR_LEN: Range<usize> = 12..14;
-// const DST_ADDR_LEN: Range<usize> = 
 
 
 #[derive(Debug, PartialEq, Clone)]
@@ -397,11 +410,6 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> NeighbourPacket<T> {
 }
 
 
-
-#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
-pub struct MacAddr(pub [u8; 6]);
-
-
 impl std::fmt::Debug for MacAddr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let addr = self.0;
@@ -414,3 +422,5 @@ impl std::fmt::Debug for MacAddr {
                     addr[5])
     }
 }
+
+

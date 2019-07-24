@@ -1,6 +1,6 @@
 use crate::sys;
-use crate::packet::rt_route::NeighbourPacket;
-use crate::packet::rt_route::MacAddr;
+use crate::packet::neighbour::MacAddr;
+use crate::packet::neighbour::NeighbourPacket;
 
 
 use std::io;
