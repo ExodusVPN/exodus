@@ -47,15 +47,15 @@ impl<'a, 'b> Neighbours<'a, 'b> {
 
         let pkt = NetlinkPacket::new_unchecked(&self.buffer[start..end]);
         match pkt.kind() {
-            Kind::Noop     => Ok(None),
-            Kind::Error    => Err(NetlinkErrorPacket::new_checked(pkt.payload())?.err()),
-            Kind::Done     => {
+            Kind::NLMSG_NOOP     => Ok(None),
+            Kind::NLMSG_ERROR    => Err(NetlinkErrorPacket::new_checked(pkt.payload())?.err()),
+            Kind::NLMSG_DONE     => {
                 self.is_done = true;
                 Ok(None)
             },
-            Kind::Overrun  => Err(io::Error::new(io::ErrorKind::InvalidData, "Overrun")),
-            Kind::NewNeigh => Ok(Some(pkt)),
-            _ => Err(io::Error::new(io::ErrorKind::InvalidData, format!("Netlink Message Type is not `{:?}`", Kind::NewNeigh))),
+            Kind::NLMSG_OVERRUN  => Err(io::Error::new(io::ErrorKind::InvalidData, "Overrun")),
+            Kind::RTM_NEWNEIGH => Ok(Some(pkt)),
+            _ => Err(io::Error::new(io::ErrorKind::InvalidData, format!("Netlink Message Type is not `{:?}`", Kind::RTM_NEWNEIGH))),
         }
     }
 }

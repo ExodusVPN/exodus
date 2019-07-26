@@ -57,105 +57,135 @@ use std::convert::TryFrom;
 // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 // 
 
-#[repr(i32)]
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
-pub enum Protocol {
-    Route     = 0,
-    Netfilter = 12,
+
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+pub struct Protocol(pub i32);
+
+impl Protocol {
+    pub const NETLINK_ROUTE: Self     = Self(0);
+    pub const NETLINK_NETFILTER: Self = Self(12);
 }
 
-#[repr(u16)]
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
-pub enum Kind {
-    // control messages
-    Noop    = 1, // Nothing
-    Error   = 2, // Error
-    Done    = 3, // End of a dump
-    Overrun = 4, // Data lost
-
-    // Protocol Method
-    NewLink = 16,
-    DelLink = 17,
-    GetLink = 18,
-    SetLink = 19,
-    
-    NewAddr = 20,
-    DelAddr = 21,
-    GetAddr = 22,
-    
-    NewRoute = 24,
-    DelRoute = 25,
-    GetRoute = 26,
-    
-    NewNeigh = 28,
-    DelNeigh = 29,
-    GetNeigh = 30,
-    
-    NewRule  = 32,
-    DelRule  = 33,
-    GetRule  = 34,
+impl std::fmt::Debug for Protocol {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::NETLINK_ROUTE => write!(f, "NETLINK_ROUTE"),
+            Self::NETLINK_NETFILTER => write!(f, "NETLINK_NETFILTER"),
+            _ => write!(f, "NETLINK_PROTOCOL_UNKNOW({})", self.0),
+        }
+    }
 }
 
+impl std::fmt::Display for Protocol {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+pub struct Kind(pub u16);
 
 impl Kind {
+    // Netlink Control Message
+    pub const NLMSG_NOOP: Self    = Self(0x1); // Nothing
+    pub const NLMSG_ERROR: Self   = Self(0x2); // Error
+    pub const NLMSG_DONE: Self    = Self(0x3); // End of a dump
+    pub const NLMSG_OVERRUN: Self = Self(0x4); // Data lost
+
+    // Netlink Message Type
+    pub const RTM_NEWLINK: Self = Self(16);
+    pub const RTM_DELLINK: Self = Self(17);
+    pub const RTM_GETLINK: Self = Self(18);
+    pub const RTM_SETLINK: Self = Self(19);
+
+    pub const RTM_NEWADDR: Self = Self(20);
+    pub const RTM_DELADDR: Self = Self(21);
+    pub const RTM_GETADDR: Self = Self(22);
+
+    pub const RTM_NEWROUTE: Self = Self(24);
+    pub const RTM_DELROUTE: Self = Self(25);
+    pub const RTM_GETROUTE: Self = Self(26);
+
+    pub const RTM_NEWNEIGH: Self = Self(28);
+    pub const RTM_DELNEIGH: Self = Self(29);
+    pub const RTM_GETNEIGH: Self = Self(30);
+
+    pub const RTM_NEWRULE: Self  = Self(32);
+    pub const RTM_DELRULE: Self  = Self(33);
+    pub const RTM_GETRULE: Self  = Self(34);
+
+    #[inline]
     pub fn is_reserved(&self) -> bool {
-        false
+        // < 0x10: reserved control messages
+        *self < Self(0x10) && !self.is_control()
     }
 
+    #[inline]
     pub fn is_control(&self) -> bool {
-        use self::Kind::*;
-
-        match *self {
-            Noop | Error | Done | Overrun => true,
-            _ => false,
-        }
+        *self == Self::NLMSG_NOOP
+        || *self == Self::NLMSG_ERROR
+        || *self == Self::NLMSG_DONE
+        || *self == Self::NLMSG_OVERRUN
     }
 
+    #[inline]
     pub fn is_err(&self) -> bool {
-        use self::Kind::*;
-
-        match *self {
-            Error | Overrun => true,
-            _ => false,
-        }
+        *self == Self::NLMSG_ERROR
     }
 
+    #[inline]
     pub fn is_done(&self) -> bool {
-        use self::Kind::*;
+        *self == Self::NLMSG_DONE
+    }
+}
 
+impl std::fmt::Debug for Kind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match *self {
-            Done => true,
-            _ => false,
+            Self::NLMSG_NOOP => write!(f, "NLMSG_NOOP"),
+            Self::NLMSG_ERROR => write!(f, "NLMSG_ERROR"),
+            Self::NLMSG_DONE => write!(f, "NLMSG_DONE"),
+            Self::NLMSG_OVERRUN => write!(f, "NLMSG_OVERRUN"),
+
+            Self::RTM_NEWLINK => write!(f, "RTM_NEWLINK"),
+            Self::RTM_DELLINK => write!(f, "RTM_DELLINK"),
+            Self::RTM_GETLINK => write!(f, "RTM_GETLINK"),
+            Self::RTM_SETLINK => write!(f, "RTM_SETLINK"),
+
+            Self::RTM_NEWADDR => write!(f, "RTM_NEWADDR"),
+            Self::RTM_DELADDR => write!(f, "RTM_DELADDR"),
+            Self::RTM_GETADDR => write!(f, "RTM_GETADDR"),
+
+            Self::RTM_NEWROUTE => write!(f, "RTM_NEWROUTE"),
+            Self::RTM_DELROUTE => write!(f, "RTM_DELROUTE"),
+            Self::RTM_GETROUTE => write!(f, "RTM_GETROUTE"),
+
+            Self::RTM_NEWNEIGH => write!(f, "RTM_NEWNEIGH"),
+            Self::RTM_DELNEIGH => write!(f, "RTM_DELNEIGH"),
+            Self::RTM_GETNEIGH => write!(f, "RTM_GETNEIGH"),
+
+            Self::RTM_NEWRULE => write!(f, "RTM_NEWRULE"),
+            Self::RTM_DELRULE => write!(f, "RTM_DELRULE"),
+            Self::RTM_GETRULE => write!(f, "RTM_GETRULE"),
+
+            _ => write!(f, "RTM_UNKNOW({})", self.0),
         }
+    }
+}
+
+impl std::fmt::Display for Kind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
     }
 }
 
 impl Into<u16> for Kind {
     fn into(self) -> u16 {
-        self as u16
+        self.0
     }
 }
 
-impl TryFrom<u16> for Kind {
-    type Error = ();
-
-    fn try_from(value: u16) -> Result<Self, ()> {
-        match value {
-            // < 0x10: reserved control messages
-            0 | 5 ..= 15 => Err(()),
-               1 ..=  4
-            | 16 ..= 19
-            | 20 ..= 22
-            | 24 ..= 26
-            | 28 ..= 30
-            | 32 ..= 34 => {
-                let v = unsafe { std::mem::transmute::<u16, Kind>(value) };
-                Ok(v)
-            },
-            _  => Err(()),
-        }
-    }
-}
 
 
 bitflags! {
@@ -219,10 +249,6 @@ impl<T: AsRef<[u8]>> NetlinkPacket<T> {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "packet is too small."));
         }
 
-        if let Err(_) = Kind::try_from(self.kind_raw()) {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "Netlink Message Type is unknow."));
-        }
-
         Ok(())
     }
 
@@ -238,14 +264,9 @@ impl<T: AsRef<[u8]>> NetlinkPacket<T> {
     }
 
     #[inline]
-    pub fn kind_raw(&self) -> u16 {
-        let data = self.buffer.as_ref();
-        NativeEndian::read_u16(&data[KIND])
-    }
-
-    #[inline]
     pub fn kind(&self) -> Kind {
-        Kind::try_from(self.kind_raw()).unwrap()
+        let data = self.buffer.as_ref();
+        Kind(NativeEndian::read_u16(&data[KIND]))
     }
 
     #[inline]
@@ -300,7 +321,7 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> NetlinkPacket<T> {
     #[inline]
     pub fn set_kind(&mut self, value: Kind) {
         let data = self.buffer.as_mut();
-        NativeEndian::write_u16(&mut data[KIND], value.into())
+        NativeEndian::write_u16(&mut data[KIND], value.0)
     }
 
     #[inline]
@@ -362,6 +383,11 @@ impl<T: AsRef<[u8]>> NetlinkErrorPacket<T> {
     }
 
     #[inline]
+    pub fn into_inner(self) -> T {
+        self.buffer
+    }
+
+    #[inline]
     pub fn errorno(&self) -> i32 {
         let data = self.buffer.as_ref();
         NativeEndian::read_i32(&data[0..4])
@@ -416,6 +442,11 @@ impl<T: AsRef<[u8]>> NetlinkAttrsPacket<T> {
         }
 
         Ok(())
+    }
+
+    #[inline]
+    pub fn into_inner(self) -> T {
+        self.buffer
     }
 
     #[inline]

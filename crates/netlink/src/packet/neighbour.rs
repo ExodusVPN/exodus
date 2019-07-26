@@ -1,4 +1,5 @@
 use super::align;
+use super::RouteType;
 
 use byteorder::{ByteOrder, NativeEndian, NetworkEndian};
 
@@ -57,27 +58,34 @@ use std::convert::TryFrom;
 // RTM_NEWNEIGH, RTM_DELNEIGH, and RTM_GETNEIGH.
 // 
 
+// https://github.com/torvalds/linux/blob/master/include/uapi/linux/neighbour.h
+
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct MacAddr(pub [u8; 6]);
 
 
-#[repr(u8)]
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
-pub enum AddressFamily {
-    Ipv4 = 2,
-    Ipv6 = 10,
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+pub struct AddressFamily(pub u8);
+
+impl AddressFamily {
+    pub const V4: Self = Self(2);
+    pub const V6: Self = Self(10);
 }
 
-impl TryFrom<u8> for AddressFamily {
-    type Error = ();
-
-    fn try_from(value: u8) -> Result<Self, ()> {
-        match value {
-            2  => Ok(AddressFamily::Ipv4),
-            10 => Ok(AddressFamily::Ipv6),
-            _  => Err(()),
+impl std::fmt::Debug for AddressFamily {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::V4 => write!(f, "AF_INET"),
+            Self::V6 => write!(f, "AF_INET6"),
+            _ => write!(f, "AF_UNKNOW({})", self.0),
         }
+    }
+}
+
+impl std::fmt::Display for AddressFamily {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
     }
 }
 
@@ -94,6 +102,7 @@ bitflags! {
         // Dummy states
         const NOARP      = 0x40; // A device that does not do neighbour discovery
         const PERMANENT  = 0x80; // Permanently set entries
+        const NONE       = 0x00;
     }
 }
 
@@ -105,19 +114,65 @@ bitflags! {
         const MASTER      =  0x4;
         const PROXY       =  0x8;
         const EXT_LEARNED = 0x10;
+        const OFFLOADED   = 0x20;
         const ROUTER      = 0x80;
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-#[repr(u8)]
-pub enum NeighbourKind {
-    UNSPEC    = 0,
-    DST       = 1,
-    LLADDR    = 2,
-    CACHEINFO = 3,
-    Unknow    = 4,
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+pub struct NeighbourAttrType(pub u16);
+
+impl NeighbourAttrType {
+    pub const NDA_UNSPEC: Self       = Self(0);
+    pub const NDA_DST: Self          = Self(1);
+    pub const NDA_LLADDR: Self       = Self(2);
+    pub const NDA_CACHEINFO: Self    = Self(3);
+    pub const NDA_PROBES: Self       = Self(4);
+    pub const NDA_VLAN: Self         = Self(5);
+    pub const NDA_PORT: Self         = Self(6);
+    pub const NDA_VNI: Self          = Self(7);
+    pub const NDA_IFINDEX: Self      = Self(8);
+    pub const NDA_MASTER: Self       = Self(9);
+    pub const NDA_LINK_NETNSID: Self = Self(10);
+    pub const NDA_SRC_VNI: Self      = Self(11);
+    pub const NDA_PROTOCOL: Self     = Self(12); // Originator of entry
 }
+
+impl std::fmt::Debug for NeighbourAttrType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::NDA_UNSPEC => write!(f, "NDA_UNSPEC"),
+            Self::NDA_DST => write!(f, "NDA_DST"),
+            Self::NDA_LLADDR => write!(f, "NDA_LLADDR"),
+            Self::NDA_CACHEINFO => write!(f, "NDA_CACHEINFO"),
+            Self::NDA_PROBES => write!(f, "NDA_PROBES"),
+            Self::NDA_VLAN => write!(f, "NDA_VLAN"),
+            Self::NDA_PORT => write!(f, "NDA_PORT"),
+            Self::NDA_VNI => write!(f, "NDA_VNI"),
+            Self::NDA_IFINDEX => write!(f, "NDA_IFINDEX"),
+            Self::NDA_MASTER => write!(f, "NDA_MASTER"),
+            Self::NDA_LINK_NETNSID => write!(f, "NDA_LINK_NETNSID"),
+            Self::NDA_SRC_VNI => write!(f, "NDA_SRC_VNI"),
+            Self::NDA_PROTOCOL => write!(f, "NDA_PROTOCOL"),
+            _ => write!(f, "NDA_UNKNOW({})", self.0),
+        }
+    }
+}
+
+impl std::fmt::Display for NeighbourAttrType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+
+
+// struct nda_cacheinfo {
+//     __u32       ndm_confirmed;
+//     __u32       ndm_used;
+//     __u32       ndm_updated;
+//     __u32       ndm_refcnt;
+// };
 
 const FAMILY: usize         = 0;
 const IFINDEX: Range<usize> = 4..8;
@@ -166,18 +221,14 @@ impl<T: AsRef<[u8]>> NeighbourPacket<T> {
     }
 
     #[inline]
+    pub fn into_inner(self) -> T {
+        self.buffer
+    }
+
+    #[inline]
     pub fn family(&self) -> AddressFamily {
-        // AF_INET  = 2
-        // AF_INET6 = 10
-        // AF_LLC   = 26
         let data = self.buffer.as_ref();
-        match data[FAMILY] {
-            2  => AddressFamily::Ipv4,
-            10 => AddressFamily::Ipv6,
-            n  => {
-                unreachable!("Unknow address family: {:?}", n);
-            },
-        }
+        AddressFamily(data[FAMILY])
     }
 
     #[inline]
@@ -199,22 +250,9 @@ impl<T: AsRef<[u8]>> NeighbourPacket<T> {
     }
 
     #[inline]
-    pub fn kind(&self) -> NeighbourKind {
+    pub fn kind(&self) -> RouteType {
         let data = self.buffer.as_ref();
-        // UNSPEC    = 0
-        // DST       = 1
-        // LLADDR    = 2
-        // CACHEINFO = 3
-        match data[KIND] {
-            0 => NeighbourKind::UNSPEC,
-            1 => NeighbourKind::DST,
-            2 => NeighbourKind::LLADDR,
-            3 => NeighbourKind::CACHEINFO,
-            n => {
-                warn!("Unknow NeighbourKind: {}", n);
-                NeighbourKind::Unknow
-            },
-        }
+        RouteType(data[KIND])
     }
 
     // Attrs
@@ -245,7 +283,7 @@ impl<T: AsRef<[u8]>> NeighbourPacket<T> {
         let len = self.dst_addr_len() as usize;
         match len {
             8 => {
-                assert_eq!(self.family(), AddressFamily::Ipv4);
+                assert_eq!(self.family(), AddressFamily::V4);
                 // 12..14
                 // 14..16
                 // 16..20
@@ -260,7 +298,7 @@ impl<T: AsRef<[u8]>> NeighbourPacket<T> {
                 // 12..14
                 // 14..16
                 // 16..20
-                assert_eq!(self.family(), AddressFamily::Ipv6);
+                assert_eq!(self.family(), AddressFamily::V6);
                 let octets = NetworkEndian::read_u128(&data[16..32]);
                 std::net::Ipv6Addr::from(octets).into()
             },
@@ -322,7 +360,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> NeighbourPacket<&'a T> {
     #[inline]
     pub fn payload(&self) -> &'a [u8] {
         let data = self.buffer.as_ref();
-        &data[PAYLOAD..self.total_len()]
+        &data[PAYLOAD..]
     }
 }
 
@@ -330,7 +368,7 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> NeighbourPacket<T> {
     #[inline]
     pub fn set_family(&mut self, value: AddressFamily) {
         let data = self.buffer.as_mut();
-        data[FAMILY] = value as u8;
+        data[FAMILY] = value.0;
     }
 
     #[inline]
@@ -352,16 +390,16 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> NeighbourPacket<T> {
     }
 
     #[inline]
-    pub fn set_kind(&mut self, value: NeighbourKind) {
+    pub fn set_kind(&mut self, value: RouteType) {
         let data = self.buffer.as_mut();
-        data[KIND] = value as u8;
+        data[KIND] = value.0;
     }
 
     #[inline]
     pub fn set_dst_addr(&mut self, value: std::net::IpAddr) {
         match value {
             std::net::IpAddr::V4(v4_addr) => {
-                self.set_family(AddressFamily::Ipv4);
+                self.set_family(AddressFamily::V4);
 
                 let data = self.buffer.as_mut();
                 let octets = u32::from(v4_addr).to_be_bytes();
@@ -377,7 +415,7 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> NeighbourPacket<T> {
                 data[PAYLOAD+7] = octets[3];
             },
             std::net::IpAddr::V6(v6_addr) => {
-                self.set_family(AddressFamily::Ipv6);
+                self.set_family(AddressFamily::V6);
 
                 let data = self.buffer.as_mut();
                 let octets = u128::from(v6_addr).to_be_bytes();
@@ -409,6 +447,12 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> NeighbourPacket<T> {
         let start = start + 4;
         let end = start + 6;
         &mut data[start..end].copy_from_slice(&value.0);
+    }
+
+    #[inline]
+    pub fn payload_mut(&mut self) -> &mut [u8] {
+        let data = self.buffer.as_mut();
+        &mut data[PAYLOAD..]
     }
 }
 

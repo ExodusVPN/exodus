@@ -8,129 +8,179 @@ use std::convert::TryFrom;
 
 
 // rtm_type
-#[repr(u8)]
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
-pub enum RouteType {
-    UNSPEC = 0,
-    UNICAST,
-    LOCAL,
-    BROADCAST,
-    ANYCAST,
-    MULTICAST,
-    BLACKHOLE,
-    UNREACHABLE,
-    PROHIBIT,
-    THROW,
-    NAT,
-    XRESOLVE = 12,
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+pub struct RouteType(pub u8);
+
+impl RouteType {
+    pub const RTN_UNSPEC: Self      =  Self(0); // Gateway or direct route
+    pub const RTN_UNICAST: Self     =  Self(1); // Gateway or direct route
+    pub const RTN_LOCAL: Self       =  Self(2); // Accept locally
+    pub const RTN_BROADCAST: Self   =  Self(3); // Accept locally as broadcast, send as broadcast
+    pub const RTN_ANYCAST: Self     =  Self(4); // Accept locally as broadcast, but send as unicast
+    pub const RTN_MULTICAST: Self   =  Self(5); // Multicast route
+    pub const RTN_BLACKHOLE: Self   =  Self(6); // Drop
+    pub const RTN_UNREACHABLE: Self =  Self(7); // Destination is unreachable
+    pub const RTN_PROHIBIT: Self    =  Self(8); // Administratively prohibited
+    pub const RTN_THROW: Self       =  Self(9); // Not in this table
+    pub const RTN_NAT: Self         = Self(10); // Translate this address
+    pub const RTN_XRESOLVE: Self    = Self(11); // Use external resolver
+    pub const RTN_MAX: Self         = Self(11);
 }
 
-impl TryFrom<u8> for RouteType {
-    type Error = ();
-
-    fn try_from(value: u8) -> Result<Self, ()> {
-        match value {
-            0 ..= 12 => {
-                let v = unsafe { std::mem::transmute::<u8, RouteType>(value) };
-                Ok(v)
-            },
-            _  => Err(()),
+impl std::fmt::Debug for RouteType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::RTN_UNSPEC => write!(f, "RTN_UNSPEC"),
+            Self::RTN_UNICAST => write!(f, "RTN_UNICAST"),
+            Self::RTN_LOCAL => write!(f, "RTN_LOCAL"),
+            Self::RTN_BROADCAST => write!(f, "RTN_BROADCAST"),
+            Self::RTN_ANYCAST => write!(f, "RTN_ANYCAST"),
+            Self::RTN_MULTICAST => write!(f, "RTN_MULTICAST"),
+            Self::RTN_BLACKHOLE => write!(f, "RTN_BLACKHOLE"),
+            Self::RTN_UNREACHABLE => write!(f, "RTN_UNREACHABLE"),
+            Self::RTN_PROHIBIT => write!(f, "RTN_PROHIBIT"),
+            Self::RTN_THROW => write!(f, "RTN_THROW"),
+            Self::RTN_NAT => write!(f, "RTN_NAT"),
+            Self::RTN_XRESOLVE => write!(f, "RTN_XRESOLVE"),
+            _ => write!(f, "RTN_UNKNOW({})", self.0),
         }
     }
 }
+
+impl std::fmt::Display for RouteType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 
 // rtm_protocol
-#[repr(u8)]
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
-pub enum RouteProtocol {
-    UNSPEC = 0,
-    REDIRECT,
-    KERNEL,
-    BOOT,
-    STATIC = 4,
-    GATED = 8,
-    RA,
-    MRT,
-    ZEBRA,
-    BIRD,
-    DNROUTED,
-    XORP,
-    NTK,
-    DHCP,
-    MROUTED = 17,
-    BABEL = 42,
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+pub struct RouteProtocol(pub u8);
+
+impl RouteProtocol {
+    pub const RTPROT_UNSPEC: Self   =  Self(0);
+    pub const RTPROT_REDIRECT: Self =  Self(1); // Route installed by ICMP redirects, not used by current IPv4
+    pub const RTPROT_KERNEL: Self   =  Self(2); // Route installed by kernel
+    pub const RTPROT_BOOT: Self     =  Self(3); // Route installed during boot
+    pub const RTPROT_STATIC: Self   =  Self(4); // Route installed by administrator
+    // Values of protocol >= RTPROT_STATIC are not interpreted by kernel
+    // they are just passed from user and back as is.
+    // It will be used by hypothetical multiple routing daemons.
+    // Note that protocol values should be standardized in order to
+    // avoid conflicts.
+    pub const RTPROT_GATED: Self    =  Self(8); // Apparently, GateD
+    pub const RTPROT_RA: Self       =  Self(9); // RDISC/ND router advertisements
+    pub const RTPROT_MRT: Self      = Self(10); // Merit MRT
+    pub const RTPROT_ZEBRA: Self    = Self(11); // Zebra
+    pub const RTPROT_BIRD: Self     = Self(12); // BIRD
+    pub const RTPROT_DNROUTED: Self = Self(13); // DECnet routing daemon
+    pub const RTPROT_XORP: Self     = Self(14); // XORP
+    pub const RTPROT_NTK: Self      = Self(15); // Netsukuku
+    pub const RTPROT_DHCP: Self     = Self(16); // DHCP client
+    pub const RTPROT_MROUTED: Self  = Self(17); // Multicast daemon
+    pub const RTPROT_BABEL: Self    = Self(42); // Babel daemon
 }
 
-impl TryFrom<u8> for RouteProtocol {
-    type Error = ();
-
-    fn try_from(value: u8) -> Result<Self, ()> {
-        match value {
-            0 ..= 4
-            | 8 ..= 17
-            | 42 => {
-                let v = unsafe { std::mem::transmute::<u8, RouteProtocol>(value) };
-                Ok(v)
-            },
-            _  => Err(()),
+impl std::fmt::Debug for RouteProtocol {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::RTPROT_UNSPEC => write!(f, "RTPROT_UNSPEC"),
+            Self::RTPROT_REDIRECT => write!(f, "RTPROT_REDIRECT"),
+            Self::RTPROT_KERNEL => write!(f, "RTPROT_KERNEL"),
+            Self::RTPROT_BOOT => write!(f, "RTPROT_BOOT"),
+            Self::RTPROT_STATIC => write!(f, "RTPROT_STATIC"),
+            Self::RTPROT_GATED => write!(f, "RTPROT_GATED"),
+            Self::RTPROT_RA => write!(f, "RTPROT_RA"),
+            Self::RTPROT_MRT => write!(f, "RTPROT_MRT"),
+            Self::RTPROT_MRT => write!(f, "RTPROT_MRT"),
+            Self::RTPROT_ZEBRA => write!(f, "RTPROT_ZEBRA"),
+            Self::RTPROT_BIRD => write!(f, "RTPROT_BIRD"),
+            Self::RTPROT_DNROUTED => write!(f, "RTPROT_DNROUTED"),
+            Self::RTPROT_XORP => write!(f, "RTPROT_XORP"),
+            Self::RTPROT_NTK => write!(f, "RTPROT_NTK"),
+            Self::RTPROT_DHCP => write!(f, "RTPROT_DHCP"),
+            Self::RTPROT_MROUTED => write!(f, "RTPROT_MROUTED"),
+            Self::RTPROT_BABEL => write!(f, "RTPROT_BABEL"),
+            _ => write!(f, "RTPROT_UNKNOW({})", self.0),
         }
     }
 }
+
+impl std::fmt::Display for RouteProtocol {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 
 // rtm_scope
-#[repr(u8)]
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
-pub enum RouteScope {
-    UNIVERSE =   0,
-    SITE     = 200,
-    LINK     = 253,
-    HOST     = 254,
-    NOWHERE  = 255,
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+pub struct RouteScope(pub u8);
+
+impl RouteScope {
+    pub const RT_SCOPE_UNIVERSE: Self =   Self(0);
+    // User defined values
+    pub const RT_SCOPE_SITE: Self     = Self(200);
+    pub const RT_SCOPE_LINK: Self     = Self(253);
+    pub const RT_SCOPE_HOST: Self     = Self(254);
+    pub const RT_SCOPE_NOWHERE: Self  = Self(255);
 }
 
-impl TryFrom<u8> for RouteScope {
-    type Error = ();
-
-    fn try_from(value: u8) -> Result<Self, ()> {
-        use self::RouteScope::*;
-
-        match value {
-              0 => Ok(UNIVERSE),
-            200 => Ok(SITE),
-            253 => Ok(LINK),
-            254 => Ok(HOST),
-            255 => Ok(NOWHERE),
-            _   => Err(()),
+impl std::fmt::Debug for RouteScope {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::RT_SCOPE_UNIVERSE => write!(f, "RT_SCOPE_UNIVERSE"),
+            Self::RT_SCOPE_SITE => write!(f, "RT_SCOPE_SITE"),
+            Self::RT_SCOPE_LINK => write!(f, "RT_SCOPE_LINK"),
+            Self::RT_SCOPE_HOST => write!(f, "RT_SCOPE_HOST"),
+            Self::RT_SCOPE_NOWHERE => write!(f, "RT_SCOPE_NOWHERE"),
+            _ => write!(f, "RT_SCOPE_UNKNOW({})", self.0),
         }
     }
 }
 
-#[repr(u8)]
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
-pub enum RouteTable {
-    UNSPEC  = 0,
-    COMPAT  = 252,
-    DEFAULT = 253,
-    MAIN    = 254,
-    LOCAL   = 255,
+impl std::fmt::Display for RouteScope {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
-impl TryFrom<u8> for RouteTable {
-    type Error = ();
 
-    fn try_from(value: u8) -> Result<Self, ()> {
-        use self::RouteTable::*;
+// rt_class (rt_table)
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+pub struct RouteTable(pub u8);
 
-        match value {
-              0 => Ok(UNSPEC),
-            252 => Ok(COMPAT),
-            253 => Ok(DEFAULT),
-            254 => Ok(MAIN),
-            255 => Ok(LOCAL),
-            _   => Err(()),
+impl RouteTable {
+    // Reserved table identifiers
+    pub const RT_TABLE_UNSPEC: Self  =   Self(0);
+    // User defined values
+    pub const RT_TABLE_COMPAT: Self  = Self(252);
+    pub const RT_TABLE_DEFAULT: Self = Self(253);
+    pub const RT_TABLE_MAIN: Self    = Self(254);
+    pub const RT_TABLE_LOCAL: Self   = Self(255);
+    // pub const RT_TABLE_MAX: Self     = Self(0xFFFFFFFF);
+}
+
+impl std::fmt::Debug for RouteTable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::RT_TABLE_UNSPEC => write!(f, "RT_TABLE_UNSPEC"),
+            Self::RT_TABLE_COMPAT => write!(f, "RT_TABLE_COMPAT"),
+            Self::RT_TABLE_DEFAULT => write!(f, "RT_TABLE_DEFAULT"),
+            Self::RT_TABLE_MAIN => write!(f, "RT_TABLE_MAIN"),
+            Self::RT_TABLE_LOCAL => write!(f, "RT_TABLE_LOCAL"),
+            _ => write!(f, "RT_TABLE_UNKNOW({})", self.0),
         }
     }
 }
+
+impl std::fmt::Display for RouteTable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 
 // rtm_flags
 bitflags! {
@@ -140,6 +190,77 @@ bitflags! {
         const EQUALIZE     =  0x400; // Multipath equalizer: NI
         const PREFIX       =  0x800; // Prefix addresses
         const LOOKUP_TABLE = 0x1000; // set rtm_table to FIB lookup result
+    }
+}
+
+
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+pub struct RouteAttrType(pub u16);
+
+impl RouteAttrType {
+    pub const RTA_UNSPEC: Self = Self(0);
+    pub const RTA_DST: Self    = Self(1);
+    pub const RTA_SRC: Self = Self(2);
+    pub const RTA_IIF: Self = Self(3);
+    pub const RTA_OIF: Self = Self(4);
+    pub const RTA_GATEWAY: Self  = Self(5);
+    pub const RTA_PRIORITY: Self = Self(6);
+    pub const RTA_PREFSRC: Self  = Self(7);
+    pub const RTA_METRICS: Self  = Self(8);
+    pub const RTA_MULTIPATH: Self = Self(9);
+    pub const RTA_PROTOINFO: Self = Self(10); // no longer used
+    pub const RTA_FLOW: Self      = Self(11);
+    pub const RTA_CACHEINFO: Self = Self(12);
+    pub const RTA_SESSION: Self = Self(13);   // no longer used
+    pub const RTA_MP_ALGO: Self = Self(14);   // no longer used
+    pub const RTA_TABLE: Self   = Self(15);
+    pub const RTA_MARK: Self    = Self(16);
+    pub const RTA_MFC_STATS: Self = Self(17);
+    pub const RTA_VIA: Self       = Self(18);
+    pub const RTA_NEWDST: Self    = Self(19);
+    pub const RTA_PREF: Self      = Self(20);
+    pub const RTA_ENCAP_TYPE: Self = Self(21);
+    pub const RTA_ENCAP: Self      = Self(22);
+    pub const RTA_EXPIRES: Self    = Self(23);
+    pub const RTA_PAD: Self        = Self(24);
+}
+
+impl std::fmt::Debug for RouteAttrType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::RTA_UNSPEC => write!(f, "RTA_UNSPEC"),
+            Self::RTA_DST => write!(f, "RTA_DST"),
+            Self::RTA_SRC => write!(f, "RTA_SRC"),
+            Self::RTA_IIF => write!(f, "RTA_IIF"),
+            Self::RTA_OIF => write!(f, "RTA_OIF"),
+            Self::RTA_GATEWAY => write!(f, "RTA_GATEWAY"),
+            Self::RTA_PRIORITY => write!(f, "RTA_PRIORITY"),
+            Self::RTA_PREFSRC => write!(f, "RTA_PREFSRC"),
+            Self::RTA_METRICS => write!(f, "RTA_METRICS"),
+            Self::RTA_MULTIPATH => write!(f, "RTA_MULTIPATH"),
+            Self::RTA_PROTOINFO => write!(f, "RTA_PROTOINFO"),
+            Self::RTA_FLOW => write!(f, "RTA_FLOW"),
+            Self::RTA_CACHEINFO => write!(f, "RTA_CACHEINFO"),
+            Self::RTA_SESSION => write!(f, "RTA_SESSION"),
+            Self::RTA_MP_ALGO => write!(f, "RTA_MP_ALGO"),
+            Self::RTA_TABLE => write!(f, "RTA_TABLE"),
+            Self::RTA_MARK => write!(f, "RTA_MARK"),
+            Self::RTA_MFC_STATS => write!(f, "RTA_MFC_STATS"),
+            Self::RTA_VIA => write!(f, "RTA_VIA"),
+            Self::RTA_NEWDST => write!(f, "RTA_NEWDST"),
+            Self::RTA_PREF => write!(f, "RTA_PREF"),
+            Self::RTA_ENCAP_TYPE => write!(f, "RTA_ENCAP_TYPE"),
+            Self::RTA_ENCAP => write!(f, "RTA_ENCAP"),
+            Self::RTA_EXPIRES => write!(f, "RTA_EXPIRES"),
+            Self::RTA_PAD => write!(f, "RTA_PAD"),
+            _ => write!(f, "RTA_UNKNOW({})", self.0),
+        }
+    }
+}
+
+impl std::fmt::Display for RouteAttrType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
     }
 }
 
@@ -211,9 +332,14 @@ impl<T: AsRef<[u8]>> RoutePacket<T> {
     }
 
     #[inline]
+    pub fn into_inner(self) -> T {
+        self.buffer
+    }
+
+    #[inline]
     pub fn family(&self) -> AddressFamily {
         let data = self.buffer.as_ref();
-        AddressFamily::try_from(data[FAMILY]).unwrap()
+        AddressFamily(data[FAMILY])
     }
 
     #[inline]
@@ -237,25 +363,25 @@ impl<T: AsRef<[u8]>> RoutePacket<T> {
     #[inline]
     pub fn table(&self) -> RouteTable {
         let data = self.buffer.as_ref();
-        RouteTable::try_from(data[TABLE]).unwrap()
+        RouteTable(data[TABLE])
     }
 
     #[inline]
     pub fn protocol(&self) -> RouteProtocol {
         let data = self.buffer.as_ref();
-        RouteProtocol::try_from(data[PROTOCOL]).unwrap()
+        RouteProtocol(data[PROTOCOL])
     }
 
     #[inline]
     pub fn scope(&self) -> RouteScope {
         let data = self.buffer.as_ref();
-        RouteScope::try_from(data[SCOPE]).unwrap()
+        RouteScope(data[SCOPE])
     }
 
     #[inline]
     pub fn kind(&self) -> RouteType {
         let data = self.buffer.as_ref();
-        RouteType::try_from(data[TYPE]).unwrap()
+        RouteType(data[TYPE])
     }
 
     #[inline]
@@ -280,7 +406,7 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> RoutePacket<T> {
     #[inline]
     pub fn set_family(&mut self, value: AddressFamily) {
         let data = self.buffer.as_mut();
-        data[FAMILY] = value as u8;
+        data[FAMILY] = value.0;
     }
 }
 
