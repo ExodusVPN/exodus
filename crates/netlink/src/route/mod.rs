@@ -30,7 +30,24 @@ impl RouteController {
     }
 
     pub fn links<'a, 'b>(&'a mut self, buffer: &'b mut [u8]) -> Result<link::Links<'a, 'b>, io::Error> {
-        unimplemented!()
+        let mut header = sys::nlmsghdr::default();
+        let ifinfo = sys::ifinfomsg::default();
+
+        header.nlmsg_type  = sys::RTM_GETLINK;
+        header.nlmsg_flags = sys::NLM_F_REQUEST | sys::NLM_F_DUMP;
+        
+        let mut message = sys::Request::new(header, ifinfo);
+        message.fill_size();
+
+        self.nl_socket.send2(&message)?;
+
+        Ok(link::Links {
+            socket: &mut self.nl_socket,
+            buffer: buffer,
+            is_done: false,
+            buffer_len: 0,
+            offset: 0,
+        })
     }
 
     pub fn addrs<'a, 'b>(&'a mut self, buffer: &'b mut [u8]) -> Result<link::Links<'a, 'b>, io::Error> {

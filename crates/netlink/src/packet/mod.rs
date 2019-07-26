@@ -2,11 +2,14 @@
 mod netlink;
 mod neighbour;
 mod route;
+mod link;
 
 
 pub use self::netlink::*;
 pub use self::neighbour::*;
 pub use self::route::*;
+pub use self::link::*;
+
 
 const NLA_ALIGNTO: usize       = 4;
 

@@ -67,7 +67,7 @@ pub struct MacAddr(pub [u8; 6]);
 impl std::fmt::Debug for MacAddr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let addr = self.0;
-        write!(f, "{:x}:{:x}:{:x}:{:x}:{:x}:{:x}",
+        write!(f, "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
                     addr[0],
                     addr[1],
                     addr[2],
