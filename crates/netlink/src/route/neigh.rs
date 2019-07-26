@@ -79,10 +79,12 @@ impl<'a, 'b> Iterator for Neighbours<'a, 'b> {
             Err(e) => return Some(Err(e)),
         };
 
+        println!("{}", packet);
+
         let ifindex = packet.ifindex() as u32;
         let dst_addr = packet.dst_addr();
         let link_addr = packet.link_addr();
-
+        
         Some(Ok(Neighbour { ifindex, dst_addr, hw_addr: link_addr }))
     }
 }

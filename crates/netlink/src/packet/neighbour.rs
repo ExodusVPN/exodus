@@ -116,6 +116,7 @@ pub enum NeighbourKind {
     DST       = 1,
     LLADDR    = 2,
     CACHEINFO = 3,
+    Unknow    = 4,
 }
 
 const FAMILY: usize         = 0;
@@ -209,7 +210,10 @@ impl<T: AsRef<[u8]>> NeighbourPacket<T> {
             1 => NeighbourKind::DST,
             2 => NeighbourKind::LLADDR,
             3 => NeighbourKind::CACHEINFO,
-            _ => unreachable!(),
+            n => {
+                warn!("Unknow NeighbourKind: {}", n);
+                NeighbourKind::Unknow
+            },
         }
     }
 
@@ -423,3 +427,15 @@ impl std::fmt::Debug for MacAddr {
 }
 
 
+impl<'a, T: AsRef<[u8]> + ?Sized> std::fmt::Display for NeighbourPacket<&'a T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "NeighbourPacket {{ family: {:?}, ifindex: {}, state: {:?}, flags: {:?}, kind: {:?}, dst_addr: {:?}, link_addr: {:?} }}",
+                self.family(),
+                self.ifindex(),
+                self.state(),
+                self.flags(),
+                self.kind(),
+                self.dst_addr(),
+                self.link_addr())
+    }
+}
