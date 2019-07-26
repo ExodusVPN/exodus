@@ -185,11 +185,11 @@ impl std::fmt::Display for RouteTable {
 // rtm_flags
 bitflags! {
     pub struct RouteFlags: u32 {
-        const NOTIFY       =  0x100; // Notify user of route change
-        const CLONED       =  0x200; // This route is cloned
-        const EQUALIZE     =  0x400; // Multipath equalizer: NI
-        const PREFIX       =  0x800; // Prefix addresses
-        const LOOKUP_TABLE = 0x1000; // set rtm_table to FIB lookup result
+        const RTM_F_NOTIFY       =  0x100; // Notify user of route change
+        const RTM_F_CLONED       =  0x200; // This route is cloned
+        const RTM_F_EQUALIZE     =  0x400; // Multipath equalizer: NI
+        const RTM_F_PREFIX       =  0x800; // Prefix addresses
+        const RTM_F_LOOKUP_TABLE = 0x1000; // set rtm_table to FIB lookup result
     }
 }
 

@@ -91,31 +91,31 @@ impl std::fmt::Display for AddressFamily {
 
 bitflags! {
     pub struct NeighbourState: u16 {
-        const INCOMPLETE =  0x1; // Still attempting to resolve.
-        const REACHABLE  =  0x2; // A confirmed working cache entry.
-        const STALE      =  0x4; // an expired cache entry.
-        const DELAY      =  0x8; // Neighbor no longer reachable.
+        const NUD_INCOMPLETE =  0x1; // Still attempting to resolve.
+        const NUD_REACHABLE  =  0x2; // A confirmed working cache entry.
+        const NUD_STALE      =  0x4; // an expired cache entry.
+        const NUD_DELAY      =  0x8; // Neighbor no longer reachable.
                                  // Traffic sent, waiting for confirmation.
-        const PROBE      = 0x10; // A cache entry that is currently
+        const NUD_PROBE      = 0x10; // A cache entry that is currently
                                  // being re-solicited.
-        const FAILED     = 0x20; // An invalid cache entry.
+        const NUD_FAILED     = 0x20; // An invalid cache entry.
         // Dummy states
-        const NOARP      = 0x40; // A device that does not do neighbour discovery
-        const PERMANENT  = 0x80; // Permanently set entries
-        const NONE       = 0x00;
+        const NUD_NOARP      = 0x40; // A device that does not do neighbour discovery
+        const NUD_PERMANENT  = 0x80; // Permanently set entries
+        const NUD_NONE       = 0x00;
     }
 }
 
 // neighbour flags
 bitflags! {
     pub struct NeighbourFlags: u8 {
-        const USE         =  0x1;
-        const SELF        =  0x2;
-        const MASTER      =  0x4;
-        const PROXY       =  0x8;
-        const EXT_LEARNED = 0x10;
-        const OFFLOADED   = 0x20;
-        const ROUTER      = 0x80;
+        const NTF_USE         =  0x1;
+        const NTF_SELF        =  0x2;
+        const NTF_MASTER      =  0x4;
+        const NTF_PROXY       =  0x8;
+        const NTF_EXT_LEARNED = 0x10;
+        const NTF_OFFLOADED   = 0x20;
+        const NTF_ROUTER      = 0x80;
     }
 }
 
