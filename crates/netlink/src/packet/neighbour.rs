@@ -64,7 +64,7 @@ use std::convert::TryFrom;
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct MacAddr(pub [u8; 6]);
 
-impl std::fmt::Debug for MacAddr {
+impl std::fmt::Display for MacAddr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let addr = self.0;
         write!(f, "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
@@ -74,6 +74,12 @@ impl std::fmt::Debug for MacAddr {
                     addr[3],
                     addr[4],
                     addr[5])
+    }
+}
+
+impl std::fmt::Debug for MacAddr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "\"{}\"", self)
     }
 }
 

@@ -30,6 +30,12 @@ impl LinkName {
 
 impl std::fmt::Debug for LinkName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "\"{}\"", self)
+    }
+}
+
+impl std::fmt::Display for LinkName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match std::ffi::CStr::from_bytes_with_nul(&self.data[..self.len]) {
             Ok(s) => write!(f, "{}", s.to_string_lossy().to_string()),
             Err(_) => {
@@ -39,6 +45,7 @@ impl std::fmt::Debug for LinkName {
         }
     }
 }
+
 
 // /usr/include/net/if.h
 // Standard interface flags
