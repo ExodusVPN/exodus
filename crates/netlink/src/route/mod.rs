@@ -3,6 +3,7 @@
 // Adresses, links, neighbours, routing, traffic control, neighbour tables, …
 use crate::sys;
 use crate::socket::NetlinkSocket;
+use crate::packet::Protocol;
 
 use std::io;
 
@@ -19,7 +20,7 @@ pub struct RouteController {
 
 impl RouteController {
     pub fn new() -> Result<Self, io::Error> {
-        let mut nl_socket = NetlinkSocket::new(sys::NETLINK_ROUTE as i32)?;
+        let mut nl_socket = NetlinkSocket::new(Protocol::NETLINK_ROUTE.into())?;
         
         let pid    = 0;
         let groups = 0;

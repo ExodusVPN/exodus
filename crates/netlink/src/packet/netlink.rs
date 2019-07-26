@@ -82,6 +82,12 @@ impl std::fmt::Display for Protocol {
     }
 }
 
+impl Into<i32> for Protocol {
+    fn into(self) -> i32 {
+        self.0
+    }
+}
+
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct Kind(pub u16);
