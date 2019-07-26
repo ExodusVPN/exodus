@@ -64,6 +64,19 @@ use std::convert::TryFrom;
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct MacAddr(pub [u8; 6]);
 
+impl std::fmt::Debug for MacAddr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let addr = self.0;
+        write!(f, "{:x}:{:x}:{:x}:{:x}:{:x}:{:x}",
+                    addr[0],
+                    addr[1],
+                    addr[2],
+                    addr[3],
+                    addr[4],
+                    addr[5])
+    }
+}
+
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct AddressFamily(pub u8);
@@ -191,7 +204,7 @@ pub struct NeighbourPacket<T: AsRef<[u8]>> {
 }
 
 impl<T: AsRef<[u8]>> NeighbourPacket<T> {
-    pub const MIN_SIZE: usize = 12 + 4 + 4 + 4 + 6;
+    pub const MIN_SIZE: usize = 12;
 
     #[inline]
     pub fn new_unchecked(buffer: T) -> NeighbourPacket<T> {
@@ -210,10 +223,6 @@ impl<T: AsRef<[u8]>> NeighbourPacket<T> {
     pub fn check_len(&self) -> Result<(), io::Error> {
         let data = self.buffer.as_ref();
         if data.len() < Self::MIN_SIZE {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "packet is too small."));
-        }
-
-        if data.len() < self.total_len() {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "packet is too small."));
         }
 
@@ -255,70 +264,6 @@ impl<T: AsRef<[u8]>> NeighbourPacket<T> {
         RouteType(data[KIND])
     }
 
-    // Attrs
-    #[inline]
-    fn dst_addr_len(&self) -> u16 {
-        let data = self.buffer.as_ref();
-        NativeEndian::read_u16(&data[SRC_ADDR_LEN])
-    }
-
-    #[inline]
-    fn link_addr_start(&self) -> usize {
-        let dst_len = align(self.dst_addr_len() as usize);
-        PAYLOAD + dst_len
-    }
-
-    #[inline]
-    fn link_addr_len(&self) -> u16 {
-        let data = self.buffer.as_ref();
-        let start = self.link_addr_start();
-        let end = start + 2;
-
-        NativeEndian::read_u16(&data[start..end])
-    }
-
-    #[inline]
-    pub fn dst_addr(&self) -> std::net::IpAddr {
-        let data = self.buffer.as_ref();
-        let len = self.dst_addr_len() as usize;
-        match len {
-            8 => {
-                assert_eq!(self.family(), AddressFamily::V4);
-                // 12..14
-                // 14..16
-                // 16..20
-                let octets = NetworkEndian::read_u32(&data[16..20]);
-                std::net::Ipv4Addr::from(octets).into()
-            },
-            10 => {
-                // MacAddr
-                unreachable!();
-            },
-            20 => {
-                // 12..14
-                // 14..16
-                // 16..20
-                assert_eq!(self.family(), AddressFamily::V6);
-                let octets = NetworkEndian::read_u128(&data[16..32]);
-                std::net::Ipv6Addr::from(octets).into()
-            },
-            _ => unreachable!(),
-        }
-    }
-
-    #[inline]
-    pub fn link_addr(&self) -> MacAddr {
-        let data = self.buffer.as_ref();
-        let start = self.link_addr_start() + 4;
-
-        // debug_assert!(self.link_addr_len() >= 10);
-
-        MacAddr([
-            data[start+0], data[start+1], data[start+2],
-            data[start+3], data[start+4], data[start+5],
-        ])
-    }
-
     #[inline]
     pub fn header_len(&self) -> usize {
         12
@@ -348,7 +293,7 @@ impl<T: AsRef<[u8]>> NeighbourPacket<T> {
 
         offset - PAYLOAD
     }
-
+    
     #[inline]
     pub fn total_len(&self) -> usize {
         self.header_len() + self.payload_len()
@@ -396,90 +341,19 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> NeighbourPacket<T> {
     }
 
     #[inline]
-    pub fn set_dst_addr(&mut self, value: std::net::IpAddr) {
-        match value {
-            std::net::IpAddr::V4(v4_addr) => {
-                self.set_family(AddressFamily::V4);
-
-                let data = self.buffer.as_mut();
-                let octets = u32::from(v4_addr).to_be_bytes();
-                // 8, 0, 1, 0,
-                data[PAYLOAD+0] = 8;
-                data[PAYLOAD+1] = 0;
-                data[PAYLOAD+2] = 1;
-                data[PAYLOAD+3] = 0;
-
-                data[PAYLOAD+4] = octets[0];
-                data[PAYLOAD+5] = octets[1];
-                data[PAYLOAD+6] = octets[2];
-                data[PAYLOAD+7] = octets[3];
-            },
-            std::net::IpAddr::V6(v6_addr) => {
-                self.set_family(AddressFamily::V6);
-
-                let data = self.buffer.as_mut();
-                let octets = u128::from(v6_addr).to_be_bytes();
-                // 20, 0, 1, 0,
-                data[PAYLOAD+0] = 20;
-                data[PAYLOAD+1] = 0;
-                data[PAYLOAD+2] = 1;
-                data[PAYLOAD+3] = 0;
-
-                let start = PAYLOAD + 4;
-                let end = start + 16;
-                &mut data[start..end].copy_from_slice(&octets);
-            }
-        }
-    }
-
-    #[inline]
-    pub fn set_link_addr(&mut self, value: MacAddr) {
-        let start = self.link_addr_start();
-
-        let data = self.buffer.as_mut();
-
-        // 10, 0, 2, 0,
-        data[start+0] = 10;
-        data[start+1] = 0;
-        data[start+2] = 2;
-        data[start+3] = 0;
-
-        let start = start + 4;
-        let end = start + 6;
-        &mut data[start..end].copy_from_slice(&value.0);
-    }
-
-    #[inline]
     pub fn payload_mut(&mut self) -> &mut [u8] {
         let data = self.buffer.as_mut();
         &mut data[PAYLOAD..]
     }
 }
 
-
-impl std::fmt::Debug for MacAddr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let addr = self.0;
-        write!(f, "{:x}:{:x}:{:x}:{:x}:{:x}:{:x}",
-                    addr[0],
-                    addr[1],
-                    addr[2],
-                    addr[3],
-                    addr[4],
-                    addr[5])
-    }
-}
-
-
 impl<'a, T: AsRef<[u8]> + ?Sized> std::fmt::Display for NeighbourPacket<&'a T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "NeighbourPacket {{ family: {:?}, ifindex: {}, state: {:?}, flags: {:?}, kind: {:?}, dst_addr: {:?}, link_addr: {:?} }}",
+        write!(f, "NeighbourPacket {{ family: {:?}, ifindex: {}, state: {:?}, flags: {:?}, kind: {:?} }}",
                 self.family(),
                 self.ifindex(),
                 self.state(),
                 self.flags(),
-                self.kind(),
-                self.dst_addr(),
-                self.link_addr())
+                self.kind())
     }
 }

@@ -198,27 +198,27 @@ bitflags! {
 pub struct RouteAttrType(pub u16);
 
 impl RouteAttrType {
-    pub const RTA_UNSPEC: Self = Self(0);
-    pub const RTA_DST: Self    = Self(1);
-    pub const RTA_SRC: Self = Self(2);
-    pub const RTA_IIF: Self = Self(3);
-    pub const RTA_OIF: Self = Self(4);
-    pub const RTA_GATEWAY: Self  = Self(5);
-    pub const RTA_PRIORITY: Self = Self(6);
-    pub const RTA_PREFSRC: Self  = Self(7);
-    pub const RTA_METRICS: Self  = Self(8);
-    pub const RTA_MULTIPATH: Self = Self(9);
-    pub const RTA_PROTOINFO: Self = Self(10); // no longer used
-    pub const RTA_FLOW: Self      = Self(11);
-    pub const RTA_CACHEINFO: Self = Self(12);
-    pub const RTA_SESSION: Self = Self(13);   // no longer used
-    pub const RTA_MP_ALGO: Self = Self(14);   // no longer used
-    pub const RTA_TABLE: Self   = Self(15);
-    pub const RTA_MARK: Self    = Self(16);
-    pub const RTA_MFC_STATS: Self = Self(17);
-    pub const RTA_VIA: Self       = Self(18);
-    pub const RTA_NEWDST: Self    = Self(19);
-    pub const RTA_PREF: Self      = Self(20);
+    pub const RTA_UNSPEC: Self     = Self(0);
+    pub const RTA_DST: Self        = Self(1);
+    pub const RTA_SRC: Self        = Self(2);
+    pub const RTA_IIF: Self        = Self(3);
+    pub const RTA_OIF: Self        = Self(4);
+    pub const RTA_GATEWAY: Self    = Self(5);
+    pub const RTA_PRIORITY: Self   = Self(6);
+    pub const RTA_PREFSRC: Self    = Self(7);
+    pub const RTA_METRICS: Self    = Self(8);
+    pub const RTA_MULTIPATH: Self  = Self(9);
+    pub const RTA_PROTOINFO: Self  = Self(10); // no longer used
+    pub const RTA_FLOW: Self       = Self(11);
+    pub const RTA_CACHEINFO: Self  = Self(12);
+    pub const RTA_SESSION: Self    = Self(13); // no longer used
+    pub const RTA_MP_ALGO: Self    = Self(14); // no longer used
+    pub const RTA_TABLE: Self      = Self(15);
+    pub const RTA_MARK: Self       = Self(16);
+    pub const RTA_MFC_STATS: Self  = Self(17);
+    pub const RTA_VIA: Self        = Self(18);
+    pub const RTA_NEWDST: Self     = Self(19);
+    pub const RTA_PREF: Self       = Self(20);
     pub const RTA_ENCAP_TYPE: Self = Self(21);
     pub const RTA_ENCAP: Self      = Self(22);
     pub const RTA_EXPIRES: Self    = Self(23);
@@ -302,7 +302,7 @@ pub struct RoutePacket<T: AsRef<[u8]>> {
 }
 
 impl<T: AsRef<[u8]>> RoutePacket<T> {
-    pub const MIN_SIZE: usize = 12 + 4 + 4 + 4 + 6;
+    pub const MIN_SIZE: usize = 12;
 
     #[inline]
     pub fn new_unchecked(buffer: T) -> RoutePacket<T> {
@@ -323,10 +323,6 @@ impl<T: AsRef<[u8]>> RoutePacket<T> {
         if data.len() < Self::MIN_SIZE {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "packet is too small."));
         }
-
-        // if data.len() < self.total_len() {
-        //     return Err(io::Error::new(io::ErrorKind::InvalidData, "packet is too small."));
-        // }
 
         Ok(())
     }
@@ -392,12 +388,10 @@ impl<T: AsRef<[u8]>> RoutePacket<T> {
 }
 
 
-
 impl<'a, T: AsRef<[u8]> + ?Sized> RoutePacket<&'a T> {
     #[inline]
     pub fn payload(&self) -> &'a [u8] {
         let data = self.buffer.as_ref();
-        // &data[PAYLOAD..self.total_len()]
         &data[PAYLOAD..]
     }
 }
@@ -408,12 +402,65 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> RoutePacket<T> {
         let data = self.buffer.as_mut();
         data[FAMILY] = value.0;
     }
-}
 
+    #[inline]
+    pub fn set_dst_len(&mut self, value: u8) {
+        let data = self.buffer.as_mut();
+        data[DST_LEN] = value;
+    }
+
+    #[inline]
+    pub fn set_src_len(&mut self, value: u8) {
+        let data = self.buffer.as_mut();
+        data[SRC_LEN] = value;
+    }
+
+    #[inline]
+    pub fn set_tos(&mut self, value: u8) {
+        let data = self.buffer.as_mut();
+        data[TOS] = value;
+    }
+
+    #[inline]
+    pub fn set_table(&mut self, value: RouteTable) {
+        let data = self.buffer.as_mut();
+        data[TABLE] = value.0;
+    }
+
+    #[inline]
+    pub fn set_protocol(&mut self, value: RouteProtocol) {
+        let data = self.buffer.as_mut();
+        data[PROTOCOL] = value.0;
+    }
+
+    #[inline]
+    pub fn set_scope(&mut self, value: RouteScope) {
+        let data = self.buffer.as_mut();
+        data[SCOPE] = value.0;
+    }
+
+    #[inline]
+    pub fn set_kind(&mut self, value: RouteType) {
+        let data = self.buffer.as_mut();
+        data[TYPE] = value.0
+    }
+
+    #[inline]
+    pub fn set_flags(&mut self, value: RouteFlags) {
+        let data = self.buffer.as_mut();
+        NativeEndian::write_u32(&mut data[FLAGS], value.bits())
+    }
+
+    #[inline]
+    pub fn payload_mut(&mut self) -> &mut [u8] {
+        let data = self.buffer.as_mut();
+        &mut data[PAYLOAD..]
+    }
+}
 
 impl<'a, T: AsRef<[u8]> + ?Sized> std::fmt::Display for RoutePacket<&'a T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "RoutePacket {{ family: {:?}, dst_len: {}, src_len: {}, tos: {}, table: {:?}, protocol: {:?}, scope: {:?}, kind: {:?}, flags: {:?}, attrs: {:?} }}",
+        write!(f, "RoutePacket {{ family: {:?}, dst_len: {}, src_len: {}, tos: {}, table: {:?}, protocol: {:?}, scope: {:?}, kind: {:?}, flags: {:?} }}",
                 self.family(),
                 self.dst_len(),
                 self.src_len(),
@@ -422,7 +469,6 @@ impl<'a, T: AsRef<[u8]> + ?Sized> std::fmt::Display for RoutePacket<&'a T> {
                 self.protocol(),
                 self.scope(),
                 self.kind(),
-                self.flags(),
-                self.payload())
+                self.flags())
     }
 }

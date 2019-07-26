@@ -1,10 +1,17 @@
 use crate::socket::NetlinkSocket;
 use crate::packet::Kind;
+use crate::packet::AddressFamily;
 use crate::packet::MacAddr;
 use crate::packet::NetlinkPacket;
 use crate::packet::NetlinkErrorPacket;
 use crate::packet::NeighbourPacket;
+use crate::packet::NetlinkAttrPacket;
+use crate::packet::NeighbourAttrType;
+use crate::packet::NeighbourState;
+use crate::packet::NeighbourFlags;
 
+
+use byteorder::{ByteOrder, NativeEndian, NetworkEndian};
 
 use std::io;
 
@@ -14,8 +21,10 @@ use std::io;
 #[derive(Debug, Clone, Copy)]
 pub struct Neighbour {
     pub ifindex: u32,
-    pub dst_addr: std::net::IpAddr,
-    pub hw_addr: MacAddr,
+    pub state: NeighbourState,
+    pub flags: NeighbourFlags,
+    pub dst_addr: Option<std::net::IpAddr>,
+    pub hw_addr: Option<MacAddr>,
 }
 
 pub struct Neighbours<'a, 'b> {
@@ -79,12 +88,54 @@ impl<'a, 'b> Iterator for Neighbours<'a, 'b> {
             Err(e) => return Some(Err(e)),
         };
 
-        println!("{}", packet);
+        let address_family = packet.family();
 
+        let state   = packet.state();
+        let flags   = packet.flags();
         let ifindex = packet.ifindex() as u32;
-        let dst_addr = packet.dst_addr();
-        let link_addr = packet.link_addr();
+        let mut dst_addr  = None;
+        let mut link_addr = None;
+
+        let mut payload = packet.payload();
         
-        Some(Ok(Neighbour { ifindex, dst_addr, hw_addr: link_addr }))
+        loop {
+            if payload.len() < 4 {
+                break;
+            }
+
+            let attr = match NetlinkAttrPacket::new_checked(&payload) {
+                Ok(pkt) => pkt,
+                Err(e) => return Some(Err(e)),
+            };
+
+            let attr_payload_len = attr.payload_len();
+            let attr_total_len = attr.total_len();
+
+            let attr_kind = NeighbourAttrType(attr.kind());
+            let attr_data = attr.payload();
+
+            if attr_kind == NeighbourAttrType::NDA_DST {
+                if address_family == AddressFamily::V4 {
+                    let octets = NetworkEndian::read_u32(&attr_data);
+                    dst_addr = Some(std::net::Ipv4Addr::from(octets).into());
+                } else if address_family == AddressFamily::V6 {
+                    let octets = NetworkEndian::read_u128(&attr_data);
+                    dst_addr = Some(std::net::Ipv6Addr::from(octets).into())
+                } else {
+                    error!("Unknow Neighbour Attr: type={:15} data={:?}", format!("{:?}", attr_kind), attr_data);
+                    continue;
+                }
+            } else if attr_kind == NeighbourAttrType::NDA_LLADDR {
+                link_addr = Some(MacAddr([
+                                    attr_data[0], attr_data[1], attr_data[2],
+                                    attr_data[3], attr_data[4], attr_data[5]]));
+            } else {
+                trace!("Droped Neighbour Attr: type={:15} data={:?}", format!("{:?}", attr_kind), attr_data);
+            }
+            
+            payload = &payload[attr_total_len..];
+        }
+        
+        Some(Ok(Neighbour { ifindex, state, flags, dst_addr, hw_addr: link_addr }))
     }
 }

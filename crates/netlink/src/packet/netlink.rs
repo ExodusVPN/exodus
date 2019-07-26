@@ -410,20 +410,20 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> NetlinkErrorPacket<T> {
 
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct NetlinkAttrsPacket<T: AsRef<[u8]>> {
+pub struct NetlinkAttrPacket<T: AsRef<[u8]>> {
     buffer: T
 }
 
-impl<T: AsRef<[u8]>> NetlinkAttrsPacket<T> {
+impl<T: AsRef<[u8]>> NetlinkAttrPacket<T> {
     pub const MIN_SIZE: usize = 4;
 
     #[inline]
-    pub fn new_unchecked(buffer: T) -> NetlinkAttrsPacket<T> {
-        NetlinkAttrsPacket { buffer }
+    pub fn new_unchecked(buffer: T) -> NetlinkAttrPacket<T> {
+        NetlinkAttrPacket { buffer }
     }
 
     #[inline]
-    pub fn new_checked(buffer: T) -> Result<NetlinkAttrsPacket<T>, io::Error> {
+    pub fn new_checked(buffer: T) -> Result<NetlinkAttrPacket<T>, io::Error> {
         let v = Self::new_unchecked(buffer);
         v.check_len()?;
 
@@ -477,15 +477,15 @@ impl<T: AsRef<[u8]>> NetlinkAttrsPacket<T> {
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> NetlinkAttrsPacket<&'a T> {
+impl<'a, T: AsRef<[u8]> + ?Sized> NetlinkAttrPacket<&'a T> {
     #[inline]
     pub fn payload(&self) -> &'a [u8] {
         let data = self.buffer.as_ref();
-        &data[4..]
+        &data[4..self.total_len()]
     }
 }
 
-impl<T: AsRef<[u8]> + AsMut<[u8]>> NetlinkAttrsPacket<T> {
+impl<T: AsRef<[u8]> + AsMut<[u8]>> NetlinkAttrPacket<T> {
     #[inline]
     pub fn set_len(&mut self, value: u16) {
         let data = self.buffer.as_mut();
@@ -500,7 +500,8 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> NetlinkAttrsPacket<T> {
 
     #[inline]
     pub fn payload_mut(&mut self) -> &mut [u8] {
+        let len = self.total_len();
         let data = self.buffer.as_mut();
-        &mut data[4..]
+        &mut data[4..len]
     }
 }
