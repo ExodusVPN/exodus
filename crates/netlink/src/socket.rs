@@ -44,6 +44,7 @@ impl NetlinkSocket {
         // are valid values for socket_type.  However, the netlink protocol does
         // not distinguish between datagram and raw sockets.
         let fd = unsafe { libc::socket(AF_NETLINK as i32, libc::SOCK_RAW, proto) };
+        trace!("open netlink socket at FD#{}", fd);
         if fd < 0 {
             return Err(io::Error::last_os_error());
         }
@@ -65,6 +66,8 @@ impl NetlinkSocket {
         if unsafe { libc::bind(self.fd, nladdr_ptr, sa_len) } < 0 {
             return Err(io::Error::last_os_error());
         }
+
+        trace!("bind pid={} groups={} on netlink socket at FD#{}", pid, groups, self.fd);
 
         Ok(())
     }
@@ -202,7 +205,7 @@ impl Write for NetlinkSocket {
 impl Drop for NetlinkSocket {
     fn drop(&mut self) {
         unsafe { libc::close(self.fd) };
-        trace!("close({})", self.fd);
+        trace!("close netlink socket FD#{}", self.fd);
     }
 }
 
