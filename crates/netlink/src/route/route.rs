@@ -1,5 +1,9 @@
 use crate::sys;
+use crate::packet::Kind;
 use crate::packet::MacAddr;
+use crate::packet::NetlinkPacket;
+use crate::packet::NetlinkErrorPacket;
+use crate::packet::NeighbourPacket;
 use crate::packet::RoutePacket;
 
 
@@ -14,40 +18,68 @@ pub struct Route {
 pub struct Routes<'a, 'b> {
     pub(crate) socket: &'a mut sys::NetlinkSocket,
     pub(crate) buffer: &'b mut [u8],
-    pub(crate) packets: Option<sys::NetlinkPacketIter<'b>>,
     pub(crate) is_done: bool,
+    pub(crate) buffer_len: usize,
+    pub(crate) offset: usize,
 }
 
-// const RT_MSG_LEN: usize = std::mem::size_of::<sys::rtmsg>();
-// const RT_ATTR_LEN: usize = std::mem::size_of::<sys::rtattr>();
-// const NL_ATTR_LEN: usize = std::mem::size_of::<sys::nlattr>();
-
-
 impl<'a, 'b> Routes<'a, 'b> {
-    fn next_packet(&mut self) -> Result<(), io::Error> {
-        let data = unsafe { std::mem::transmute::<&mut [u8], &'b mut [u8]>(&mut self.buffer) };
-        let iter = self.socket.recvmsg(data)?;
-
-        for x in iter {
-            let nl_packet = x?;
-            let packet = RoutePacket::new_checked(nl_packet.payload())?;
-            let attrs = packet.payload();
-            println!("{}", packet);
+    fn next_packet(&mut self) -> Result<Option<NetlinkPacket<&[u8]>>, io::Error> {
+        if self.offset >= self.buffer_len {
+            let amt = self.socket.recv(&mut self.buffer, 0)?;
+            trace!("read {} bytes from netlink socket.", amt);
+            self.buffer_len = amt;
+            self.offset = 0;
         }
-        // self.packets = Some(iter);
-        
-        Ok(())
+
+        if self.buffer_len < NetlinkPacket::<&[u8]>::MIN_SIZE {
+            return Ok(None);
+        }
+
+        let start = self.offset;
+        let pkt = NetlinkPacket::new_checked(&self.buffer[self.offset..])?;
+        let pkt_len = pkt.total_len();
+        self.offset += pkt_len;
+        let end = self.offset;
+
+        let pkt = NetlinkPacket::new_unchecked(&self.buffer[start..end]);
+        match pkt.kind() {
+            Kind::Noop     => Ok(None),
+            Kind::Error    => Err(NetlinkErrorPacket::new_checked(pkt.payload())?.err()),
+            Kind::Done     => {
+                self.is_done = true;
+                Ok(None)
+            },
+            Kind::Overrun  => Err(io::Error::new(io::ErrorKind::InvalidData, "Overrun")),
+            Kind::NewRoute => Ok(Some(pkt)),
+            _ => Err(io::Error::new(io::ErrorKind::InvalidData, format!("Netlink Message Type is not `{:?}`", Kind::NewRoute))),
+        }
     }
 }
 
 impl<'a, 'b> Iterator for Routes<'a, 'b> {
-    type Item = Result<Route, io::Error>;
+    type Item = Result<(), io::Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        // sys::RTM_NEWROUTE
-        // unimplemented!()
-        self.next_packet();
+        if self.is_done {
+            return None;
+        }
 
-        return None;
+        let pkt = match self.next_packet() {
+            Ok(Some(pkt)) => pkt,
+            Ok(None) => return None,
+            Err(e) => return Some(Err(e)),
+        };
+        
+        let packet = match RoutePacket::new_checked(pkt.payload()) {
+            Ok(pkt) => pkt,
+            Err(e) => return Some(Err(e)),
+        };
+
+        let attrs = packet.payload();
+        
+        println!("{}", packet);
+
+        Some(Ok(()))
     }
 }

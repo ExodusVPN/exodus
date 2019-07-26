@@ -271,7 +271,7 @@ impl<T: AsRef<[u8]>> NetlinkPacket<T> {
     pub fn header_len(&self) -> usize {
         Self::MIN_SIZE
     }
-    
+
     #[inline]
     pub fn total_len(&self) -> usize {
         sys::align(self.len() as usize)
@@ -379,5 +379,98 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> NetlinkErrorPacket<T> {
     pub fn set_errorno(&mut self, value: i32) {
         let data = self.buffer.as_mut();
         NativeEndian::write_i32(&mut data[0..4], value)
+    }
+}
+
+
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct NetlinkAttrsPacket<T: AsRef<[u8]>> {
+    buffer: T
+}
+
+impl<T: AsRef<[u8]>> NetlinkAttrsPacket<T> {
+    pub const MIN_SIZE: usize = 4;
+
+    #[inline]
+    pub fn new_unchecked(buffer: T) -> NetlinkAttrsPacket<T> {
+        NetlinkAttrsPacket { buffer }
+    }
+
+    #[inline]
+    pub fn new_checked(buffer: T) -> Result<NetlinkAttrsPacket<T>, io::Error> {
+        let v = Self::new_unchecked(buffer);
+        v.check_len()?;
+
+        Ok(v)
+    }
+
+    #[inline]
+    pub fn check_len(&self) -> Result<(), io::Error> {
+        let data = self.buffer.as_ref();
+        if data.len() < Self::MIN_SIZE {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "packet is too small."));
+        }
+
+        if data.len() < self.total_len() {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "packet is too small."));
+        }
+        
+        Ok(())
+    }
+
+    #[inline]
+    pub fn len(&self) -> u16 {
+        let data = self.buffer.as_ref();
+        NativeEndian::read_u16(&data[0..2])
+    }
+
+    #[inline]
+    pub fn kind(&self) -> u16 {
+        let data = self.buffer.as_ref();
+        NativeEndian::read_u16(&data[2..4])
+    }
+
+    #[inline]
+    pub fn header_len(&self) -> usize {
+        4
+    }
+
+    #[inline]
+    pub fn payload_len(&self) -> usize {
+        self.total_len() - self.header_len()
+    }
+
+    #[inline]
+    pub fn total_len(&self) -> usize {
+        sys::align(self.len() as usize)
+    }
+}
+
+impl<'a, T: AsRef<[u8]> + ?Sized> NetlinkAttrsPacket<&'a T> {
+    #[inline]
+    pub fn payload(&self) -> &'a [u8] {
+        let data = self.buffer.as_ref();
+        &data[4..]
+    }
+}
+
+impl<T: AsRef<[u8]> + AsMut<[u8]>> NetlinkAttrsPacket<T> {
+    #[inline]
+    pub fn set_len(&mut self, value: u16) {
+        let data = self.buffer.as_mut();
+        NativeEndian::write_u16(&mut data[0..2], value)
+    }
+
+    #[inline]
+    pub fn set_kind(&mut self, value: u16) {
+        let data = self.buffer.as_mut();
+        NativeEndian::write_u16(&mut data[2..4], value)
+    }
+
+    #[inline]
+    pub fn payload_mut(&mut self) -> &mut [u8] {
+        let data = self.buffer.as_mut();
+        &mut data[4..]
     }
 }

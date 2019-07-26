@@ -50,8 +50,9 @@ impl RouteController {
         Ok(route::Routes {
             socket: &mut self.nl_socket,
             buffer: buffer,
-            packets: None,
             is_done: false,
+            buffer_len: 0,
+            offset: 0,
         })
     }
 
@@ -70,8 +71,9 @@ impl RouteController {
         Ok(neigh::Neighbours {
             socket: &mut self.nl_socket,
             buffer: buffer,
-            packets: None,
             is_done: false,
+            buffer_len: 0,
+            offset: 0,
         })
     }
 

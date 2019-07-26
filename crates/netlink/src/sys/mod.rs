@@ -223,54 +223,6 @@ impl NetlinkSocket {
         
         Ok(amt)
     }
-
-    pub fn recvmsg<'a>(&mut self, buf: &'a mut [u8]) -> Result<NetlinkPacketIter<'a>, io::Error> {
-        let amt = self.recv(buf, 0)?;
-        Ok(NetlinkPacketIter {
-            buffer: &buf[..amt],
-            offset: 0,
-        })
-    }
-}
-
-pub const NL_MSG_LEN: usize = std::mem::size_of::<nlmsghdr>();
-
-pub struct NetlinkPacketIter<'a> {
-    buffer: &'a [u8],
-    offset: usize,
-}
-
-impl<'a> NetlinkPacketIter<'a> {
-    pub fn len(&self) -> usize {
-        self.buffer.len() - self.offset
-    }
-
-    pub fn offset(&self) -> usize {
-        self.offset
-    }
-}
-
-impl<'a> Iterator for NetlinkPacketIter<'a> {
-    type Item = Result<NetlinkPacket<&'a [u8]>, io::Error>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.len() < NL_MSG_LEN {
-            self.offset = self.buffer.len();
-            return None;
-        }
-
-        let data = &self.buffer[self.offset..];
-        match NetlinkPacket::new_checked(data) {
-            Ok(pkt) => {
-                let start = self.offset;
-                self.offset += pkt.total_len();
-                let end = self.offset;
-                let pkt = NetlinkPacket::new_unchecked(&self.buffer[start..end]);
-                Some(Ok(pkt))
-            },
-            Err(e) => Some(Err(e)),
-        }
-    }
 }
 
 
