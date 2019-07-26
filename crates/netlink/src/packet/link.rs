@@ -20,7 +20,11 @@ pub struct LinkName {
 
 impl LinkName {
     pub fn new(data: [u8; IF_NAMESIZE as usize], len: usize) -> Self {
-        Self { data, len, }
+        if data[len - 1] == 0 && data[len - 2] == 0 {
+            Self { data, len: len - 1, }
+        } else {
+            Self { data, len, }
+        }
     }
 }
 
@@ -28,7 +32,10 @@ impl std::fmt::Debug for LinkName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match std::ffi::CStr::from_bytes_with_nul(&self.data[..self.len]) {
             Ok(s) => write!(f, "{}", s.to_string_lossy().to_string()),
-            Err(_) => write!(f, "�"),
+            Err(_) => {
+                error!("Link Name is invalid: Len={} Data={:?}", self.len, &self.data);
+                write!(f, "�")
+            },
         }
     }
 }

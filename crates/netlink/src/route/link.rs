@@ -126,7 +126,7 @@ impl<'a, 'b> Iterator for Links<'a, 'b> {
             if attr_kind == LinkAttrType::IFLA_IFNAME {
                 let mut _name = [0u8; IF_NAMESIZE];
                 (&mut _name[..attr_data.len()]).copy_from_slice(&attr_data);
-                ifname = Some(LinkName::new(_name, attr_data.len() - 1));
+                ifname = Some(LinkName::new(_name, attr_data.len()));
             } else if attr_kind == LinkAttrType::IFLA_OPERSTATE {
                 oper_state = Some(LinkOperState(NativeEndian::read_u32(&attr_data)));
             } else if attr_kind == LinkAttrType::IFLA_LINKMODE {
@@ -145,6 +145,10 @@ impl<'a, 'b> Iterator for Links<'a, 'b> {
                 trace!("Droped Link Attr: type={:15} data={:?}", format!("{:?}", attr_kind), attr_data);
             }
             
+            // IFA_LABEL
+            // IFA_LOCAL
+            // IFA_ADDRESS
+            // IFA_BROADCAST
             payload = &payload[attr_total_len..];
         }
 
