@@ -190,22 +190,22 @@ impl Into<u16> for Kind {
 
 bitflags! {
     pub struct Flags: u16 {
-        const REQUEST       =  1; // It is request message.
-        const MULTI         =  2; // Multipart message, terminated by 
-        const ACK           =  4; // Reply with ack, with zero or error 
-        const ECHO          =  8; // Echo this request
-        const DUMP_INTR     = 16; // Dump was inconsistent due to sequence 
-        const DUMP_FILTERED = 32; // Dump was filtered as 
+        const NLM_F_REQUEST       =  1; // It is request message.
+        const NLM_F_MULTI         =  2; // Multipart message, terminated by 
+        const NLM_F_ACK           =  4; // Reply with ack, with zero or error 
+        const NLM_F_ECHO          =  8; // Echo this request
+        const NLM_F_DUMP_INTR     = 16; // Dump was inconsistent due to sequence 
+        const NLM_F_DUMP_FILTERED = 32; // Dump was filtered as 
         // Modifiers to GET request
-        const ROOT   = 0x100;                    // specify tree root
-        const MATCH  = 0x200;                    // return all matching
-        const ATOMIC = 0x400;                    // atomic GET
-        const DUMP   = Self::ROOT.bits | Self::MATCH.bits;
+        const NLM_F_ROOT   = 0x100;                    // specify tree root
+        const NLM_F_MATCH  = 0x200;                    // return all matching
+        const NLM_F_ATOMIC = 0x400;                    // atomic GET
+        const NLM_F_DUMP   = Self::NLM_F_ROOT.bits | Self::NLM_F_MATCH.bits;
         // Modifiers to NEW request
-        const REPLACE = 0x100;   // Override existing
-        const EXCL    = 0x200;   // Do not touch, if it exists
-        const CREATE  = 0x400;   // Create, if it does not 
-        const APPEND  = 0x800;   // Add to end of list
+        const NLM_F_REPLACE = 0x100;   // Override existing
+        const NLM_F_EXCL    = 0x200;   // Do not touch, if it exists
+        const NLM_F_CREATE  = 0x400;   // Create, if it does not 
+        const NLM_F_APPEND  = 0x800;   // Add to end of list
     }
 }
 
