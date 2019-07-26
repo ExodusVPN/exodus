@@ -1,6 +1,6 @@
 use crate::sys;
 
-use byteorder::{ByteOrder, NativeEndian};
+use byteorder::{ByteOrder, NativeEndian, NetworkEndian};
 
 use std::io;
 use std::mem;
@@ -246,7 +246,7 @@ impl<T: AsRef<[u8]>> NeighbourPacket<T> {
                 // 12..14
                 // 14..16
                 // 16..20
-                let octets = NativeEndian::read_u32(&data[16..20]);
+                let octets = NetworkEndian::read_u32(&data[16..20]);
                 std::net::Ipv4Addr::from(octets).into()
             },
             10 => {
@@ -258,7 +258,7 @@ impl<T: AsRef<[u8]>> NeighbourPacket<T> {
                 // 14..16
                 // 16..20
                 assert_eq!(self.family(), AddressFamily::Ipv6);
-                let octets = NativeEndian::read_u128(&data[16..32]);
+                let octets = NetworkEndian::read_u128(&data[16..32]);
                 std::net::Ipv6Addr::from(octets).into()
             },
             _ => unreachable!(),
@@ -270,7 +270,7 @@ impl<T: AsRef<[u8]>> NeighbourPacket<T> {
         let data = self.buffer.as_ref();
         let start = self.link_addr_start() + 4;
 
-        debug_assert!(self.link_addr_len() >= 10);
+        // debug_assert!(self.link_addr_len() >= 10);
 
         MacAddr([
             data[start+0], data[start+1], data[start+2],
@@ -361,7 +361,7 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> NeighbourPacket<T> {
                 self.set_family(AddressFamily::Ipv4);
 
                 let data = self.buffer.as_mut();
-                let octets = v4_addr.octets();
+                let octets = u32::from(v4_addr).to_be_bytes();
                 // 8, 0, 1, 0,
                 data[PAYLOAD+0] = 8;
                 data[PAYLOAD+1] = 0;
@@ -377,7 +377,7 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> NeighbourPacket<T> {
                 self.set_family(AddressFamily::Ipv6);
 
                 let data = self.buffer.as_mut();
-                let octets = v6_addr.octets();
+                let octets = u128::from(v6_addr).to_be_bytes();
                 // 20, 0, 1, 0,
                 data[PAYLOAD+0] = 20;
                 data[PAYLOAD+1] = 0;

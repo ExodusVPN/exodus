@@ -1,6 +1,6 @@
 use crate::sys;
-use crate::packet::neighbour::MacAddr;
-use crate::packet::neighbour::NeighbourPacket;
+use crate::packet::MacAddr;
+use crate::packet::NeighbourPacket;
 
 
 use std::io;
@@ -67,6 +67,7 @@ impl<'a, 'b> Iterator for Neighbours<'a, 'b> {
 
         let kind_num: u16 = kind.into();
         if kind_num != sys::RTM_NEWNEIGH {
+            self.is_done = true;
             return None;
         }
 

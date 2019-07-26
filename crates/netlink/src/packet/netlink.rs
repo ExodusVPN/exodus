@@ -58,44 +58,43 @@ use std::convert::TryFrom;
 // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 // 
 
+#[repr(i32)]
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum Protocol {
-    Route,      // 0
-    Netfilter,  // 12
+    Route     = 0,
+    Netfilter = 12,
 }
 
-
+#[repr(u16)]
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum Kind {
-    // Nothing
-    Noop,
-    // Error
-    Error,
-    // End of a dump
-    Done,
-    // Data lost
-    Overrun,
+    // control messages
+    Noop    = 1, // Nothing
+    Error   = 2, // Error
+    Done    = 3, // End of a dump
+    Overrun = 4, // Data lost
 
-    NewLink,
-    DelLink,
-    GetLink,
-    SetLink,
-
-    NewAddr,
-    DelAddr,
-    GetAddr,
-
-    NewRoute,
-    DelRoute,
-    GetRoute,
-
-    NewNeigh,
-    DelNeigh,
-    GetNeigh,
-
-    NewRule,
-    DelRule,
-    GetRule,
+    // Protocol Method
+    NewLink = 16,
+    DelLink = 17,
+    GetLink = 18,
+    SetLink = 19,
+    
+    NewAddr = 20,
+    DelAddr = 21,
+    GetAddr = 22,
+    
+    NewRoute = 24,
+    DelRoute = 25,
+    GetRoute = 26,
+    
+    NewNeigh = 28,
+    DelNeigh = 29,
+    GetNeigh = 30,
+    
+    NewRule  = 32,
+    DelRule  = 33,
+    GetRule  = 34,
 }
 
 
@@ -134,35 +133,7 @@ impl Kind {
 
 impl Into<u16> for Kind {
     fn into(self) -> u16 {
-        use self::Kind::*;
-
-        match self {
-            Noop    => 1,
-            Error   => 2,
-            Done    => 3,
-            Overrun => 4,
-
-            NewLink => 16,
-            DelLink => 17,
-            GetLink => 18,
-            SetLink => 19,
-            
-            NewAddr => 20,
-            DelAddr => 21,
-            GetAddr => 22,
-            
-            NewRoute => 24,
-            DelRoute => 25,
-            GetRoute => 26,
-            
-            NewNeigh => 28,
-            DelNeigh => 29,
-            GetNeigh => 30,
-            
-            NewRule => 32,
-            DelRule => 33,
-            GetRule => 34,
-        }
+        self as u16
     }
 }
 
@@ -170,38 +141,19 @@ impl TryFrom<u16> for Kind {
     type Error = ();
 
     fn try_from(value: u16) -> Result<Self, ()> {
-        use self::Kind::*;
-
         match value {
-            0 => Err(()),
-            1 => Ok(Noop),
-            2 => Ok(Error),
-            3 => Ok(Done),
-            4 => Ok(Overrun),
-            5 ..= 15 => Err(()), // < 0x10: reserved control messages
-
-            16 => Ok(NewLink),
-            17 => Ok(DelLink),
-            18 => Ok(GetLink),
-            19 => Ok(SetLink),
-
-            20 => Ok(NewAddr),
-            21 => Ok(DelAddr),
-            22 => Ok(GetAddr),
-
-            24 => Ok(NewRoute),
-            25 => Ok(DelRoute),
-            26 => Ok(GetRoute),
-
-            28 => Ok(NewNeigh),
-            29 => Ok(DelNeigh),
-            30 => Ok(GetNeigh),
-
-            32 => Ok(NewRule),
-            33 => Ok(DelRule),
-            34 => Ok(GetRule),
-
-            _  => Err(())
+            // < 0x10: reserved control messages
+            0 | 5 ..= 15 => Err(()),
+               1 ..=  4
+            | 16 ..= 19
+            | 20 ..= 22
+            | 24 ..= 26
+            | 28 ..= 30
+            | 32 ..= 34 => {
+                let v = unsafe { std::mem::transmute::<u16, Kind>(value) };
+                Ok(v)
+            },
+            _  => Err(()),
         }
     }
 }
@@ -242,7 +194,7 @@ pub struct NetlinkPacket<T: AsRef<[u8]>> {
 }
 
 impl<T: AsRef<[u8]>> NetlinkPacket<T> {
-    pub const MIN_SIZE: usize = 16 + 12; // + 12 ?
+    pub const MIN_SIZE: usize = 16;
 
     #[inline]
     pub fn new_unchecked(buffer: T) -> NetlinkPacket<T> {
@@ -317,9 +269,9 @@ impl<T: AsRef<[u8]>> NetlinkPacket<T> {
 
     #[inline]
     pub fn header_len(&self) -> usize {
-        16
+        Self::MIN_SIZE
     }
-
+    
     #[inline]
     pub fn total_len(&self) -> usize {
         sys::align(self.len() as usize)
@@ -375,5 +327,57 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> NetlinkPacket<T> {
         let range = PAYLOAD..self.total_len();
         let data = self.buffer.as_mut();
         &mut data[range]
+    }
+}
+
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct NetlinkErrorPacket<T: AsRef<[u8]>> {
+    buffer: T
+}
+
+impl<T: AsRef<[u8]>> NetlinkErrorPacket<T> {
+    pub const MIN_SIZE: usize = 4;
+
+    #[inline]
+    pub fn new_unchecked(buffer: T) -> NetlinkErrorPacket<T> {
+        NetlinkErrorPacket { buffer }
+    }
+
+    #[inline]
+    pub fn new_checked(buffer: T) -> Result<NetlinkErrorPacket<T>, io::Error> {
+        let v = Self::new_unchecked(buffer);
+        v.check_len()?;
+
+        Ok(v)
+    }
+
+    #[inline]
+    pub fn check_len(&self) -> Result<(), io::Error> {
+        let data = self.buffer.as_ref();
+        if data.len() < Self::MIN_SIZE {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "packet is too small."));
+        }
+
+        Ok(())
+    }
+
+    #[inline]
+    pub fn errorno(&self) -> i32 {
+        let data = self.buffer.as_ref();
+        NativeEndian::read_i32(&data[0..4])
+    }
+
+    #[inline]
+    pub fn err(&self) -> std::io::Error {
+        std::io::Error::from_raw_os_error(self.errorno())
+    }
+}
+
+impl<T: AsRef<[u8]> + AsMut<[u8]>> NetlinkErrorPacket<T> {
+    #[inline]
+    pub fn set_errorno(&mut self, value: i32) {
+        let data = self.buffer.as_mut();
+        NativeEndian::write_i32(&mut data[0..4], value)
     }
 }

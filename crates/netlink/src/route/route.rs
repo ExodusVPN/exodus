@@ -1,6 +1,6 @@
 use crate::sys;
-use crate::packet::neighbour::MacAddr;
-use crate::packet::route::RoutePacket;
+use crate::packet::MacAddr;
+use crate::packet::RoutePacket;
 
 
 use std::io;
@@ -18,9 +18,9 @@ pub struct Routes<'a, 'b> {
     pub(crate) is_done: bool,
 }
 
-const RT_MSG_LEN: usize = std::mem::size_of::<sys::rtmsg>();
-const RT_ATTR_LEN: usize = std::mem::size_of::<sys::rtattr>();
-const NL_ATTR_LEN: usize = std::mem::size_of::<sys::nlattr>();
+// const RT_MSG_LEN: usize = std::mem::size_of::<sys::rtmsg>();
+// const RT_ATTR_LEN: usize = std::mem::size_of::<sys::rtattr>();
+// const NL_ATTR_LEN: usize = std::mem::size_of::<sys::nlattr>();
 
 
 impl<'a, 'b> Routes<'a, 'b> {
@@ -47,7 +47,7 @@ impl<'a, 'b> Iterator for Routes<'a, 'b> {
         // sys::RTM_NEWROUTE
         // unimplemented!()
         self.next_packet();
-        
+
         return None;
     }
 }

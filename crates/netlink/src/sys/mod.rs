@@ -7,7 +7,7 @@ use libc;
 mod netlink;
 mod rtnetlink;
 
-use crate::packet::netlink::NetlinkPacket;
+use crate::packet::NetlinkPacket;
 pub use self::netlink::*;
 pub use self::rtnetlink::*;
 
@@ -80,11 +80,9 @@ impl<T> Request<T> {
 
 
 #[inline]
-pub fn alloc_response() -> Vec<u8> {
+pub fn alloc_response() -> [u8; MAX_NL_LENGTH] {
     // https://www.spinics.net/lists/netdev/msg431592.html
-    let mut response = Vec::with_capacity(MAX_NL_LENGTH);
-    response.resize(MAX_NL_LENGTH, 0u8);
-    response
+    [0u8; MAX_NL_LENGTH]
 }
 
 
