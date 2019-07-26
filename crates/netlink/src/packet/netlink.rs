@@ -443,6 +443,10 @@ impl<T: AsRef<[u8]>> NetlinkAttrPacket<T> {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "packet is too small."));
         }
 
+        if self.total_len() < Self::MIN_SIZE {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "packet is too small."));
+        }
+
         if data.len() < self.total_len() {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "packet is too small."));
         }

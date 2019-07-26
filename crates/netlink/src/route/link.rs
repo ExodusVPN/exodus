@@ -145,10 +145,6 @@ impl<'a, 'b> Iterator for Links<'a, 'b> {
                 trace!("Droped Link Attr: type={:15} data={:?}", format!("{:?}", attr_kind), attr_data);
             }
             
-            // IFA_LABEL
-            // IFA_LOCAL
-            // IFA_ADDRESS
-            // IFA_BROADCAST
             payload = &payload[attr_total_len..];
         }
 

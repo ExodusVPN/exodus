@@ -11,7 +11,7 @@ use std::io;
 pub mod link;
 pub mod neigh;
 pub mod route;
-
+pub mod addr;
 
 // Routing/neighbour discovery messages.
 pub struct RouteController {
@@ -50,8 +50,25 @@ impl RouteController {
         })
     }
 
-    pub fn addrs<'a, 'b>(&'a mut self, buffer: &'b mut [u8]) -> Result<link::Links<'a, 'b>, io::Error> {
-        unimplemented!()
+    pub fn addrs<'a, 'b>(&'a mut self, buffer: &'b mut [u8]) -> Result<addr::Addrs<'a, 'b>, io::Error> {
+        let mut header = sys::nlmsghdr::default();
+        let ifinfo = sys::ifinfomsg::default();
+
+        header.nlmsg_type  = sys::RTM_GETADDR;
+        header.nlmsg_flags = sys::NLM_F_REQUEST | sys::NLM_F_DUMP;
+        
+        let mut message = sys::Request::new(header, ifinfo);
+        message.fill_size();
+
+        self.nl_socket.send2(&message)?;
+
+        Ok(addr::Addrs {
+            socket: &mut self.nl_socket,
+            buffer: buffer,
+            is_done: false,
+            buffer_len: 0,
+            offset: 0,
+        })
     }
 
     pub fn routes<'a, 'b>(&'a mut self, buffer: &'b mut [u8]) -> Result<route::Routes<'a, 'b>, io::Error> {
