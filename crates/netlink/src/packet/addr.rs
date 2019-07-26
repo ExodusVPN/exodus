@@ -83,7 +83,7 @@ impl std::fmt::Debug for AddrAttrType {
             Self::IFA_FLAGS => write!(f, "IFA_FLAGS"),
             Self::IFA_RT_PRIORITY => write!(f, "IFA_RT_PRIORITY"),
             Self::IFA_TARGET_NETNSID => write!(f, "IFA_TARGET_NETNSID"),
-            _ => write!(f, "IFLA_UNKNOW({})", self.0),
+            _ => write!(f, "IFA_UNKNOW({})", self.0),
         }
     }
 }
