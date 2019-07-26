@@ -1,10 +1,9 @@
-use crate::sys;
+use crate::socket::NetlinkSocket;
 use crate::packet::Kind;
 use crate::packet::MacAddr;
 use crate::packet::NetlinkPacket;
 use crate::packet::NetlinkErrorPacket;
 use crate::packet::NeighbourPacket;
-use crate::packet::RoutePacket;
 
 
 use std::io;
@@ -20,7 +19,7 @@ pub struct Neighbour {
 }
 
 pub struct Neighbours<'a, 'b> {
-    pub(crate) socket: &'a mut sys::NetlinkSocket,
+    pub(crate) socket: &'a mut NetlinkSocket,
     pub(crate) buffer: &'b mut [u8],
     pub(crate) is_done: bool,
     pub(crate) buffer_len: usize,

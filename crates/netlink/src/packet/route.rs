@@ -1,10 +1,8 @@
-use crate::sys;
-use crate::packet::neighbour::{MacAddr, AddressFamily};
+use super::AddressFamily;
 
 use byteorder::{ByteOrder, NativeEndian};
 
 use std::io;
-use std::mem;
 use core::ops::Range;
 use std::convert::TryFrom;
 
@@ -31,8 +29,6 @@ impl TryFrom<u8> for RouteType {
     type Error = ();
 
     fn try_from(value: u8) -> Result<Self, ()> {
-        use self::RouteType::*;
-
         match value {
             0 ..= 12 => {
                 let v = unsafe { std::mem::transmute::<u8, RouteType>(value) };
@@ -69,8 +65,6 @@ impl TryFrom<u8> for RouteProtocol {
     type Error = ();
 
     fn try_from(value: u8) -> Result<Self, ()> {
-        use self::RouteProtocol::*;
-
         match value {
             0 ..= 4
             | 8 ..= 17

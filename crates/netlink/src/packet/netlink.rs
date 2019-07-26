@@ -1,9 +1,8 @@
-use crate::sys;
+use super::align;
 
 use byteorder::{ByteOrder, NativeEndian};
 
 use std::io;
-use std::mem;
 use core::ops::Range;
 use std::convert::TryFrom;
 
@@ -220,7 +219,7 @@ impl<T: AsRef<[u8]>> NetlinkPacket<T> {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "packet is too small."));
         }
 
-        if let Err(e) = Kind::try_from(self.kind_raw()) {
+        if let Err(_) = Kind::try_from(self.kind_raw()) {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "Netlink Message Type is unknow."));
         }
 
@@ -274,7 +273,7 @@ impl<T: AsRef<[u8]>> NetlinkPacket<T> {
 
     #[inline]
     pub fn total_len(&self) -> usize {
-        sys::align(self.len() as usize)
+        align(self.len() as usize)
     }
 
     #[inline]
@@ -415,7 +414,7 @@ impl<T: AsRef<[u8]>> NetlinkAttrsPacket<T> {
         if data.len() < self.total_len() {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "packet is too small."));
         }
-        
+
         Ok(())
     }
 
@@ -443,7 +442,7 @@ impl<T: AsRef<[u8]>> NetlinkAttrsPacket<T> {
 
     #[inline]
     pub fn total_len(&self) -> usize {
-        sys::align(self.len() as usize)
+        align(self.len() as usize)
     }
 }
 

@@ -12,5 +12,15 @@ pub mod macros;
 pub mod sys;
 pub mod packet;
 pub mod route;
+pub mod socket;
 
-pub use crate::sys::alloc_response;
+
+/// Max supported message length for netlink messages supported by the kernel
+// https://www.spinics.net/lists/netdev/msg431592.html
+pub const MAX_NL_LENGTH: usize     = 32768;  // 32K
+
+#[inline]
+pub fn alloc_response() -> [u8; MAX_NL_LENGTH] {
+    // https://www.spinics.net/lists/netdev/msg431592.html
+    [0u8; MAX_NL_LENGTH]
+}

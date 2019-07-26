@@ -1,9 +1,8 @@
-use crate::sys;
+use super::align;
 
 use byteorder::{ByteOrder, NativeEndian, NetworkEndian};
 
 use std::io;
-use std::mem;
 use core::ops::Range;
 use std::convert::TryFrom;
 
@@ -223,7 +222,7 @@ impl<T: AsRef<[u8]>> NeighbourPacket<T> {
 
     #[inline]
     fn link_addr_start(&self) -> usize {
-        let dst_len = sys::align(self.dst_addr_len() as usize);
+        let dst_len = align(self.dst_addr_len() as usize);
         PAYLOAD + dst_len
     }
 
@@ -301,7 +300,7 @@ impl<T: AsRef<[u8]>> NeighbourPacket<T> {
             }
 
             let attr_len = NativeEndian::read_u16(&data[offset..offset+2]);
-            let len = sys::align(attr_len as usize);
+            let len = align(attr_len as usize);
             offset += len;
         }
 

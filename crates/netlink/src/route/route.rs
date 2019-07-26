@@ -1,9 +1,7 @@
-use crate::sys;
+use crate::socket::NetlinkSocket;
 use crate::packet::Kind;
-use crate::packet::MacAddr;
 use crate::packet::NetlinkPacket;
 use crate::packet::NetlinkErrorPacket;
-use crate::packet::NeighbourPacket;
 use crate::packet::RoutePacket;
 
 
@@ -16,7 +14,7 @@ pub struct Route {
 }
 
 pub struct Routes<'a, 'b> {
-    pub(crate) socket: &'a mut sys::NetlinkSocket,
+    pub(crate) socket: &'a mut NetlinkSocket,
     pub(crate) buffer: &'b mut [u8],
     pub(crate) is_done: bool,
     pub(crate) buffer_len: usize,
@@ -76,7 +74,7 @@ impl<'a, 'b> Iterator for Routes<'a, 'b> {
             Err(e) => return Some(Err(e)),
         };
 
-        let attrs = packet.payload();
+        let _attrs = packet.payload();
         
         println!("{}", packet);
 

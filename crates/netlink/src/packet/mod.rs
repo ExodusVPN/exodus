@@ -1,4 +1,3 @@
-use crate::sys;
 
 mod netlink;
 mod neighbour;

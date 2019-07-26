@@ -1,24 +1,25 @@
 // Routing Family Library (libnl-route)
 // 
 // Adresses, links, neighbours, routing, traffic control, neighbour tables, …
+use crate::sys;
+use crate::socket::NetlinkSocket;
+
+use std::io;
+
 
 pub mod link;
 pub mod neigh;
 pub mod route;
 
-use crate::sys;
-
-use std::io;
-
 
 // Routing/neighbour discovery messages.
 pub struct RouteController {
-    nl_socket: sys::NetlinkSocket,
+    nl_socket: NetlinkSocket,
 }
 
 impl RouteController {
     pub fn new() -> Result<Self, io::Error> {
-        let mut nl_socket = sys::NetlinkSocket::new(sys::NETLINK_ROUTE as i32)?;
+        let mut nl_socket = NetlinkSocket::new(sys::NETLINK_ROUTE as i32)?;
         
         let pid    = 0;
         let groups = 0;
