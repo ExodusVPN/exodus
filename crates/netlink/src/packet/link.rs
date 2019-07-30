@@ -7,6 +7,31 @@ use std::io;
 use core::ops::Range;
 
 
+// passes link level specific information, not dependent on network protocol.
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct ifinfomsg {
+    pub ifi_family: u8,
+    pub ifi_pad: u8,
+    pub ifi_type: u16,   // ARPHRD_*
+    pub ifi_index: i32,  // Link index
+    pub ifi_flags: u32,  // IFF_* flags
+    pub ifi_change: u32, // IFF_* change mask
+}
+
+impl Default for ifinfomsg {
+    fn default() -> Self {
+        Self {
+            ifi_family: 0,
+            ifi_pad: 0,
+            ifi_type: 0,
+            ifi_index: 0,
+            ifi_flags: 0,
+            ifi_change: 0,
+        }
+    }
+}
+
 // Link layer specific messages.
 
 #[derive(Clone, Copy)]
@@ -42,7 +67,6 @@ impl std::fmt::Display for LinkName {
         }
     }
 }
-
 
 // /usr/include/net/if.h
 // Standard interface flags
@@ -343,38 +367,6 @@ impl std::fmt::Debug for LinkAttrType {
 impl std::fmt::Display for LinkAttrType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
-    }
-}
-
-
-
-
-
-
-// struct ifinfomsg
-// passes link level specific information, not dependent
-// on network protocol.
-#[repr(C)]
-#[derive(Debug, Clone, Copy)]
-pub struct ifinfomsg {
-    pub ifi_family: u8,
-    pub ifi_pad: u8,
-    pub ifi_type: u16,   // ARPHRD_*
-    pub ifi_index: i32,  // Link index
-    pub ifi_flags: u32,  // IFF_* flags
-    pub ifi_change: u32, // IFF_* change mask
-}
-
-impl Default for ifinfomsg {
-    fn default() -> Self {
-        Self {
-            ifi_family: 0,
-            ifi_pad: 0,
-            ifi_type: 0,
-            ifi_index: 0,
-            ifi_flags: 0,
-            ifi_change: 0,
-        }
     }
 }
 

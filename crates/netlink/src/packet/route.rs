@@ -5,6 +5,24 @@ use byteorder::{ByteOrder, NativeEndian};
 use std::io;
 use core::ops::Range;
 
+
+// 12
+// Definitions used in routing table administration.
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct rtmsg {
+    pub rtm_family: u8,
+    pub rtm_dst_len: u8,
+    pub rtm_src_len: u8,
+    pub rtm_tos: u8,
+    pub rtm_table: u8,    // Routing table id
+    pub rtm_protocol: u8, // Routing protocol; see below
+    pub rtm_scope: u8,    // See below
+    pub rtm_type: u8,     // See below
+    pub rtm_flags: u32,
+}
+
+
 // rtm_type
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct RouteType(pub u8);
@@ -260,25 +278,6 @@ impl std::fmt::Display for RouteAttrType {
         write!(f, "{:?}", self)
     }
 }
-
-
-// 12
-// Definitions used in routing table administration.
-#[repr(C)]
-#[derive(Debug, Clone, Copy)]
-pub struct rtmsg {
-    pub rtm_family: u8,
-    pub rtm_dst_len: u8,
-    pub rtm_src_len: u8,
-    pub rtm_tos: u8,
-    pub rtm_table: u8,    // Routing table id
-    pub rtm_protocol: u8, // Routing protocol; see below
-    pub rtm_scope: u8,    // See below
-    pub rtm_type: u8,     // See below
-    pub rtm_flags: u32,
-}
-
-
 
 
 const FAMILY: usize         = 0;

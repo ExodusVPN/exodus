@@ -56,7 +56,66 @@ use core::ops::Range;
 // RTM_NEWNEIGH, RTM_DELNEIGH, and RTM_GETNEIGH.
 // 
 
+
 // https://github.com/torvalds/linux/blob/master/include/uapi/linux/neighbour.h
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct ndmsg {
+    pub ndm_family: u8,
+    pub ndm_pad1: u8,
+    pub ndm_pad2: u16,
+    pub ndm_ifindex: i32,
+    pub ndm_state: u16,
+    pub ndm_flags: u8,
+    pub ndm_type: u8,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct nda_cacheinfo {
+    pub ndm_confirmed: u32,
+    pub ndm_used: u32,
+    pub ndm_updated: u32,
+    pub ndm_refcnt: u32,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct ndt_stats {
+    pub ndts_allocs: u64,
+    pub ndts_destroys: u64,
+    pub ndts_hash_grows: u64,
+    pub ndts_res_failed: u64,
+    pub ndts_lookups: u64,
+    pub ndts_hits: u64,
+    pub ndts_rcv_probes_mcast: u64,
+    pub ndts_rcv_probes_ucast: u64,
+    pub ndts_periodic_gc_runs: u64,
+    pub ndts_forced_gc_runs: u64,
+    pub ndts_table_fulls: u64,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct ndtmsg {
+    pub ndtm_family: u8,
+    pub ndtm_pad1: u8,
+    pub ndtm_pad2: u16,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct ndt_config {
+    pub ndtc_key_len: u16,
+    pub ndtc_entry_size: u16,
+    pub ndtc_entries: u32,
+    pub ndtc_last_flush: u32,    // delta to now in msecs
+    pub ndtc_last_rand: u32,     // delta to now in msecs
+    pub ndtc_hash_rnd: u32,
+    pub ndtc_hash_mask: u32,
+    pub ndtc_hash_chain_gc: u32,
+    pub ndtc_proxy_qlen: u32,
+}
 
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
@@ -182,14 +241,6 @@ impl std::fmt::Display for NeighbourAttrType {
     }
 }
 
-
-
-// struct nda_cacheinfo {
-//     __u32       ndm_confirmed;
-//     __u32       ndm_used;
-//     __u32       ndm_updated;
-//     __u32       ndm_refcnt;
-// };
 
 const FAMILY: usize         = 0;
 const IFINDEX: Range<usize> = 4..8;
