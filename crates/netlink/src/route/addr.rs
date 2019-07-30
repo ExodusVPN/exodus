@@ -1,6 +1,5 @@
 use crate::socket::NetlinkSocket;
 use crate::packet::Kind;
-use crate::packet::MacAddr;
 use crate::packet::NetlinkPacket;
 use crate::packet::NetlinkErrorPacket;
 use crate::packet::NetlinkAttrPacket;
@@ -13,7 +12,7 @@ use crate::packet::AddressFamily;
 
 
 use libc::IF_NAMESIZE;
-use byteorder::{ByteOrder, NativeEndian, NetworkEndian};
+use byteorder::{ByteOrder, NetworkEndian};
 
 use std::io;
 
@@ -114,7 +113,7 @@ impl<'a, 'b> Iterator for Addrs<'a, 'b> {
                 Err(e) => return Some(Err(e)),
             };
 
-            let attr_payload_len = attr.payload_len();
+            // let attr_payload_len = attr.payload_len();
             let attr_total_len = attr.total_len();
 
             let attr_kind = AddrAttrType(attr.kind());
@@ -166,6 +165,6 @@ impl<'a, 'b> Iterator for Addrs<'a, 'b> {
             payload = &payload[attr_total_len..];
         }
 
-        Some(Ok((Addr{ ifindex, flags, scope, addr, local, broadcast, label, })))
+        Some(Ok(Addr{ ifindex, flags, scope, addr, local, broadcast, label, }))
     }
 }

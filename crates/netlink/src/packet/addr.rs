@@ -1,11 +1,9 @@
 // https://github.com/torvalds/linux/blob/master/include/uapi/linux/if_addr.h
 
-use crate::packet::Kind;
-use crate::packet::MacAddr;
 use crate::packet::RouteScope;
 use crate::packet::AddressFamily;
 
-use byteorder::{ByteOrder, NativeEndian, NetworkEndian};
+use byteorder::{ByteOrder, NativeEndian};
 
 use std::io;
 use core::ops::Range;

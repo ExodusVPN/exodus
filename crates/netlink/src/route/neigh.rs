@@ -11,7 +11,7 @@ use crate::packet::NeighbourState;
 use crate::packet::NeighbourFlags;
 
 
-use byteorder::{ByteOrder, NativeEndian, NetworkEndian};
+use byteorder::{ByteOrder, NetworkEndian};
 
 use std::io;
 
@@ -108,7 +108,7 @@ impl<'a, 'b> Iterator for Neighbours<'a, 'b> {
                 Err(e) => return Some(Err(e)),
             };
 
-            let attr_payload_len = attr.payload_len();
+            // let attr_payload_len = attr.payload_len();
             let attr_total_len = attr.total_len();
 
             let attr_kind = NeighbourAttrType(attr.kind());

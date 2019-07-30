@@ -4,8 +4,6 @@ use byteorder::{ByteOrder, NativeEndian};
 
 use std::io;
 use core::ops::Range;
-use std::convert::TryFrom;
-
 
 // rtm_type
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
@@ -92,7 +90,6 @@ impl std::fmt::Debug for RouteProtocol {
             Self::RTPROT_STATIC => write!(f, "RTPROT_STATIC"),
             Self::RTPROT_GATED => write!(f, "RTPROT_GATED"),
             Self::RTPROT_RA => write!(f, "RTPROT_RA"),
-            Self::RTPROT_MRT => write!(f, "RTPROT_MRT"),
             Self::RTPROT_MRT => write!(f, "RTPROT_MRT"),
             Self::RTPROT_ZEBRA => write!(f, "RTPROT_ZEBRA"),
             Self::RTPROT_BIRD => write!(f, "RTPROT_BIRD"),

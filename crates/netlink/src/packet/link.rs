@@ -1,13 +1,10 @@
-use super::align;
-use super::RouteType;
 use super::AddressFamily;
 
 use libc::IF_NAMESIZE;
-use byteorder::{ByteOrder, NativeEndian, NetworkEndian};
+use byteorder::{ByteOrder, NativeEndian};
 
 use std::io;
 use core::ops::Range;
-use std::convert::TryFrom;
 
 
 // Link layer specific messages.

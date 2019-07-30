@@ -13,7 +13,7 @@ use crate::packet::LinkOperState;
 use crate::packet::LinkName;
 
 use libc::IF_NAMESIZE;
-use byteorder::{ByteOrder, NativeEndian, NetworkEndian};
+use byteorder::{ByteOrder, NativeEndian};
 
 use std::io;
 
@@ -93,7 +93,7 @@ impl<'a, 'b> Iterator for Links<'a, 'b> {
             Err(e) => return Some(Err(e)),
         };
         
-        let address_family = packet.family();
+        // let address_family = packet.family();
         let kind = packet.kind();
         let ifindex = packet.ifindex() as u32;
         let flags = packet.flags();
@@ -117,7 +117,7 @@ impl<'a, 'b> Iterator for Links<'a, 'b> {
                 Err(e) => return Some(Err(e)),
             };
 
-            let attr_payload_len = attr.payload_len();
+            // let attr_payload_len = attr.payload_len();
             let attr_total_len = attr.total_len();
 
             let attr_kind = LinkAttrType(attr.kind());
@@ -148,6 +148,6 @@ impl<'a, 'b> Iterator for Links<'a, 'b> {
             payload = &payload[attr_total_len..];
         }
 
-        Some(Ok((Link{ ifindex, kind, flags, ifname, mtu, mode, oper_state, addr, broadcast, })))
+        Some(Ok(Link{ ifindex, kind, flags, ifname, mtu, mode, oper_state, addr, broadcast, }))
     }
 }

@@ -1,12 +1,10 @@
 use super::align;
 use super::RouteType;
 
-use byteorder::{ByteOrder, NativeEndian, NetworkEndian};
+use byteorder::{ByteOrder, NativeEndian};
 
 use std::io;
 use core::ops::Range;
-use std::convert::TryFrom;
-
 
 // Neighbor Setup Service Module
 // 
@@ -199,9 +197,6 @@ const STATE:   Range<usize> = 8..10;
 const FLAGS: usize          = 10;
 const KIND: usize           = 11;
 const PAYLOAD: usize        = 12;
-
-// attrs
-const SRC_ADDR_LEN: Range<usize> = 12..14;
 
 
 #[derive(Debug, PartialEq, Clone)]

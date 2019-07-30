@@ -108,7 +108,7 @@ impl<'a, 'b> Iterator for Routes<'a, 'b> {
                 Err(e) => return Some(Err(e)),
             };
 
-            let attr_payload_len = attr.payload_len();
+            // let attr_payload_len = attr.payload_len();
             let attr_total_len = attr.total_len();
 
             let attr_kind = RouteAttrType(attr.kind());
@@ -145,6 +145,6 @@ impl<'a, 'b> Iterator for Routes<'a, 'b> {
             payload = &payload[attr_total_len..];
         }
 
-        Some(Ok((Route{ table, protocol, scope, kind, flags, dst_addr, pref_src, out_ifindex, })))
+        Some(Ok(Route{ table, protocol, scope, kind, flags, dst_addr, pref_src, out_ifindex, }))
     }
 }

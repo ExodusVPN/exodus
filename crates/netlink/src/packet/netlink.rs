@@ -4,7 +4,6 @@ use byteorder::{ByteOrder, NativeEndian};
 
 use std::io;
 use core::ops::Range;
-use std::convert::TryFrom;
 
 // https://tools.ietf.org/html/rfc3549#section-2.2
 // Message Format
