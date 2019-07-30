@@ -56,6 +56,7 @@ use core::ops::Range;
 // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 // 
 
+// 16 bytes
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct nlmsghdr {

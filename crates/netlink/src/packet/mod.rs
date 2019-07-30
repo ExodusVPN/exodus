@@ -23,20 +23,22 @@ pub const fn align(len: usize) -> usize {
     (len + NLA_ALIGNTO - 1) & !(NLA_ALIGNTO - 1)
 }
 
+
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
-pub struct nlmsg<T: Sized> {
+pub struct nlmsg<H: Sized, P: Sized> {
     header   : nlmsghdr,
-    // Subsystem data
-    ancillary: T,
+    // subsystem header
+    ancillary: H,
+    payload: P,
 }
 
-impl<T> nlmsg<T> {
-    pub fn new(header: nlmsghdr, ancillary: T) -> Self {
-        let size = std::mem::size_of::<T>() + std::mem::size_of::<nlmsghdr>();
+impl<T, P> nlmsg<T, P> {
+    pub fn new(header: nlmsghdr, ancillary: T, payload: P) -> Self {
+        let size = std::mem::size_of::<nlmsghdr>() + std::mem::size_of::<T>() + std::mem::size_of::<P>();
         assert!(size <= MAX_NL_LENGTH);
-
-        Self { header, ancillary }
+        
+        Self { header, ancillary, payload }
     }
 
     pub const fn size(&self) -> usize {

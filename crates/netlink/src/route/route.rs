@@ -115,10 +115,10 @@ impl<'a, 'b> Iterator for Routes<'a, 'b> {
             let attr_data = attr.payload();
             
             if attr_kind == RouteAttrType::RTA_DST {
-                if address_family == AddressFamily::V4 {
+                if address_family == AddressFamily::AF_INET {
                     let octets = NetworkEndian::read_u32(&attr_data);
                     dst_addr = Some(std::net::Ipv4Addr::from(octets).into());
-                } else if address_family == AddressFamily::V6 {
+                } else if address_family == AddressFamily::AF_INET6 {
                     let octets = NetworkEndian::read_u128(&attr_data);
                     dst_addr = Some(std::net::Ipv6Addr::from(octets).into())
                 } else {
@@ -126,10 +126,10 @@ impl<'a, 'b> Iterator for Routes<'a, 'b> {
                     continue;
                 }
             } else if attr_kind == RouteAttrType::RTA_PREFSRC {
-                if address_family == AddressFamily::V4 {
+                if address_family == AddressFamily::AF_INET {
                     let octets = NetworkEndian::read_u32(&attr_data);
                     pref_src = Some(std::net::Ipv4Addr::from(octets).into());
-                } else if address_family == AddressFamily::V6 {
+                } else if address_family == AddressFamily::AF_INET6 {
                     let octets = NetworkEndian::read_u128(&attr_data);
                     pref_src = Some(std::net::Ipv6Addr::from(octets).into())
                 } else {

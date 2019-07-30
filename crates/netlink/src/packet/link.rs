@@ -7,6 +7,7 @@ use std::io;
 use core::ops::Range;
 
 
+// 16 bytes
 // passes link level specific information, not dependent on network protocol.
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -367,6 +368,12 @@ impl std::fmt::Debug for LinkAttrType {
 impl std::fmt::Display for LinkAttrType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
+    }
+}
+
+impl Into<u16> for LinkAttrType {
+    fn into(self) -> u16 {
+        self.0
     }
 }
 

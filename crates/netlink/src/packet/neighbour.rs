@@ -160,15 +160,17 @@ impl std::fmt::Debug for MacAddr {
 pub struct AddressFamily(pub u8);
 
 impl AddressFamily {
-    pub const V4: Self = Self(2);
-    pub const V6: Self = Self(10);
+    pub const AF_UNSPEC: Self = Self(0);
+    pub const AF_INET: Self   = Self(2);
+    pub const AF_INET6: Self  = Self(10);
 }
 
 impl std::fmt::Debug for AddressFamily {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match *self {
-            Self::V4 => write!(f, "AF_INET"),
-            Self::V6 => write!(f, "AF_INET6"),
+            Self::AF_UNSPEC => write!(f, "AF_INET"),
+            Self::AF_INET => write!(f, "AF_INET"),
+            Self::AF_INET6 => write!(f, "AF_INET6"),
             _ => write!(f, "AF_UNKNOW({})", self.0),
         }
     }
@@ -179,6 +181,13 @@ impl std::fmt::Display for AddressFamily {
         write!(f, "{:?}", self)
     }
 }
+
+impl Into<u8> for AddressFamily {
+    fn into(self) -> u8 {
+        self.0
+    }
+}
+
 
 bitflags! {
     pub struct NeighbourState: u16 {
