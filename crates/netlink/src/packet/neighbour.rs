@@ -117,6 +117,21 @@ pub struct ndt_config {
     pub ndtc_proxy_qlen: u32,
 }
 
+// Neighbor Discovery userland options
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct nduseroptmsg {
+    pub nduseropt_family: u8,
+    pub nduseropt_pad1: u8,
+    pub nduseropt_opts_len: u16,  // Total length of options
+    pub nduseropt_ifindex: i32,
+    pub nduseropt_icmp_type: u8,
+    pub nduseropt_icmp_code: u8,
+    pub nduseropt_pad2: u16,
+    pub nduseropt_pad3: u32,
+    // Followed by one or more ND options
+}
+
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct MacAddr(pub [u8; 6]);

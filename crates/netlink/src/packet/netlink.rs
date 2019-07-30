@@ -56,6 +56,54 @@ use core::ops::Range;
 // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 // 
 
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct nlmsghdr {
+    // Length of message including header
+    pub nlmsg_len: u32,
+    // Type of message content: RTM_GETNEIGH, ...
+    pub nlmsg_type: u16,
+    // Additional flags: NLM_F_DUMP, NLM_F_REQUEST, ...
+    pub nlmsg_flags: u16,
+    // Sequence number
+    pub nlmsg_seq: u32,
+    // Sending process port ID
+    pub nlmsg_pid: u32,
+}
+
+impl Default for nlmsghdr {
+    fn default() -> Self {
+        Self {
+            nlmsg_len: std::mem::size_of::<Self>() as u32,
+            nlmsg_type: 0,
+            nlmsg_flags: 0,
+            nlmsg_seq: 0,
+            nlmsg_pid: 0,
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct nl_mmap_req {
+    pub nm_block_size: u32,
+    pub nm_block_nr: u32,
+    pub nm_frame_size: u32,
+    pub nm_frame_nr: u32,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct nl_mmap_hdr {
+    pub nm_status: u32,
+    pub nm_len: u32,
+    pub nm_group: u32,
+    // credentials
+    pub nm_pid: u32,
+    pub nm_uid: u32,
+    pub nm_gid: u32,
+}
+
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct Protocol(pub i32);
