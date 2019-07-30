@@ -262,6 +262,13 @@ bitflags! {
     }
 }
 
+impl Into<u16> for Flags {
+    fn into(self) -> u16 {
+        self.bits()
+    }
+}
+
+
 const LEN:     Range<usize> = 0..4;
 const KIND:    Range<usize> = 4..6;
 const FLAGS:   Range<usize> = 6..8;

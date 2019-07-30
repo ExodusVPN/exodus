@@ -22,6 +22,22 @@ pub struct rtmsg {
     pub rtm_flags: u32,
 }
 
+impl Default for rtmsg {
+    fn default() -> Self {
+        Self {
+            rtm_family: 0,
+            rtm_dst_len: 0,
+            rtm_src_len: 0,
+            rtm_tos: 0,
+            rtm_table: 0,
+            rtm_protocol: 0,
+            rtm_scope: 0,
+            rtm_type: 0,
+            rtm_flags: 0,
+        }
+    }
+}
+
 
 // rtm_type
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
