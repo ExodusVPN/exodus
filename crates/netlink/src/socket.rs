@@ -143,7 +143,6 @@ impl NetlinkSocket {
     pub fn recv<T: AsMut<[u8]> + ?Sized>(&mut self, buf: &mut T) -> Result<usize, io::Error> {
         let buffer = buf.as_mut();
         
-
         let ptr = buffer.as_mut_ptr() as *mut libc::c_void;
         let len = buffer.len();
         let flags = 0i32;
