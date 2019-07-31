@@ -125,11 +125,14 @@ impl NetlinkSocket {
         Ok(())
     }
 
-    pub fn send(&mut self, buf: &[u8], flags: i32) -> Result<usize, io::Error> {
-        let buf_ptr = buf.as_ptr() as *const libc::c_void;
-        let buf_len = buf.len();
+    pub fn send<T: AsRef<[u8]> + ?Sized>(&mut self, buf: &T) -> Result<usize, io::Error> {
+        let buffer = buf.as_ref();
 
-        let amt = unsafe { libc::send(self.fd, buf_ptr, buf_len, flags) };
+        let ptr = buffer.as_ptr() as *const libc::c_void;
+        let len = buffer.len();
+        let flags = 0i32;
+
+        let amt = unsafe { libc::send(self.fd, ptr, len, flags) };
         if amt < 0 {
             return Err(io::Error::last_os_error());
         }
@@ -137,39 +140,20 @@ impl NetlinkSocket {
         Ok(amt as usize)
     }
 
-    pub fn recv(&mut self, buf: &mut [u8], flags: i32) -> Result<usize, io::Error> {
-        let buf_ptr = buf.as_mut_ptr() as *mut libc::c_void;
-        let buf_len = buf.len();
-
-        let amt = unsafe { libc::recv(self.fd, buf_ptr, buf_len, flags) };
-        if amt < 0 {
-            return Err(io::Error::last_os_error());
-        }
-
-        Ok(amt as usize)
-    }
-
-    pub fn send2<T: Sized>(&mut self, buf: &T) -> Result<usize, io::Error> {
-        let buf_len = std::mem::size_of::<T>();
-        let buf_ptr = buf as *const T as *const u8;
-
-        let buf = unsafe { std::slice::from_raw_parts(buf_ptr, buf_len) };
-
-        let amt = self.send(buf, 0)?;
-        assert_eq!(buf.len(), amt);
-
-        Ok(amt)
-    }
-
-    pub fn recv2<T: Sized>(&mut self, buf: &mut T) -> Result<usize, io::Error> {
-        let buf_len = std::mem::size_of::<T>();
-        let buf_ptr = buf as *mut T as *mut u8;
-
-        let buf = unsafe { std::slice::from_raw_parts_mut(buf_ptr, buf_len) };
-        let amt = self.recv(buf, 0)?;
-        assert_eq!(buf_len, amt);
+    pub fn recv<T: AsMut<[u8]> + ?Sized>(&mut self, buf: &mut T) -> Result<usize, io::Error> {
+        let buffer = buf.as_mut();
         
-        Ok(amt)
+
+        let ptr = buffer.as_mut_ptr() as *mut libc::c_void;
+        let len = buffer.len();
+        let flags = 0i32;
+
+        let amt = unsafe { libc::recv(self.fd, ptr, len, flags) };
+        if amt < 0 {
+            return Err(io::Error::last_os_error());
+        }
+
+        Ok(amt as usize)
     }
 }
 
@@ -188,13 +172,13 @@ impl IntoRawFd for NetlinkSocket {
 
 impl Read for NetlinkSocket {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.recv(buf, 0)
+        self.recv(buf)
     }
 }
 
 impl Write for NetlinkSocket {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.send(buf, 0)
+        self.send(buf)
     }
 
     fn flush(&mut self) -> io::Result<()> {

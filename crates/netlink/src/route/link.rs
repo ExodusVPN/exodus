@@ -43,7 +43,7 @@ pub struct Links<'a, 'b> {
 impl<'a, 'b> Links<'a, 'b> {
     fn next_packet(&mut self) -> Result<Option<NetlinkPacket<&[u8]>>, io::Error> {
         if self.offset >= self.buffer_len {
-            let amt = self.socket.recv(&mut self.buffer, 0)?;
+            let amt = self.socket.recv(&mut self.buffer)?;
             trace!("read {} bytes from netlink socket.", amt);
             self.buffer_len = amt;
             self.offset = 0;

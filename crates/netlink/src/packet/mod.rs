@@ -48,26 +48,55 @@ impl<T, P> nlmsg<T, P> {
     pub fn fill_size(&mut self) {
         self.header.nlmsg_len = self.size() as u32;
     }
+}
 
-    pub fn as_ptr(&self) -> *const Self {
-        self
-    }
 
-    pub fn as_mut_ptr(&mut self) -> *mut Self {
-        self
-    }
+macro_rules! impl_as_ref_for_struct {
+    ($type:ty) => (
+        impl AsRef<[u8]> for $type {
+            fn as_ref(&self) -> &[u8] {
+                let len = std::mem::size_of::<Self>();
+                let ptr = self as *const Self as *const u8;
+                unsafe { std::slice::from_raw_parts(ptr, len) }
+            }
+        }
 
-    pub fn as_bytes(&self) -> &[u8] {
-        let ptr = self.as_ptr() as *const u8;
+        impl AsMut<[u8]> for $type {
+            fn as_mut(&mut self) -> &mut [u8] {
+                let len = std::mem::size_of::<Self>();
+                let ptr = self as *mut Self as *mut u8;
+                unsafe { std::slice::from_raw_parts_mut(ptr, len) }
+            }
+        }
+    );
+}
+
+impl_as_ref_for_struct!(ifa_cacheinfo);
+impl_as_ref_for_struct!(ifaddrmsg);
+impl_as_ref_for_struct!(ifinfomsg);
+impl_as_ref_for_struct!(nda_cacheinfo);
+impl_as_ref_for_struct!(ndmsg);
+impl_as_ref_for_struct!(ndt_config);
+impl_as_ref_for_struct!(ndt_stats);
+impl_as_ref_for_struct!(ndtmsg);
+impl_as_ref_for_struct!(nduseroptmsg);
+impl_as_ref_for_struct!(nl_mmap_hdr);
+impl_as_ref_for_struct!(nl_mmap_req);
+impl_as_ref_for_struct!(nlmsghdr);
+impl_as_ref_for_struct!(rtmsg);
+        
+impl<H: Sized, P: Sized> AsRef<[u8]> for nlmsg<H, P> {
+    fn as_ref(&self) -> &[u8] {
         let len = std::mem::size_of::<Self>();
-
+        let ptr = self as *const Self as *const u8;
         unsafe { std::slice::from_raw_parts(ptr, len) }
     }
+}
 
-    pub fn as_bytes_mut(&mut self) -> &mut [u8] {
-        let ptr = self.as_mut_ptr() as *mut u8;
+impl<H: Sized, P: Sized> AsMut<[u8]> for nlmsg<H, P> {
+    fn as_mut(&mut self) -> &mut [u8] {
         let len = std::mem::size_of::<Self>();
-
+        let ptr = self as *mut Self as *mut u8;
         unsafe { std::slice::from_raw_parts_mut(ptr, len) }
     }
 }

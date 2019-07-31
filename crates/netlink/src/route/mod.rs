@@ -41,7 +41,7 @@ impl RouteController {
         let mut message = packet::nlmsg::new(header, ifinfo, payload);
         message.fill_size();
 
-        self.nl_socket.send2(&message)?;
+        self.nl_socket.send(&message)?;
 
         Ok(link::Links {
             socket: &mut self.nl_socket,
@@ -63,7 +63,7 @@ impl RouteController {
         let mut message = packet::nlmsg::new(header, ifinfo, payload);
         message.fill_size();
 
-        self.nl_socket.send2(&message)?;
+        self.nl_socket.send(&message)?;
 
         Ok(addr::Addrs {
             socket: &mut self.nl_socket,
@@ -85,7 +85,7 @@ impl RouteController {
         let mut message = packet::nlmsg::new(header, ifinfo, payload);
         message.fill_size();
 
-        self.nl_socket.send2(&message)?;
+        self.nl_socket.send(&message)?;
 
         Ok(route::Routes {
             socket: &mut self.nl_socket,
@@ -107,7 +107,7 @@ impl RouteController {
         let mut message = packet::nlmsg::new(header, rtmsg, payload);
         message.fill_size();
 
-        self.nl_socket.send2(&message)?;
+        self.nl_socket.send(&message)?;
 
         Ok(neigh::Neighbours {
             socket: &mut self.nl_socket,
@@ -172,9 +172,9 @@ impl RouteController {
 
         let buffer = nl_packet.into_inner();
 
-        self.nl_socket.send(&buffer[..nl_packet_len], 0)?;
+        self.nl_socket.send(&buffer[..nl_packet_len])?;
 
-        let amt = self.nl_socket.recv(buffer, 0)?;
+        let amt = self.nl_socket.recv(buffer)?;
         trace!("read {} bytes from netlink socket.", amt);
 
         // TODO: Check netlink message.
@@ -195,9 +195,9 @@ impl RouteController {
         let mut message = packet::nlmsg::new(header, ifinfo, payload);
         message.fill_size();
 
-        self.nl_socket.send2(&message)?;
+        self.nl_socket.send(&message)?;
 
-        let amt = self.nl_socket.recv(buffer, 0)?;
+        let amt = self.nl_socket.recv(buffer)?;
         trace!("read {} bytes from netlink socket.", amt);
 
         // TODO: Check netlink message.
@@ -208,12 +208,12 @@ impl RouteController {
         // RTM_DELNEIGH
         unimplemented!()
     }
+
+    pub fn add_route(&mut self) -> Result<(), io::Error> {
+        unimplemented!()
+    }
+
+    pub fn remove_route(&mut self) -> Result<(), io::Error> {
+        unimplemented!()
+    }
 }
-
-
-
-
-
-
-
-
