@@ -10,14 +10,26 @@ fn main() -> Result<(), io::Error> {
     for x in socket.routes(&mut buffer)? {
         let item = x?;
         // println!("{:?}", item);
-        if (item.kind != RouteType::RTN_UNSPEC && item.kind != RouteType::RTN_UNICAST) || item.out_ifindex.is_none() {
+        if item.kind != RouteType::RTN_UNSPEC && item.kind != RouteType::RTN_UNICAST {
+            continue;
+        }
+        if item.out_ifindex.is_none() {
+            continue;
+        }
+        if item.address_family.is_unspecified() || item.address_family.is_unknow() {
             continue;
         }
 
         let dst = if let Some(cidr) = item.dst_cidr {
             format!("{}", cidr)
         } else {
-            "default".to_string()
+            if item.address_family.is_ipv4() {
+                format!("{}", std::net::Ipv4Addr::UNSPECIFIED)
+            } else if item.address_family.is_ipv6() {
+                format!("{}", std::net::Ipv6Addr::UNSPECIFIED)
+            } else {
+                unreachable!()
+            }
         };
 
         let src = if let Some(addr) = item.pref_src {

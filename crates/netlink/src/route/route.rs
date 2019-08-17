@@ -22,6 +22,7 @@ pub struct Route {
     pub scope: RouteScope,
     pub kind: RouteType,
     pub flags: RouteFlags,
+    pub address_family: AddressFamily,
     pub dst_cidr: Option<IpCidr>,
     pub pref_src: Option<IpAddr>,
     pub gateway: Option<IpAddr>,
@@ -173,6 +174,6 @@ impl<'a, 'b> Iterator for Routes<'a, 'b> {
             payload = &payload[attr_total_len..];
         }
 
-        Some(Ok(Route{ table, protocol, scope, kind, flags, dst_cidr, pref_src, gateway, out_ifindex, }))
+        Some(Ok(Route{ table, protocol, scope, kind, flags, address_family, dst_cidr, pref_src, gateway, out_ifindex, }))
     }
 }

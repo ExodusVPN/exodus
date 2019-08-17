@@ -163,6 +163,22 @@ impl AddressFamily {
     pub const AF_UNSPEC: Self = Self(0);
     pub const AF_INET: Self   = Self(2);
     pub const AF_INET6: Self  = Self(10);
+
+    pub fn is_ipv4(&self) -> bool {
+        self == &Self::AF_INET
+    }
+
+    pub fn is_ipv6(&self) -> bool {
+        self == &Self::AF_INET6
+    }
+
+    pub fn is_unspecified(&self) -> bool {
+        self == &Self::AF_UNSPEC
+    }
+
+    pub fn is_unknow(&self) -> bool {
+        !self.is_ipv4() && !self.is_ipv6() && !self.is_unspecified()
+    }
 }
 
 impl std::fmt::Debug for AddressFamily {
