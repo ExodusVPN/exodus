@@ -203,16 +203,21 @@ impl RouteController {
         // TODO: Check netlink message.
         Ok(())
     }
-
+    
+    pub fn add_addr(&mut self) -> Result<(), io::Error> {
+        // RTM_NEWADDR
+        unimplemented!()
+    }
+    
     pub fn remove_neighbour(&mut self) -> Result<(), io::Error> {
         // RTM_DELNEIGH
         unimplemented!()
     }
-
+    
     pub fn add_route(&mut self) -> Result<(), io::Error> {
         unimplemented!()
     }
-
+    
     pub fn remove_route(&mut self) -> Result<(), io::Error> {
         unimplemented!()
     }

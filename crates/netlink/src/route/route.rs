@@ -9,8 +9,10 @@ use crate::packet::RouteAttrType;
 use crate::packet::{RouteTable, RouteProtocol, RouteScope, RouteType, RouteFlags};
 
 use byteorder::{ByteOrder, NativeEndian, NetworkEndian};
+use smoltcp::wire::IpCidr;
 
 use std::io;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 
 #[derive(Debug, Clone, Copy)]
@@ -20,8 +22,8 @@ pub struct Route {
     pub scope: RouteScope,
     pub kind: RouteType,
     pub flags: RouteFlags,
-    pub dst_addr: Option<std::net::IpAddr>,
-    pub pref_src: Option<std::net::IpAddr>,
+    pub dst_cidr: Option<IpCidr>,
+    pub pref_src: Option<IpAddr>,
     pub out_ifindex: Option<u32>,
 }
 
@@ -85,14 +87,25 @@ impl<'a, 'b> Iterator for Routes<'a, 'b> {
             Ok(pkt) => pkt,
             Err(e) => return Some(Err(e)),
         };
-        
+
         let address_family = packet.family();
         let table = packet.table();
         let protocol = packet.protocol();
         let scope = packet.scope();
         let kind = packet.kind();
         let flags = packet.flags();
-        let mut dst_addr = None;
+        let src_len = packet.src_len();
+        let dst_len = packet.dst_len();
+
+        if address_family == AddressFamily::AF_INET {
+            debug_assert!(src_len == 0);
+            debug_assert!(dst_len <= 32);
+        } else if address_family == AddressFamily::AF_INET6 {
+            debug_assert!(src_len <= 0);
+            debug_assert!(dst_len <= 128);
+        }
+
+        let mut dst_cidr = None;
         let mut pref_src = None;
         let mut out_ifindex = None;
 
@@ -117,10 +130,12 @@ impl<'a, 'b> Iterator for Routes<'a, 'b> {
             if attr_kind == RouteAttrType::RTA_DST {
                 if address_family == AddressFamily::AF_INET {
                     let octets = NetworkEndian::read_u32(&attr_data);
-                    dst_addr = Some(std::net::Ipv4Addr::from(octets).into());
+                    let dst_addr: IpAddr = Ipv4Addr::from(octets).into();
+                    dst_cidr = Some(IpCidr::new(dst_addr.into(), dst_len));
                 } else if address_family == AddressFamily::AF_INET6 {
                     let octets = NetworkEndian::read_u128(&attr_data);
-                    dst_addr = Some(std::net::Ipv6Addr::from(octets).into())
+                    let dst_addr: IpAddr = Ipv6Addr::from(octets).into();
+                    dst_cidr = Some(IpCidr::new(dst_addr.into(), dst_len));
                 } else {
                     error!("Unknow Route Attr: type={:15} data={:?}", format!("{:?}", attr_kind), attr_data);
                     continue;
@@ -145,6 +160,6 @@ impl<'a, 'b> Iterator for Routes<'a, 'b> {
             payload = &payload[attr_total_len..];
         }
 
-        Some(Ok(Route{ table, protocol, scope, kind, flags, dst_addr, pref_src, out_ifindex, }))
+        Some(Ok(Route{ table, protocol, scope, kind, flags, dst_cidr, pref_src, out_ifindex, }))
     }
 }

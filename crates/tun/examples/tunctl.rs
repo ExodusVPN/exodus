@@ -13,7 +13,7 @@ fn main() -> Result<(), io::Error> {
     let mut buf = [0; 4096];
     
     loop {
-        let amount = device.read(&mut buf).unwrap();
+        let amount = device.read(&mut buf)?;
         println!("{:?}", &buf[0 .. amount]);
     }
 }

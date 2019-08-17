@@ -23,6 +23,10 @@ pub const fn align(len: usize) -> usize {
     (len + NLA_ALIGNTO - 1) & !(NLA_ALIGNTO - 1)
 }
 
+#[inline]
+pub const fn alloc() -> [u8; MAX_NL_LENGTH] {
+    [0u8; MAX_NL_LENGTH]
+}
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -36,7 +40,7 @@ pub struct nlmsg<H: Sized, P: Sized> {
 impl<T, P> nlmsg<T, P> {
     pub fn new(header: nlmsghdr, ancillary: T, payload: P) -> Self {
         let size = std::mem::size_of::<nlmsghdr>() + std::mem::size_of::<T>() + std::mem::size_of::<P>();
-        assert!(size <= MAX_NL_LENGTH);
+        debug_assert!(size <= MAX_NL_LENGTH);
         
         Self { header, ancillary, payload }
     }

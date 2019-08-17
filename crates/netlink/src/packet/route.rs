@@ -350,12 +350,14 @@ impl<T: AsRef<[u8]>> RoutePacket<T> {
         AddressFamily(data[FAMILY])
     }
 
+    // SRC ADDR Prefix Len (netmask bits)
     #[inline]
     pub fn dst_len(&self) -> u8 {
         let data = self.buffer.as_ref();
         data[DST_LEN]
     }
 
+    // DST ADDR Prefix Len (netmask bits)
     #[inline]
     pub fn src_len(&self) -> u8 {
         let data = self.buffer.as_ref();
