@@ -184,7 +184,7 @@ impl AddressFamily {
 impl std::fmt::Debug for AddressFamily {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match *self {
-            Self::AF_UNSPEC => write!(f, "AF_INET"),
+            Self::AF_UNSPEC => write!(f, "AF_UNSPEC"),
             Self::AF_INET => write!(f, "AF_INET"),
             Self::AF_INET6 => write!(f, "AF_INET6"),
             _ => write!(f, "AF_UNKNOW({})", self.0),
