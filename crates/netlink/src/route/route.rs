@@ -24,6 +24,7 @@ pub struct Route {
     pub flags: RouteFlags,
     pub dst_cidr: Option<IpCidr>,
     pub pref_src: Option<IpAddr>,
+    pub gateway: Option<IpAddr>,
     pub out_ifindex: Option<u32>,
 }
 
@@ -107,6 +108,7 @@ impl<'a, 'b> Iterator for Routes<'a, 'b> {
 
         let mut dst_cidr = None;
         let mut pref_src = None;
+        let mut gateway = None;
         let mut out_ifindex = None;
 
         let mut payload = packet.payload();
@@ -153,6 +155,17 @@ impl<'a, 'b> Iterator for Routes<'a, 'b> {
                 }
             } else if attr_kind == RouteAttrType::RTA_OIF {
                 out_ifindex = Some(NativeEndian::read_i32(&attr_data) as u32);
+            } else if attr_kind == RouteAttrType::RTA_GATEWAY {
+                if address_family == AddressFamily::AF_INET {
+                    let octets = NetworkEndian::read_u32(&attr_data);
+                    gateway = Some(std::net::Ipv4Addr::from(octets).into());
+                } else if address_family == AddressFamily::AF_INET6 {
+                    let octets = NetworkEndian::read_u128(&attr_data);
+                    gateway = Some(std::net::Ipv6Addr::from(octets).into())
+                } else {
+                    error!("Unknow Route Attr: type={:15} data={:?}", format!("{:?}", attr_kind), attr_data);
+                    continue;
+                }
             } else {
                 trace!("Droped Route Attr: type={:15} data={:?}", format!("{:?}", attr_kind), attr_data);
             }
@@ -160,6 +173,6 @@ impl<'a, 'b> Iterator for Routes<'a, 'b> {
             payload = &payload[attr_total_len..];
         }
 
-        Some(Ok(Route{ table, protocol, scope, kind, flags, dst_cidr, pref_src, out_ifindex, }))
+        Some(Ok(Route{ table, protocol, scope, kind, flags, dst_cidr, pref_src, gateway, out_ifindex, }))
     }
 }
