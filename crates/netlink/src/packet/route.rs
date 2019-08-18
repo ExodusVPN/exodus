@@ -44,16 +44,16 @@ impl Default for rtmsg {
 pub struct RouteType(pub u8);
 
 impl RouteType {
-    pub const RTN_UNSPEC: Self      =  Self(0); // Gateway or direct route
-    pub const RTN_UNICAST: Self     =  Self(1); // Gateway or direct route
-    pub const RTN_LOCAL: Self       =  Self(2); // Accept locally
-    pub const RTN_BROADCAST: Self   =  Self(3); // Accept locally as broadcast, send as broadcast
-    pub const RTN_ANYCAST: Self     =  Self(4); // Accept locally as broadcast, but send as unicast
-    pub const RTN_MULTICAST: Self   =  Self(5); // Multicast route
-    pub const RTN_BLACKHOLE: Self   =  Self(6); // Drop
-    pub const RTN_UNREACHABLE: Self =  Self(7); // Destination is unreachable
-    pub const RTN_PROHIBIT: Self    =  Self(8); // Administratively prohibited
-    pub const RTN_THROW: Self       =  Self(9); // Not in this table
+    pub const RTN_UNSPEC: Self      = Self(0);  // Gateway or direct route
+    pub const RTN_UNICAST: Self     = Self(1);  // Gateway or direct route
+    pub const RTN_LOCAL: Self       = Self(2);  // Accept locally
+    pub const RTN_BROADCAST: Self   = Self(3);  // Accept locally as broadcast, send as broadcast
+    pub const RTN_ANYCAST: Self     = Self(4);  // Accept locally as broadcast, but send as unicast
+    pub const RTN_MULTICAST: Self   = Self(5);  // Multicast route
+    pub const RTN_BLACKHOLE: Self   = Self(6);  // Drop
+    pub const RTN_UNREACHABLE: Self = Self(7);  // Destination is unreachable
+    pub const RTN_PROHIBIT: Self    = Self(8);  // Administratively prohibited
+    pub const RTN_THROW: Self       = Self(9);  // Not in this table
     pub const RTN_NAT: Self         = Self(10); // Translate this address
     pub const RTN_XRESOLVE: Self    = Self(11); // Use external resolver
     pub const RTN_MAX: Self         = Self(11);
@@ -91,18 +91,18 @@ impl std::fmt::Display for RouteType {
 pub struct RouteProtocol(pub u8);
 
 impl RouteProtocol {
-    pub const RTPROT_UNSPEC: Self   =  Self(0);
-    pub const RTPROT_REDIRECT: Self =  Self(1); // Route installed by ICMP redirects, not used by current IPv4
-    pub const RTPROT_KERNEL: Self   =  Self(2); // Route installed by kernel
-    pub const RTPROT_BOOT: Self     =  Self(3); // Route installed during boot
-    pub const RTPROT_STATIC: Self   =  Self(4); // Route installed by administrator
+    pub const RTPROT_UNSPEC: Self   = Self(0);
+    pub const RTPROT_REDIRECT: Self = Self(1); // Route installed by ICMP redirects, not used by current IPv4
+    pub const RTPROT_KERNEL: Self   = Self(2); // Route installed by kernel
+    pub const RTPROT_BOOT: Self     = Self(3); // Route installed during boot
+    pub const RTPROT_STATIC: Self   = Self(4); // Route installed by administrator
     // Values of protocol >= RTPROT_STATIC are not interpreted by kernel
     // they are just passed from user and back as is.
     // It will be used by hypothetical multiple routing daemons.
     // Note that protocol values should be standardized in order to
     // avoid conflicts.
-    pub const RTPROT_GATED: Self    =  Self(8); // Apparently, GateD
-    pub const RTPROT_RA: Self       =  Self(9); // RDISC/ND router advertisements
+    pub const RTPROT_GATED: Self    = Self(8); // Apparently, GateD
+    pub const RTPROT_RA: Self       = Self(9); // RDISC/ND router advertisements
     pub const RTPROT_MRT: Self      = Self(10); // Merit MRT
     pub const RTPROT_ZEBRA: Self    = Self(11); // Zebra
     pub const RTPROT_BIRD: Self     = Self(12); // BIRD
@@ -150,7 +150,7 @@ impl std::fmt::Display for RouteProtocol {
 pub struct RouteScope(pub u8);
 
 impl RouteScope {
-    pub const RT_SCOPE_UNIVERSE: Self =   Self(0);
+    pub const RT_SCOPE_UNIVERSE: Self = Self(0);
     // User defined values
     pub const RT_SCOPE_SITE: Self     = Self(200);
     pub const RT_SCOPE_LINK: Self     = Self(253);
@@ -184,7 +184,7 @@ pub struct RouteTable(pub u8);
 
 impl RouteTable {
     // Reserved table identifiers
-    pub const RT_TABLE_UNSPEC: Self  =   Self(0);
+    pub const RT_TABLE_UNSPEC: Self  = Self(0);
     // User defined values
     pub const RT_TABLE_COMPAT: Self  = Self(252);
     pub const RT_TABLE_DEFAULT: Self = Self(253);

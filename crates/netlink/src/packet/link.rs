@@ -242,8 +242,8 @@ impl std::fmt::Display for LinkOperState {
 pub struct LinkMode(pub u32);
 
 impl LinkMode {
-    pub const IF_LINK_MODE_DEFAULT: Self     = Self(0);
-    pub const IF_LINK_MODE_DORMANT: Self     = Self(1); // limit upward transition to dormant
+    pub const IF_LINK_MODE_DEFAULT: Self = Self(0);
+    pub const IF_LINK_MODE_DORMANT: Self = Self(1); // limit upward transition to dormant
 }
 
 impl std::fmt::Debug for LinkMode {
