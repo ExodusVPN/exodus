@@ -411,6 +411,17 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> NetlinkPacket<T> {
     }
 }
 
+impl<'a, T: AsRef<[u8]> + ?Sized> std::fmt::Display for NetlinkPacket<&'a T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "NetlinkPacket {{ len: {:?}, kind: {}, flags: {:?}, seq: {:?}, pid: {:?}, payload: {:?} }}",
+                self.len(),
+                self.kind(),
+                self.flags(),
+                self.seq(),
+                self.pid(),
+                self.payload())
+    }
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct NetlinkErrorPacket<T: AsRef<[u8]>> {
@@ -468,6 +479,13 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> NetlinkErrorPacket<T> {
     }
 }
 
+impl<'a, T: AsRef<[u8]> + ?Sized> std::fmt::Display for NetlinkErrorPacket<&'a T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "NetlinkErrorPacket {{ errorno: {:?}, err: {:?} }}",
+                self.errorno(),
+                self.err())
+    }
+}
 
 
 #[derive(Debug, PartialEq, Clone)]

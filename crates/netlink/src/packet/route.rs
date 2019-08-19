@@ -59,6 +59,12 @@ impl RouteType {
     pub const RTN_MAX: Self         = Self(11);
 }
 
+impl Into<u8> for RouteType {
+    fn into(self) -> u8 {
+        self.0
+    }
+}
+
 impl std::fmt::Debug for RouteType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match *self {
@@ -91,7 +97,7 @@ impl std::fmt::Display for RouteType {
 pub struct RouteProtocol(pub u8);
 
 impl RouteProtocol {
-    pub const RTPROT_UNSPEC: Self   = Self(0);
+    pub const RTPROT_UNSPEC: Self   = Self(0); // unknown
     pub const RTPROT_REDIRECT: Self = Self(1); // Route installed by ICMP redirects, not used by current IPv4
     pub const RTPROT_KERNEL: Self   = Self(2); // Route installed by kernel
     pub const RTPROT_BOOT: Self     = Self(3); // Route installed during boot
@@ -101,8 +107,8 @@ impl RouteProtocol {
     // It will be used by hypothetical multiple routing daemons.
     // Note that protocol values should be standardized in order to
     // avoid conflicts.
-    pub const RTPROT_GATED: Self    = Self(8); // Apparently, GateD
-    pub const RTPROT_RA: Self       = Self(9); // RDISC/ND router advertisements
+    pub const RTPROT_GATED: Self    = Self(8);  // Apparently, GateD
+    pub const RTPROT_RA: Self       = Self(9);  // RDISC/ND router advertisements
     pub const RTPROT_MRT: Self      = Self(10); // Merit MRT
     pub const RTPROT_ZEBRA: Self    = Self(11); // Zebra
     pub const RTPROT_BIRD: Self     = Self(12); // BIRD
@@ -112,6 +118,12 @@ impl RouteProtocol {
     pub const RTPROT_DHCP: Self     = Self(16); // DHCP client
     pub const RTPROT_MROUTED: Self  = Self(17); // Multicast daemon
     pub const RTPROT_BABEL: Self    = Self(42); // Babel daemon
+}
+
+impl Into<u8> for RouteProtocol {
+    fn into(self) -> u8 {
+        self.0
+    }
 }
 
 impl std::fmt::Debug for RouteProtocol {
@@ -150,12 +162,18 @@ impl std::fmt::Display for RouteProtocol {
 pub struct RouteScope(pub u8);
 
 impl RouteScope {
-    pub const RT_SCOPE_UNIVERSE: Self = Self(0);
+    pub const RT_SCOPE_UNIVERSE: Self = Self(0);   // global route
     // User defined values
-    pub const RT_SCOPE_SITE: Self     = Self(200);
-    pub const RT_SCOPE_LINK: Self     = Self(253);
-    pub const RT_SCOPE_HOST: Self     = Self(254);
-    pub const RT_SCOPE_NOWHERE: Self  = Self(255);
+    pub const RT_SCOPE_SITE: Self     = Self(200); // interior route in the local autonomous system
+    pub const RT_SCOPE_LINK: Self     = Self(253); // route on this link
+    pub const RT_SCOPE_HOST: Self     = Self(254); // route on the local host
+    pub const RT_SCOPE_NOWHERE: Self  = Self(255); // destination doesn't exist
+}
+
+impl Into<u8> for RouteScope {
+    fn into(self) -> u8 {
+        self.0
+    }
 }
 
 impl std::fmt::Debug for RouteScope {
@@ -179,18 +197,25 @@ impl std::fmt::Display for RouteScope {
 
 
 // rt_class (rt_table)
+// The user may assign arbitrary values between RT_TABLE_UNSPEC and RT_TABLE_DEFAULT.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct RouteTable(pub u8);
 
 impl RouteTable {
     // Reserved table identifiers
-    pub const RT_TABLE_UNSPEC: Self  = Self(0);
+    pub const RT_TABLE_UNSPEC: Self  = Self(0);   // an unspecified routing table
     // User defined values
     pub const RT_TABLE_COMPAT: Self  = Self(252);
-    pub const RT_TABLE_DEFAULT: Self = Self(253);
-    pub const RT_TABLE_MAIN: Self    = Self(254);
-    pub const RT_TABLE_LOCAL: Self   = Self(255);
+    pub const RT_TABLE_DEFAULT: Self = Self(253); // the default table
+    pub const RT_TABLE_MAIN: Self    = Self(254); // the main table
+    pub const RT_TABLE_LOCAL: Self   = Self(255); // the local table
     // pub const RT_TABLE_MAX: Self     = Self(0xFFFFFFFF);
+}
+
+impl Into<u8> for RouteTable {
+    fn into(self) -> u8 {
+        self.0
+    }
 }
 
 impl std::fmt::Debug for RouteTable {
@@ -224,24 +249,31 @@ bitflags! {
     }
 }
 
+impl Into<u32> for RouteFlags {
+    fn into(self) -> u32 {
+        self.bits()
+    }
+}
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct RouteAttrType(pub u16);
 
 impl RouteAttrType {
-    pub const RTA_UNSPEC: Self     = Self(0);
-    pub const RTA_DST: Self        = Self(1);
-    pub const RTA_SRC: Self        = Self(2);
-    pub const RTA_IIF: Self        = Self(3);
-    pub const RTA_OIF: Self        = Self(4);
-    pub const RTA_GATEWAY: Self    = Self(5);
-    pub const RTA_PRIORITY: Self   = Self(6);
+    pub const RTA_UNSPEC: Self     = Self(0); // Ignored.
+    pub const RTA_DST: Self        = Self(1); // Protocol address for route destination address.
+    pub const RTA_SRC: Self        = Self(2); // Protocol address for route source address.
+    pub const RTA_IIF: Self        = Self(3); // Input interface index.
+    pub const RTA_OIF: Self        = Self(4); // Output interface index.
+    pub const RTA_GATEWAY: Self    = Self(5); // Protocol address for the gateway of the route
+    pub const RTA_PRIORITY: Self   = Self(6); // Priority of route.
+    // Preferred source address in cases where more than one source address could be used.
     pub const RTA_PREFSRC: Self    = Self(7);
+    // Route metrics attributed to route and associated protocols (e.g., RTT, initial TCP window, etc.).
     pub const RTA_METRICS: Self    = Self(8);
-    pub const RTA_MULTIPATH: Self  = Self(9);
+    pub const RTA_MULTIPATH: Self  = Self(9);  // Multipath route next hop's attributes.
     pub const RTA_PROTOINFO: Self  = Self(10); // no longer used
-    pub const RTA_FLOW: Self       = Self(11);
-    pub const RTA_CACHEINFO: Self  = Self(12);
+    pub const RTA_FLOW: Self       = Self(11); // Route realm.
+    pub const RTA_CACHEINFO: Self  = Self(12); // Cached route information.
     pub const RTA_SESSION: Self    = Self(13); // no longer used
     pub const RTA_MP_ALGO: Self    = Self(14); // no longer used
     pub const RTA_TABLE: Self      = Self(15);
@@ -254,6 +286,12 @@ impl RouteAttrType {
     pub const RTA_ENCAP: Self      = Self(22);
     pub const RTA_EXPIRES: Self    = Self(23);
     pub const RTA_PAD: Self        = Self(24);
+}
+
+impl Into<u16> for RouteAttrType {
+    fn into(self) -> u16 {
+        self.0
+    }
 }
 
 impl std::fmt::Debug for RouteAttrType {

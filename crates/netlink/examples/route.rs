@@ -3,13 +3,15 @@ extern crate netlink;
 use netlink::packet::RouteType;
 
 use std::io;
+use std::net::IpAddr;
 
-fn main() -> Result<(), io::Error> {
+fn list() -> Result<(), io::Error> {
     let mut buffer = netlink::packet::alloc();
     let mut socket = netlink::route::RouteController::new()?;
     for x in socket.routes(&mut buffer)? {
         let item = x?;
         // println!("{:?}", item);
+
         if item.kind != RouteType::RTN_UNSPEC && item.kind != RouteType::RTN_UNICAST {
             continue;
         }
@@ -19,7 +21,7 @@ fn main() -> Result<(), io::Error> {
         if item.address_family.is_unspecified() || item.address_family.is_unknow() {
             continue;
         }
-
+        
         let dst = if let Some(cidr) = item.dst_cidr {
             format!("{}", cidr)
         } else {
@@ -60,6 +62,24 @@ fn main() -> Result<(), io::Error> {
             gateway,
             out_ifindex);
     }
-    
+
+    Ok(())
+}
+
+fn del(dst_addr: IpAddr, prefix_len: u8) -> Result<(), io::Error> {
+    let mut buffer = netlink::packet::alloc();
+    let mut socket = netlink::route::RouteController::new()?;
+    socket.remove_route(dst_addr, prefix_len, &mut buffer)
+}
+
+fn main() -> Result<(), io::Error> {
+    list()?;
+
+    let addr: IpAddr = [8, 8, 8, 8].into();
+    let prefix_len = 32u8;
+    del(addr, prefix_len)?;
+    println!("route del {}/{}", addr, prefix_len);
+
+    list()?;
     Ok(())
 }

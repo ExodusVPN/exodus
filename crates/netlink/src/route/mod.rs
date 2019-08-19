@@ -5,9 +5,10 @@ use crate::packet;
 use crate::socket::NetlinkSocket;
 
 use libc::IF_NAMESIZE;
+use smoltcp::wire::IpCidr;
 
 use std::io;
-
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 pub mod link;
 pub mod neigh;
@@ -203,7 +204,7 @@ impl RouteController {
         // TODO: Check netlink message.
         Ok(())
     }
-    
+
     pub fn add_addr(&mut self) -> Result<(), io::Error> {
         // RTM_NEWADDR
         unimplemented!()
@@ -213,12 +214,120 @@ impl RouteController {
         // RTM_DELNEIGH
         unimplemented!()
     }
-    
+
     pub fn add_route(&mut self) -> Result<(), io::Error> {
         unimplemented!()
     }
-    
-    pub fn remove_route(&mut self) -> Result<(), io::Error> {
-        unimplemented!()
+                        // dst_addr: IpAddr,
+                        // prefix_len: u8,
+                        // pref_src: Option<IpAddr>, // via addr
+                        // gateway: Option<IpAddr>,
+                        // // table: packet::RouteTable,
+                        // // protocol: packet::RouteProtocol,
+                        // ifindex: u32,
+    pub fn remove_route(&mut self, dst_addr: IpAddr, prefix_len: u8, buffer: &mut [u8]) -> Result<(), io::Error> {
+        let address_family;
+        let scope;
+        let attr_dst_addr_len;
+        
+        if dst_addr.is_ipv4() {
+            assert!(prefix_len <= 32);
+            address_family = packet::AddressFamily::AF_INET;
+            attr_dst_addr_len = packet::align(4 + 4);
+        } else if dst_addr.is_ipv6() {
+            assert!(prefix_len <= 128);
+            address_family = packet::AddressFamily::AF_INET6;
+            attr_dst_addr_len = packet::align(4 + 16);
+        } else {
+            unreachable!();
+        }
+
+        if dst_addr.is_unspecified() {
+            // add default (0.0.0.0)
+            assert_eq!(prefix_len, 0);
+            scope = packet::RouteScope::RT_SCOPE_UNIVERSE;
+        } else {
+            scope = packet::RouteScope::RT_SCOPE_LINK;
+        }
+
+        let attrs_payload_len = attr_dst_addr_len + packet::align(4 + 4);
+        let nl_packet_len = packet::NetlinkPacket::<&[u8]>::MIN_SIZE + packet::RoutePacket::<&[u8]>::MIN_SIZE + attrs_payload_len;
+
+        let mut nl_packet = packet::NetlinkPacket::new_unchecked(buffer);
+        nl_packet.set_len(nl_packet_len as u32);
+        nl_packet.set_kind(packet::Kind::RTM_DELROUTE);
+        nl_packet.set_flags(packet::Flags::NLM_F_ACK);
+        nl_packet.set_seq(0);
+        nl_packet.set_pid(0);
+
+        let mut route_packet = packet::RoutePacket::new_unchecked(nl_packet.payload_mut());
+        route_packet.set_family(address_family);
+        route_packet.set_dst_len(prefix_len);
+        route_packet.set_src_len(0);
+        route_packet.set_tos(0);
+        route_packet.set_table(packet::RouteTable::RT_TABLE_MAIN);
+        route_packet.set_protocol(packet::RouteProtocol::RTPROT_BOOT);
+        route_packet.set_scope(packet::RouteScope::RT_SCOPE_LINK);
+        route_packet.set_kind(packet::RouteType::RTN_UNICAST);
+        route_packet.set_flags(packet::RouteFlags::from_bits_truncate(0));
+        
+        // Set attrs
+        let mut attrs_payload = route_packet.payload_mut();
+        debug_assert_eq!(attrs_payload_len, attrs_payload.len());
+
+        // dst_addr attr
+        let mut dst_addr_attr = packet::NetlinkAttrPacket::new_unchecked(&mut attrs_payload);
+        dst_addr_attr.set_len(attr_dst_addr_len as u16);
+        dst_addr_attr.set_kind(packet::RouteAttrType::RTA_DST.into());
+        let dst_addr_attr_payload = dst_addr_attr.payload_mut();
+        match dst_addr {
+            IpAddr::V4(v4_addr) => {
+                let dst_addr_data = v4_addr.octets();
+                &mut dst_addr_attr_payload[..dst_addr_data.len()].copy_from_slice(&dst_addr_data);
+                for x in &mut dst_addr_attr_payload[dst_addr_data.len()..] {
+                    *x = 0;
+                }
+            },
+            IpAddr::V6(v6_addr) => {
+                let dst_addr_data = v6_addr.octets();
+                &mut dst_addr_attr_payload[..dst_addr_data.len()].copy_from_slice(&dst_addr_data);
+                for x in &mut dst_addr_attr_payload[dst_addr_data.len()..] {
+                    *x = 0;
+                }
+            },
+        };
+
+        // out_ifindex attr
+        let mut out_ifindex_attr = packet::NetlinkAttrPacket::new_unchecked(&mut attrs_payload[attr_dst_addr_len..]);
+        out_ifindex_attr.set_len(packet::align(4 + 4) as u16);
+        out_ifindex_attr.set_kind(packet::RouteAttrType::RTA_OIF.into());
+        let out_ifindex_attr_payload = out_ifindex_attr.payload_mut();
+        let ifindex = 2u32;
+        &mut out_ifindex_attr_payload[..4].copy_from_slice(&ifindex.to_ne_bytes());
+        for x in &mut out_ifindex_attr_payload[4..] {
+            *x = 0;
+        }
+
+        let buffer = nl_packet.into_inner();
+
+        self.nl_socket.send(&buffer[..nl_packet_len])?;
+        for x in &mut buffer[..] {
+            *x = 0;
+        }
+
+        let amt = self.nl_socket.recv(buffer)?;
+        trace!("read {} bytes from netlink socket.", amt);
+        println!("amt: {:?}", amt);
+
+        // TODO: Check netlink message.
+        let pkt = packet::NetlinkPacket::new_checked(&buffer[..amt])?;
+        println!("{}", pkt);
+        if pkt.kind().is_err() {
+            let err_pkt = packet::NetlinkErrorPacket::new_unchecked(&pkt.payload()[4..]);
+            println!("{}", err_pkt);
+        }
+        
+        
+        Ok(())
     }
 }
