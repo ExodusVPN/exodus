@@ -184,12 +184,16 @@ pub fn delete() {
 }
 
 // 16 bytes
+#[repr(C)]
+#[derive(Debug)]
 pub struct sockaddr {
     pub sa_len: u8,
     pub sa_family: libc::sa_family_t,  // u8
     pub sa_data: [libc::c_char; 14],
 }
 // 16 bytes
+#[repr(C)]
+#[derive(Debug)]
 pub struct sockaddr_in {
     pub sin_len: u8,
     pub sin_family: libc::sa_family_t,  // u8
@@ -198,6 +202,8 @@ pub struct sockaddr_in {
     pub sin_zero: [libc::c_char; 8],
 }
 // 28 bytes
+#[repr(C)]
+#[derive(Debug)]
 pub struct sockaddr_in6 {
     pub sin6_len: u8,
     pub sin6_family: libc::sa_family_t,
@@ -275,15 +281,11 @@ unsafe fn sa_to_ipaddr(sa: *const libc::sockaddr) -> Addr {
             let sa_in = sa as *const libc::sockaddr_in;
             let sa_in_addr = (*sa_in).sin_addr.s_addr.to_ne_bytes();
             let ipv4_addr = std::net::Ipv4Addr::from(sa_in_addr);            
-            // let addr = std::net::IpAddr::from(ipv4_addr);
             Addr::V4(ipv4_addr)
         },
         libc::AF_INET6 => {
             let sa_in = sa as *const libc::sockaddr_in6;
             let sa_in_addr = (*sa_in).sin6_addr.s6_addr;
-            // let sa_in_port = (*sa_in).sin6_port;
-            // let sa_flowinfo = (*sa_in).sin6_flowinfo;
-            // let sa_scope_id = (*sa_in).sin6_scope_id;
             let ipv6_addr = std::net::Ipv6Addr::from(sa_in_addr);
             Addr::V6(ipv6_addr)
         },

@@ -19,5 +19,5 @@ fn main() -> Result<(), io::Error> {
 
 #[cfg(not(target_os = "macos"))]
 fn main() -> Result<(), io::Error> {
-    
+    Ok(())
 }
