@@ -1,5 +1,7 @@
 use libc;
 
+use smoltcp::wire::IpCidr;
+
 use std::io;
 use std::ptr;
 use std::mem;
@@ -127,10 +129,16 @@ pub struct rt_addrinfo {
 #[derive(Debug, Clone)]
 pub struct RouteTableMessage {
     pub hdr: rt_msghdr,
-    pub dst: Option<std::net::IpAddr>,
-    pub gateway: Option<std::net::IpAddr>,
-    pub netmask: Option<std::net::IpAddr>,
-    pub broadcast: Option<std::net::IpAddr>,
+    pub dst: IpCidr,
+    pub gateway: Addr,
+    // pub netmask: Option<std::net::IpAddr>,
+    // pub broadcast: Option<std::net::IpAddr>,
+}
+
+impl RouteTableMessage {
+    pub fn is_up(&self) -> bool {
+        self.hdr.rtm_flags & libc::RTF_UP == 1
+    }
 }
 
 
@@ -175,6 +183,133 @@ pub fn delete() {
 
 }
 
+// 16 bytes
+pub struct sockaddr {
+    pub sa_len: u8,
+    pub sa_family: libc::sa_family_t,  // u8
+    pub sa_data: [libc::c_char; 14],
+}
+// 16 bytes
+pub struct sockaddr_in {
+    pub sin_len: u8,
+    pub sin_family: libc::sa_family_t,  // u8
+    pub sin_port: libc::in_port_t,
+    pub sin_addr: libc::in_addr,        // u32
+    pub sin_zero: [libc::c_char; 8],
+}
+// 28 bytes
+pub struct sockaddr_in6 {
+    pub sin6_len: u8,
+    pub sin6_family: libc::sa_family_t,
+    pub sin6_port: libc::in_port_t,
+    pub sin6_flowinfo: u32,
+    pub sin6_addr: libc::in6_addr, // [u8; 16]
+    pub sin6_scope_id: u32,
+}
+// 20 bytes
+#[repr(C)]
+#[derive(Debug)]
+pub struct sockaddr_dl {
+    pub sdl_len: libc::c_uchar,
+    pub sdl_family: libc::c_uchar,
+    pub sdl_index: libc::c_ushort,
+    pub sdl_type: libc::c_uchar,
+    pub sdl_nlen: libc::c_uchar,
+    pub sdl_alen: libc::c_uchar,
+    pub sdl_slen: libc::c_uchar,
+    pub sdl_data: [libc::c_uchar; 12],
+}
+
+const NLA_ALIGNTO: usize       = 4;
+
+#[inline]
+pub const fn align(len: usize) -> usize {
+    (len + NLA_ALIGNTO - 1) & !(NLA_ALIGNTO - 1)
+}
+
+#[derive(Copy, Clone)]
+pub enum Addr {
+    V4(std::net::Ipv4Addr),
+    V6(std::net::Ipv6Addr),
+    Link {
+        ifindex: u32,
+        mac: Option<[u8; 6]>,
+    },
+}
+
+impl std::fmt::Debug for Addr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Addr::V4(addr) => std::fmt::Debug::fmt(&addr, f),
+            Addr::V6(addr) => std::fmt::Debug::fmt(&addr, f),
+            Addr::Link { ifindex, mac } => {
+                match mac {
+                    Some(addr) => {
+                        write!(f, "Link#{}({:x}:{:x}:{:x}:{:x}:{:x}:{:x})",
+                            ifindex,
+                            addr[0],
+                            addr[1],
+                            addr[2],
+                            addr[3],
+                            addr[4],
+                            addr[5],
+                            )
+                    },
+                    None => write!(f, "Link#{}", ifindex),
+                }
+            },
+        }
+    }
+}
+
+impl std::fmt::Display for Addr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+unsafe fn sa_to_ipaddr(sa: *const libc::sockaddr) -> Addr {
+    let sa_family = (*sa).sa_family as i32;
+    match sa_family {
+        libc::AF_INET => {
+            let sa_in = sa as *const libc::sockaddr_in;
+            let sa_in_addr = (*sa_in).sin_addr.s_addr.to_ne_bytes();
+            let ipv4_addr = std::net::Ipv4Addr::from(sa_in_addr);            
+            // let addr = std::net::IpAddr::from(ipv4_addr);
+            Addr::V4(ipv4_addr)
+        },
+        libc::AF_INET6 => {
+            let sa_in = sa as *const libc::sockaddr_in6;
+            let sa_in_addr = (*sa_in).sin6_addr.s6_addr;
+            // let sa_in_port = (*sa_in).sin6_port;
+            // let sa_flowinfo = (*sa_in).sin6_flowinfo;
+            // let sa_scope_id = (*sa_in).sin6_scope_id;
+            let ipv6_addr = std::net::Ipv6Addr::from(sa_in_addr);
+            Addr::V6(ipv6_addr)
+        },
+        libc::AF_LINK => {
+            let sa_dl = sa as *const libc::sockaddr_dl;
+            let ifindex = (*sa_dl).sdl_index;
+            let mac;
+            if (*sa_dl).sdl_alen == 6 {
+                let i = (*sa_dl).sdl_nlen as usize;
+            
+                let a = (*sa_dl).sdl_data[i+0] as u8;
+                let b = (*sa_dl).sdl_data[i+1] as u8;
+                let c = (*sa_dl).sdl_data[i+2] as u8;
+                let d = (*sa_dl).sdl_data[i+3] as u8;
+                let e = (*sa_dl).sdl_data[i+4] as u8;
+                let f = (*sa_dl).sdl_data[i+5] as u8;
+                mac = Some([ a, b, c, d, e, f, ]);
+            } else {
+                mac = None;
+            }
+            Addr::Link { ifindex: ifindex as u32, mac: mac }
+        },
+        _ => unreachable!("UNKNOW_AF_FAMILY({})", sa_family)
+    }
+}
+
 const RTM_MSGHDR_LEN: usize = std::mem::size_of::<rt_msghdr>();
 
 pub struct RouteTableMessageIter<'a> {
@@ -196,154 +331,82 @@ impl<'a> Iterator for RouteTableMessageIter<'a> {
             let rtm_hdr = mem::transmute::<*const u8, &rt_msghdr>(buffer.as_ptr());
             assert!(rtm_hdr.rtm_addrs < libc::RTAX_MAX);
             assert_eq!(rtm_hdr.rtm_version, 5);
+            assert_eq!(rtm_hdr.rtm_errno, 0);
 
             let rtm_pkt_len = rtm_hdr.rtm_msglen as usize;
-            assert!(buffer.len() >= rtm_pkt_len);
+            self.offset += rtm_pkt_len;
 
             let rtm_pkt = &mut buffer[..rtm_pkt_len];
+            assert!(rtm_pkt.len() >= rtm_pkt_len);
             let mut rtm_payload = &mut rtm_pkt[RTM_MSGHDR_LEN..rtm_pkt_len];
 
             let mut dst = None;
             let mut gateway = None;
-            let mut netmask = None;
-            let mut broadcast = None;
+            let mut dst_val = None;
+
+            if rtm_hdr.rtm_addrs & ( 1 << libc::RTAX_DST ) == 0 {
+                // Need a destination
+                return self.next();
+            }
+            let sa = mem::transmute::<*const u8, &libc::sockaddr>(rtm_payload.as_ptr());
+            let sa_len    = sa.sa_len as usize;
+            let sa_family = sa.sa_family as i32;
+            match sa_to_ipaddr(sa as *const libc::sockaddr) {
+                Addr::V4(v4_addr) => {
+                    dst = Some(std::net::IpAddr::from(v4_addr));
+                },
+                Addr::V6(v6_addr) => {
+                    dst = Some(std::net::IpAddr::from(v6_addr));
+                },
+                Addr::Link { .. } => {
+                    unreachable!();
+                },
+            }
+            rtm_payload = &mut rtm_payload[align(sa_len)..];
             
-            for idx in 0..rtm_hdr.rtm_addrs {
+            if rtm_hdr.rtm_addrs & ( 1 << libc::RTAX_GATEWAY ) == 0 {
+                // Need a gateway
+                return self.next();
+            }
+            let sa = mem::transmute::<*const u8, &libc::sockaddr>(rtm_payload.as_ptr());
+            let sa_len    = sa.sa_len as usize;
+            let sa_family = sa.sa_family as i32;
+            gateway = Some(sa_to_ipaddr(sa as *const libc::sockaddr));
+            rtm_payload = &mut rtm_payload[align(sa_len)..];
+
+            if rtm_hdr.rtm_addrs & ( 1 << libc::RTAX_NETMASK ) != 0 {
                 let sa = mem::transmute::<*const u8, &libc::sockaddr>(rtm_payload.as_ptr());
+                let sa_len    = sa.sa_len as usize;
                 let sa_family = sa.sa_family as i32;
-                
-                let addr_len: usize;
-                match sa_family {
-                    libc::AF_INET => {
-                        addr_len = std::mem::size_of::<libc::sockaddr_in>();
-                        let sa_in = mem::transmute::<*const u8, &libc::sockaddr_in>(rtm_payload.as_ptr());
-                        let sa_in_addr = sa_in.sin_addr.s_addr.to_ne_bytes();
-                        let sa_in_port = sa_in.sin_port;
-                        let ipv4_addr = std::net::Ipv4Addr::from(sa_in_addr);
-                        
-                        let addr = std::net::IpAddr::from(ipv4_addr);
-                        match idx {
-                            libc::RTAX_DST => {
-                                dst = Some(addr);
-                            },
-                            libc::RTAX_GATEWAY => {
-                                gateway = Some(addr);
-                            },
-                            libc::RTAX_NETMASK => {
-                                netmask = Some(addr);
-                            },
-                            libc::RTAX_BRD => {
-                                broadcast = Some(addr);
-                            },
-                            libc::RTAX_GENMASK => {
-
-                            },
-                            libc::RTAX_IFP => {
-
-                            },
-                            libc::RTAX_IFA => {
-
-                            },
-                            libc::RTAX_AUTHOR => {
-                                
-                            },
-                            _ => {
-                                println!("Unknow RTA({:?})", idx);
-                            }
-                        }
-                    },
-                    libc::AF_LINK => {
-                        addr_len = std::mem::size_of::<libc::sockaddr_dl>();
-                        let sa_dl = mem::transmute::<*const u8, &libc::sockaddr_dl>(rtm_payload.as_ptr());
-
-                        println!("\n\n\n");
-                        println!("sockaddr_dl {{ sdl_len: {:?}, sdl_family: {:?}, sdl_index: {:?}, sdl_type: {:?}, sdl_nlen: {:?}, sdl_alen: {:?}, sdl_slen: {:?}, sdl_data: {:?} }}",
-                            sa_dl.sdl_len,
-                            sa_dl.sdl_family,
-                            sa_dl.sdl_index,
-                            sa_dl.sdl_type,
-                            sa_dl.sdl_nlen,
-                            sa_dl.sdl_alen,
-                            sa_dl.sdl_slen,
-                            &sa_dl.sdl_data[..],
-                        );
-
-                        let ifindex = sa_dl.sdl_index;
-                        if sa_dl.sdl_nlen > 0 {
-                            let i = sa_dl.sdl_nlen as usize;
-
-                            let a = sa_dl.sdl_data[i+0];
-                            let b = sa_dl.sdl_data[i+1];
-                            let c = sa_dl.sdl_data[i+2];
-                            let d = sa_dl.sdl_data[i+3];
-                            let e = sa_dl.sdl_data[i+4];
-                            let f = sa_dl.sdl_data[i+5];
-
-                            let hardware_addr = [ a, b, c, d, e, f, ];
-                            println!("MAC: {:x}:{:x}:{:x}:{:x}:{:x}:{:x}", a, b, c, d, e, f);
-                            println!("{:?}", hardware_addr);
-                        }
-                        println!("Ifindex: {:?}", ifindex);
-                        println!("\n\n\n");
-
-                        unreachable!();
-                    },
-                    libc::AF_INET6 => {
-                        addr_len = std::mem::size_of::<libc::sockaddr_in6>();
-                        let sa_in = mem::transmute::<*const u8, &libc::sockaddr_in6>(rtm_payload.as_ptr());
-                        let sa_in_addr = sa_in.sin6_addr.s6_addr;
-                        // let sa_in_port = sa_in.sin6_port;
-                        // let sa_flowinfo = sa_in.sin6_flowinfo;
-                        // let sa_scope_id = sa_in.sin6_scope_id;
-                        let ipv6_addr = std::net::Ipv6Addr::from(sa_in_addr);
-                        
-                        let addr = std::net::IpAddr::from(ipv6_addr);
-                        match idx {
-                            libc::RTAX_DST => {
-                                dst = Some(addr);
-                            },
-                            libc::RTAX_GATEWAY => {
-                                gateway = Some(addr);
-                            },
-                            libc::RTAX_NETMASK => {
-                                netmask = Some(addr);
-                            },
-                            libc::RTAX_BRD => {
-                                broadcast = Some(addr);
-                            },
-                            libc::RTAX_GENMASK => {
-
-                            },
-                            libc::RTAX_IFP => {
-
-                            },
-                            libc::RTAX_IFA => {
-
-                            },
-                            libc::RTAX_AUTHOR => {
-
-                            },
-                            _ => {
-                                println!("Unknow RTA({:?})", idx);
-                            }
-                        }
-                    },
-                    _ => {
-                        unreachable!("Unknow sa_family({:?})", sa_family);
-                    },
-                }
-
-                rtm_payload = &mut rtm_payload[..addr_len];
+                dst_val = Some(rtm_payload[0] as usize);
+                rtm_payload = &mut rtm_payload[align(sa_len)..];
             }
 
-            self.offset += rtm_pkt_len;
+            let dst_cidr = match dst {
+                Some(addr) => {
+                    let prefix_len = if dst_val.is_some() {
+                        let dst_val = dst_val.unwrap();
+                        (dst_val * 4) - (align(dst_val) - dst_val) * 4
+                    } else {
+                        if addr.is_unspecified() { 
+                            0
+                        } else if addr.is_ipv4() {
+                            32
+                        } else if addr.is_ipv6() {
+                            128
+                        } else {
+                            unreachable!();
+                        }
+                    };
+                    Some(IpCidr::new(addr.into(), prefix_len as u8))
+                },
+                None => None,
+            };
 
             Some(RouteTableMessage {
                 hdr: *rtm_hdr,
-                dst,
-                gateway,
-                netmask,
-                broadcast,
+                dst: dst_cidr.unwrap(),
+                gateway: gateway.unwrap(),
             })
         }
     }

@@ -9,6 +9,8 @@ extern crate core_foundation;
 extern crate system_configuration;
 // #[cfg(target_os = "macos")]
 // extern crate pfctl;
+extern crate smoltcp;
+
 
 pub mod dns;
 pub mod ip_forwarding;
