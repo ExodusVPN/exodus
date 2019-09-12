@@ -193,7 +193,6 @@ pub struct sockaddr {
 }
 // 16 bytes
 #[repr(C)]
-#[derive(Debug)]
 pub struct sockaddr_in {
     pub sin_len: u8,
     pub sin_family: libc::sa_family_t,  // u8
@@ -203,7 +202,6 @@ pub struct sockaddr_in {
 }
 // 28 bytes
 #[repr(C)]
-#[derive(Debug)]
 pub struct sockaddr_in6 {
     pub sin6_len: u8,
     pub sin6_family: libc::sa_family_t,
