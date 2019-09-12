@@ -1,5 +1,5 @@
-use sysctl_sys::Mib;
-use sysctl_sys::Value;
+use sysctl::Mib;
+use sysctl::Value;
 
 use std::io;
 

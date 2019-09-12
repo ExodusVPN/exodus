@@ -1,9 +1,7 @@
 #[cfg(unix)]
 extern crate libc;
 #[cfg(unix)]
-extern crate nix;
-#[cfg(unix)]
-extern crate sysctl as sysctl_sys;
+extern crate sysctl;
 
 #[cfg(target_os = "macos")]
 extern crate core_foundation;
@@ -13,6 +11,6 @@ extern crate system_configuration;
 // extern crate pfctl;
 
 pub mod dns;
-pub mod sysctl;
+pub mod ip_forwarding;
 pub mod firewall;
 pub mod route;
