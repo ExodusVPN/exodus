@@ -1,6 +1,7 @@
 use libc;
-
 use smoltcp::wire::IpCidr;
+use smoltcp::wire::EthernetAddress;
+
 
 use std::io;
 use std::ptr;
@@ -11,6 +12,7 @@ pub const RTF_LLDATA: libc::c_int = 0x400;
 pub const RTF_DEAD: libc::c_int   = 0x20000000;
 pub const RTPRF_OURS: libc::c_int = libc::RTF_PROTO3;
 
+const RTM_MSGHDR_LEN: usize = std::mem::size_of::<rt_msghdr>();
 
 #[allow(non_snake_case)]
 #[repr(C)]
@@ -224,10 +226,9 @@ pub struct sockaddr_dl {
     pub sdl_data: [libc::c_uchar; 12],
 }
 
-const NLA_ALIGNTO: usize       = 4;
-
 #[inline]
-pub const fn align(len: usize) -> usize {
+const fn align(len: usize) -> usize {
+    const NLA_ALIGNTO: usize = 4;
     (len + NLA_ALIGNTO - 1) & !(NLA_ALIGNTO - 1)
 }
 
@@ -237,7 +238,7 @@ pub enum Addr {
     V6(std::net::Ipv6Addr),
     Link {
         ifindex: u32,
-        mac: Option<[u8; 6]>,
+        mac: Option<EthernetAddress>,
     },
 }
 
@@ -248,17 +249,7 @@ impl std::fmt::Debug for Addr {
             Addr::V6(addr) => std::fmt::Debug::fmt(&addr, f),
             Addr::Link { ifindex, mac } => {
                 match mac {
-                    Some(addr) => {
-                        write!(f, "Link#{}({:x}:{:x}:{:x}:{:x}:{:x}:{:x})",
-                            ifindex,
-                            addr[0],
-                            addr[1],
-                            addr[2],
-                            addr[3],
-                            addr[4],
-                            addr[5],
-                            )
-                    },
+                    Some(addr) => write!(f, "Link#{}({})", ifindex, addr),
                     None => write!(f, "Link#{}", ifindex),
                 }
             },
@@ -300,7 +291,7 @@ unsafe fn sa_to_ipaddr(sa: *const libc::sockaddr) -> Addr {
                 let d = (*sa_dl).sdl_data[i+3] as u8;
                 let e = (*sa_dl).sdl_data[i+4] as u8;
                 let f = (*sa_dl).sdl_data[i+5] as u8;
-                mac = Some([ a, b, c, d, e, f, ]);
+                mac = Some(EthernetAddress([ a, b, c, d, e, f, ]));
             } else {
                 mac = None;
             }
@@ -310,7 +301,7 @@ unsafe fn sa_to_ipaddr(sa: *const libc::sockaddr) -> Addr {
     }
 }
 
-const RTM_MSGHDR_LEN: usize = std::mem::size_of::<rt_msghdr>();
+
 
 pub struct RouteTableMessageIter<'a> {
     buffer: &'a mut [u8],
@@ -340,7 +331,9 @@ impl<'a> Iterator for RouteTableMessageIter<'a> {
             assert!(rtm_pkt.len() >= rtm_pkt_len);
             let mut rtm_payload = &mut rtm_pkt[RTM_MSGHDR_LEN..rtm_pkt_len];
 
+            #[allow(unused_assignments)]
             let mut dst = None;
+            #[allow(unused_assignments)]
             let mut gateway = None;
             let mut dst_val = None;
 
@@ -350,7 +343,6 @@ impl<'a> Iterator for RouteTableMessageIter<'a> {
             }
             let sa = mem::transmute::<*const u8, &libc::sockaddr>(rtm_payload.as_ptr());
             let sa_len    = sa.sa_len as usize;
-            let sa_family = sa.sa_family as i32;
             match sa_to_ipaddr(sa as *const libc::sockaddr) {
                 Addr::V4(v4_addr) => {
                     dst = Some(std::net::IpAddr::from(v4_addr));
@@ -370,16 +362,17 @@ impl<'a> Iterator for RouteTableMessageIter<'a> {
             }
             let sa = mem::transmute::<*const u8, &libc::sockaddr>(rtm_payload.as_ptr());
             let sa_len    = sa.sa_len as usize;
-            let sa_family = sa.sa_family as i32;
             gateway = Some(sa_to_ipaddr(sa as *const libc::sockaddr));
             rtm_payload = &mut rtm_payload[align(sa_len)..];
 
             if rtm_hdr.rtm_addrs & ( 1 << libc::RTAX_NETMASK ) != 0 {
                 let sa = mem::transmute::<*const u8, &libc::sockaddr>(rtm_payload.as_ptr());
                 let sa_len    = sa.sa_len as usize;
-                let sa_family = sa.sa_family as i32;
                 dst_val = Some(rtm_payload[0] as usize);
-                rtm_payload = &mut rtm_payload[align(sa_len)..];
+                #[allow(unused_assignments)]
+                {
+                    rtm_payload = &mut rtm_payload[align(sa_len)..];
+                }
             }
 
             let dst_cidr = match dst {
@@ -417,7 +410,7 @@ pub fn list<'a>(buffer: &'a mut Vec<u8>) -> Result<RouteTableMessageIter<'a>, io
     let flags = 0;
 
     let mut mib: [libc::c_int; 6] = [0; 6];
-    let mut lenp: libc::size_t = 0;
+    let mut len: libc::size_t = 0;
 
     mib[0] = libc::CTL_NET;
     mib[1] = libc::AF_ROUTE;
@@ -428,14 +421,14 @@ pub fn list<'a>(buffer: &'a mut Vec<u8>) -> Result<RouteTableMessageIter<'a>, io
 
     let mib_ptr = &mib as *const libc::c_int as *mut libc::c_int;
 
-    if unsafe { libc::sysctl(mib_ptr, 6, ptr::null_mut(), &mut lenp, ptr::null_mut(), 0) } < 0 {
+    if unsafe { libc::sysctl(mib_ptr, 6, ptr::null_mut(), &mut len, ptr::null_mut(), 0) } < 0 {
         return Err(io::Error::last_os_error());
     }
 
-    buffer.resize(lenp as usize, 0);
+    buffer.resize(len as usize, 0);
 
     let buffer_ptr: *mut u8 = buffer.as_mut_ptr() as _;
-    if unsafe { libc::sysctl(mib_ptr, 6, buffer_ptr as _, &mut lenp, ptr::null_mut(), 0) } < 0 {
+    if unsafe { libc::sysctl(mib_ptr, 6, buffer_ptr as _, &mut len, ptr::null_mut(), 0) } < 0 {
         return Err(io::Error::last_os_error());
     }
 
