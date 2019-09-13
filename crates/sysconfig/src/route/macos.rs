@@ -457,7 +457,9 @@ pub fn get(_dst: std::net::IpAddr) -> Result<Option<RouteTableMessage>, io::Erro
         pub hdr: rt_msghdr,
         pub attrs: [u8; ATTRS_LEN],
     }
-
+    // rtm_addrs &= ~RTA_NETMASK;
+    // rtm_addrs |= RTA_NETMASK;
+    // rtm_addrs |= RTA_IFP;
     let mut rtmsg = m_rtmsg {
         hdr: rt_msghdr {
             rtm_msglen: 128,
@@ -476,6 +478,12 @@ pub fn get(_dst: std::net::IpAddr) -> Result<Option<RouteTableMessage>, io::Erro
         attrs: [0u8; ATTRS_LEN],
     };
 
+    let payload = [
+        16u8, 2, 0, 0, 180, 101, 49, 11, 0, 0, 0, 0, 0, 0, 0, 0, 
+        20, 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+    ];
+    (&mut rtmsg.attrs[..payload.len()]).copy_from_slice(&payload);
+
     let fd = unsafe { libc::socket(libc::PF_ROUTE, libc::SOCK_RAW, 0) };
     if fd < 0 {
         return Err(io::Error::last_os_error());
@@ -483,6 +491,9 @@ pub fn get(_dst: std::net::IpAddr) -> Result<Option<RouteTableMessage>, io::Erro
 
     let ptr = &rtmsg as *const m_rtmsg as *const libc::c_void;
     let len = rtmsg.hdr.rtm_msglen as usize;
+
+    println!("{:?}", rtmsg.hdr);
+    println!("{:?}", &rtmsg.attrs[..rtmsg.hdr.rtm_msglen as usize]);
 
     if unsafe { libc::write(fd, ptr, len) } < 0 {
         return Err(io::Error::last_os_error());
@@ -494,7 +505,7 @@ pub fn get(_dst: std::net::IpAddr) -> Result<Option<RouteTableMessage>, io::Erro
     }
 
     // TODO: check rtm.rtm_seq && rtm.rtm_pid ?
-    let payload = &rtmsg.attrs[RTM_MSGHDR_LEN..amt as usize];
+    let payload = &rtmsg.attrs[..amt as usize];
     
     println!("{:?}", rtmsg.hdr);
     println!("{:?}", payload);
