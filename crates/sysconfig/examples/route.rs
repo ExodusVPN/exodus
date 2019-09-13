@@ -14,6 +14,8 @@ fn main() -> Result<(), io::Error> {
                 x.hdr.rtm_index, );
     }
 
+    sysconfig::route::get("8.8.8.8".parse::<std::net::IpAddr>().unwrap())?;
+    
     Ok(())
 }
 

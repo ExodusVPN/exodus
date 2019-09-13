@@ -12,8 +12,9 @@ pub const RTF_LLDATA: libc::c_int = 0x400;
 pub const RTF_DEAD: libc::c_int   = 0x20000000;
 pub const RTPRF_OURS: libc::c_int = libc::RTF_PROTO3;
 
-const RTM_MSGHDR_LEN: usize = std::mem::size_of::<rt_msghdr>();
+const RTM_MSGHDR_LEN: usize = std::mem::size_of::<rt_msghdr>(); // 92
 
+// 92 bytes
 #[allow(non_snake_case)]
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -206,6 +207,21 @@ pub struct sockaddr_dl {
     pub sdl_alen: libc::c_uchar,
     pub sdl_slen: libc::c_uchar,
     pub sdl_data: [libc::c_uchar; 12],
+}
+
+impl Default for sockaddr_dl {
+    fn default() -> Self {
+        Self {
+            sdl_len: std::mem::size_of::<Self>() as u8,
+            sdl_family: libc::AF_LINK as u8,
+            sdl_index: 0,
+            sdl_type: 0,
+            sdl_nlen: 0,
+            sdl_alen: 0,
+            sdl_slen: 0,
+            sdl_data: [ 0u8; 12 ],
+        }
+    }
 }
 
 #[inline]
@@ -444,11 +460,11 @@ pub fn list<'a>(buffer: &'a mut Vec<u8>) -> Result<RouteTableMessageIter<'a>, io
 // rtm_seq    : 0
 // 
 
-pub fn get(_dst: std::net::IpAddr) -> Result<Option<RouteTableMessage>, io::Error> {
+pub fn get(dst: std::net::IpAddr) -> Result<Option<RouteTableMessage>, io::Error> {
     // route -n get default
     // route -n get "www.baidu.com"
     // route -n get 8.8.8.8
-    const ATTRS_LEN: usize = 512;
+    const ATTRS_LEN: usize = 64;
 
     #[allow(non_snake_case)]
     #[repr(C)]
@@ -457,9 +473,7 @@ pub fn get(_dst: std::net::IpAddr) -> Result<Option<RouteTableMessage>, io::Erro
         pub hdr: rt_msghdr,
         pub attrs: [u8; ATTRS_LEN],
     }
-    // rtm_addrs &= ~RTA_NETMASK;
-    // rtm_addrs |= RTA_NETMASK;
-    // rtm_addrs |= RTA_IFP;
+
     let mut rtmsg = m_rtmsg {
         hdr: rt_msghdr {
             rtm_msglen: 128,
@@ -467,9 +481,9 @@ pub fn get(_dst: std::net::IpAddr) -> Result<Option<RouteTableMessage>, io::Erro
             rtm_type: libc::RTM_GET as u8,
             rtm_index: 0,
             rtm_flags: 2055,
-            rtm_addrs: 17,
+            rtm_addrs: libc::RTA_DST | libc::RTA_IFP, // 1 | 16 = 17
             rtm_pid: 0,
-            rtm_seq: 2,
+            rtm_seq: 1,
             rtm_errno: 0,
             rtm_use: 0,
             rtm_inits: 0,
@@ -478,11 +492,68 @@ pub fn get(_dst: std::net::IpAddr) -> Result<Option<RouteTableMessage>, io::Erro
         attrs: [0u8; ATTRS_LEN],
     };
 
-    let payload = [
-        16u8, 2, 0, 0, 180, 101, 49, 11, 0, 0, 0, 0, 0, 0, 0, 0, 
-        20, 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-    ];
-    (&mut rtmsg.attrs[..payload.len()]).copy_from_slice(&payload);
+    // write dst socketaddr_in/socketaddr_in6
+    let sa_len = match dst {
+        std::net::IpAddr::V4(v4_addr) => {
+            let sa_len = std::mem::size_of::<libc::sockaddr_in>();
+            let sa_in = libc::sockaddr_in {
+                sin_len: sa_len as u8,
+                sin_family: libc::AF_INET as u8,
+                sin_port: 0,
+                sin_addr: libc::in_addr {
+                    s_addr: u32::from(v4_addr),
+                },
+                sin_zero: [0i8; 8],
+            };
+
+            let sa_ptr = &sa_in as *const libc::sockaddr_in as *const u8;
+            let sa_bytes = unsafe { std::slice::from_raw_parts(sa_ptr, sa_len) };
+            (&mut rtmsg.attrs[..sa_len]).copy_from_slice(sa_bytes);
+
+            sa_len
+        },
+        std::net::IpAddr::V6(v6_addr) => {
+            let sa_len = std::mem::size_of::<libc::sockaddr_in6>();
+            let sa_in = libc::sockaddr_in6 {
+                sin6_len: sa_len as u8,
+                sin6_family: libc::AF_INET6 as u8,
+                sin6_port: 0,
+                sin6_flowinfo: 0,
+                sin6_addr: libc::in6_addr {
+                    s6_addr: v6_addr.octets(),
+                },
+                sin6_scope_id: 0,
+            };
+
+            let sa_ptr = &sa_in as *const libc::sockaddr_in6 as *const u8;
+            let sa_bytes = unsafe { std::slice::from_raw_parts(sa_ptr, sa_len) };
+            (&mut rtmsg.attrs[..sa_len]).copy_from_slice(sa_bytes);
+
+            sa_len
+        },
+    };
+
+    // write socketaddr_dl
+    // 20 bytes
+    let sdl_len = std::mem::size_of::<libc::sockaddr_dl>();
+    let sa_dl = libc::sockaddr_dl {
+        sdl_len: sdl_len as u8,
+        sdl_family: libc::AF_LINK as u8,
+        sdl_index: 0, // Interface Index
+        sdl_type: 0,
+        sdl_nlen: 0,
+        sdl_alen: 0,
+        sdl_slen: 0,
+        sdl_data: [ 0i8; 12 ],
+    };
+    
+    let sa_ptr = &sa_dl as *const libc::sockaddr_dl as *const u8;
+    let sa_bytes = unsafe { std::slice::from_raw_parts(sa_ptr, sdl_len) };
+    (&mut rtmsg.attrs[sa_len..sa_len + sdl_len]).copy_from_slice(sa_bytes);
+
+    // LEN: 128 or 140
+    let msg_len = std::mem::size_of::<rt_msghdr>() + sa_len + sdl_len;
+    rtmsg.hdr.rtm_msglen = msg_len as u16;
 
     let fd = unsafe { libc::socket(libc::PF_ROUTE, libc::SOCK_RAW, 0) };
     if fd < 0 {
@@ -491,10 +562,6 @@ pub fn get(_dst: std::net::IpAddr) -> Result<Option<RouteTableMessage>, io::Erro
 
     let ptr = &rtmsg as *const m_rtmsg as *const libc::c_void;
     let len = rtmsg.hdr.rtm_msglen as usize;
-
-    println!("{:?}", rtmsg.hdr);
-    println!("{:?}", &rtmsg.attrs[..rtmsg.hdr.rtm_msglen as usize]);
-
     if unsafe { libc::write(fd, ptr, len) } < 0 {
         return Err(io::Error::last_os_error());
     }
@@ -505,11 +572,18 @@ pub fn get(_dst: std::net::IpAddr) -> Result<Option<RouteTableMessage>, io::Erro
     }
 
     // TODO: check rtm.rtm_seq && rtm.rtm_pid ?
-    let payload = &rtmsg.attrs[..amt as usize];
+    let payload = &rtmsg.attrs[..amt as usize - RTM_MSGHDR_LEN];
     
     println!("{:?}", rtmsg.hdr);
-    println!("{:?}", payload);
-
+    println!("payload: {:?}", payload);
+    
+    // TODO: parse
+    // [
+    //     16, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,    // DST
+    //     16, 2, 0, 0, 192, 168, 199, 1, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // Gateway
+    //     20, 18, 5, 0, 6, 3, 6, 0, 101, 110, 48, 24, 101, 144, 221, 76, 149, 0, 0, 0, // IFP (ifondex & macaddr)
+    //     16, 2, 0, 0, 192, 168, 199, 200, // IFA ? or RTA_AUTHOR ?
+    // ]
     Ok(None)
 }
 
