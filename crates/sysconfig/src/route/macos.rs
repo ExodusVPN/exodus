@@ -32,6 +32,25 @@ pub struct rt_msghdr {
     pub rtm_rmx: rt_metrics,        // metrics themselves
 }
 
+impl Default for rt_msghdr {
+    fn default() -> Self {
+        Self {
+            rtm_msglen: std::mem::size_of::<Self>() as u16,
+            rtm_version: libc::RTM_VERSION as u8,
+            rtm_type: 0, // RTM_ADD | RTM_GET | RTM_DELETE
+            rtm_index: 0,
+            rtm_flags: 0,
+            rtm_addrs: 0,
+            rtm_pid: 0,
+            rtm_seq: 0,
+            rtm_errno: 0,
+            rtm_use: 0,
+            rtm_inits: 0,
+            rtm_rmx: rt_metrics::default(),
+        }
+    }
+}
+
 // These numbers are used by reliable protocols for determining
 // retransmission behavior and are included in the routing structure.
 #[allow(non_snake_case)]
@@ -51,6 +70,26 @@ pub struct rt_metrics {
     pub rmx_state: u32,       // route state
     pub rmx_filler: [u32; 3], // will be used for T/TCP later
 }
+
+impl Default for rt_metrics {
+    fn default() -> Self {
+        Self {
+            rmx_locks: 0,
+            rmx_mtu: 0,
+            rmx_hopcount: 0,
+            rmx_expire: 0,
+            rmx_recvpipe: 0,
+            rmx_sendpipe: 0,
+            rmx_ssthresh: 0,
+            rmx_rtt: 0,
+            rmx_rttvar: 0,
+            rmx_pksent: 0,
+            rmx_state: 0,
+            rmx_filler: [ 0, 0, 0 ],
+        }
+    }
+}
+
 
 #[allow(non_snake_case)]
 #[repr(C)]
@@ -126,63 +165,6 @@ pub struct rtstat {
 pub struct rt_addrinfo {
     pub rti_addrs: libc::c_int,
     pub rti_info : [ *mut libc::sockaddr; libc::RTAX_MAX as usize ],
-}
-
-#[derive(Debug, Clone)]
-pub struct RouteTableMessage {
-    pub hdr: rt_msghdr,
-    pub dst: IpCidr,
-    pub gateway: Addr,
-    // pub netmask: Option<std::net::IpAddr>,
-    // pub broadcast: Option<std::net::IpAddr>,
-}
-
-impl RouteTableMessage {
-    pub fn is_up(&self) -> bool {
-        self.hdr.rtm_flags & libc::RTF_UP == 1
-    }
-}
-
-
-pub fn get() {
-
-}
-
-pub fn add() {
-    // route -n get default
-    // sudo route add <server_ip> 192.168.199.1
-    // sudo route add default 172.16.10.13
-
-    // #[allow(non_snake_case)]
-    // #[repr(C)]
-    // #[derive(Debug, Clone, Copy)]
-    // pub struct rt_msghdr {
-    //     pub rtm_msglen: libc::c_ushort, // to skip over non-understood messages
-    //     pub rtm_version: libc::c_uchar, // future binary compatibility
-    //     pub rtm_type: libc::c_uchar,    // message type 
-    //     pub rtm_index: libc::c_ushort,  // index for associated ifp
-    //     pub rtm_flags: libc::c_int,     // flags, incl. kern & message, e.g. DONE
-    //     pub rtm_addrs: libc::c_int,     // bitmask identifying sockaddrs in msg
-    //     pub rtm_pid: libc::pid_t,       // identify sender
-    //     pub rtm_seq: libc::c_int,       // for sender to identify action
-    //     pub rtm_errno: libc::c_int,     // why failed
-    //     pub rtm_use: libc::c_int,       // from rtentry
-    //     pub rtm_inits: u32,             // which metrics we are initializing
-    //     pub rtm_rmx: rt_metrics,        // metrics themselves
-    // }
-
-    // rtm_type   : RTM_ADD RTM_CHANGE RTM_GET RTM_DELETE
-    // rtm_flags  : 
-    //      flags = RTF_STATIC | RTF_UP
-    //      flags |= RTF_HOST
-    //      flags |= RTF_GATEWAY
-    // rtm_version: RTM_VERSION
-    // rtm_seq    : 0
-    // 
-}
-
-pub fn delete() {
-
 }
 
 // 16 bytes
@@ -302,6 +284,18 @@ unsafe fn sa_to_ipaddr(sa: *const libc::sockaddr) -> Addr {
 }
 
 
+#[derive(Debug, Clone)]
+pub struct RouteTableMessage {
+    pub hdr: rt_msghdr,
+    pub dst: IpCidr,
+    pub gateway: Addr,
+}
+
+impl RouteTableMessage {
+    pub fn is_up(&self) -> bool {
+        self.hdr.rtm_flags & libc::RTF_UP == 1
+    }
+}
 
 pub struct RouteTableMessageIter<'a> {
     buffer: &'a mut [u8],
@@ -321,7 +315,7 @@ impl<'a> Iterator for RouteTableMessageIter<'a> {
         unsafe {
             let rtm_hdr = mem::transmute::<*const u8, &rt_msghdr>(buffer.as_ptr());
             assert!(rtm_hdr.rtm_addrs < libc::RTAX_MAX);
-            assert_eq!(rtm_hdr.rtm_version, 5);
+            assert_eq!(rtm_hdr.rtm_version as i32, libc::RTM_VERSION);
             assert_eq!(rtm_hdr.rtm_errno, 0);
 
             let rtm_pkt_len = rtm_hdr.rtm_msglen as usize;
@@ -382,7 +376,7 @@ impl<'a> Iterator for RouteTableMessageIter<'a> {
                         (dst_val * 4) - (align(dst_val) - dst_val) * 4
                     } else {
                         if addr.is_unspecified() { 
-                            0
+                            32
                         } else if addr.is_ipv4() {
                             32
                         } else if addr.is_ipv6() {
@@ -406,6 +400,7 @@ impl<'a> Iterator for RouteTableMessageIter<'a> {
 }
 
 pub fn list<'a>(buffer: &'a mut Vec<u8>) -> Result<RouteTableMessageIter<'a>, io::Error> {
+    // netstat -rn
     let family = 0;  // inet4 & inet6
     let flags = 0;
 
@@ -437,4 +432,85 @@ pub fn list<'a>(buffer: &'a mut Vec<u8>) -> Result<RouteTableMessageIter<'a>, io
     }
 
     Ok(RouteTableMessageIter { buffer: buffer, offset: 0 })
+}
+
+
+// rtm_type   : RTM_ADD RTM_CHANGE RTM_GET RTM_DELETE
+// rtm_flags  : 
+//      flags = RTF_STATIC | RTF_UP
+//      flags |= RTF_HOST
+//      flags |= RTF_GATEWAY
+// rtm_version: RTM_VERSION
+// rtm_seq    : 0
+// 
+
+pub fn get(_dst: std::net::IpAddr) -> Result<Option<RouteTableMessage>, io::Error> {
+    // route -n get default
+    // route -n get "www.baidu.com"
+    // route -n get 8.8.8.8
+    const ATTRS_LEN: usize = 512;
+
+    #[allow(non_snake_case)]
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    pub struct m_rtmsg {
+        pub hdr: rt_msghdr,
+        pub attrs: [u8; ATTRS_LEN],
+    }
+
+    let mut rtmsg = m_rtmsg {
+        hdr: rt_msghdr {
+            rtm_msglen: 128,
+            rtm_version: libc::RTM_VERSION as u8,
+            rtm_type: libc::RTM_GET as u8,
+            rtm_index: 0,
+            rtm_flags: 2055,
+            rtm_addrs: 17,
+            rtm_pid: 0,
+            rtm_seq: 2,
+            rtm_errno: 0,
+            rtm_use: 0,
+            rtm_inits: 0,
+            rtm_rmx: rt_metrics::default(),
+        },
+        attrs: [0u8; ATTRS_LEN],
+    };
+
+    let fd = unsafe { libc::socket(libc::PF_ROUTE, libc::SOCK_RAW, 0) };
+    if fd < 0 {
+        return Err(io::Error::last_os_error());
+    }
+
+    let ptr = &rtmsg as *const m_rtmsg as *const libc::c_void;
+    let len = rtmsg.hdr.rtm_msglen as usize;
+
+    if unsafe { libc::write(fd, ptr, len) } < 0 {
+        return Err(io::Error::last_os_error());
+    }
+
+    let amt = unsafe { libc::read(fd, ptr as *mut libc::c_void, std::mem::size_of::<m_rtmsg>()) };
+    if amt < RTM_MSGHDR_LEN as isize {
+        return Err(io::Error::last_os_error());
+    }
+
+    // TODO: check rtm.rtm_seq && rtm.rtm_pid ?
+    let payload = &rtmsg.attrs[RTM_MSGHDR_LEN..amt as usize];
+    
+    println!("{:?}", rtmsg.hdr);
+    println!("{:?}", payload);
+
+    Ok(None)
+}
+
+pub fn add() -> Result<(), io::Error> {
+    // sudo route add <server_ip> 192.168.199.1
+    // sudo route add default 172.16.10.13
+    unimplemented!()
+    
+}
+
+pub fn delete(_dst: std::net::IpAddr) -> Result<(), io::Error> {
+    // sudo route delete 8.8.8.8
+    // sudo route delete 8.8.0.0/16
+    unimplemented!()
 }
