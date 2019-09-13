@@ -2,20 +2,8 @@ extern crate sysctl;
 
 use std::io;
 
-#[allow(dead_code)]
-fn walk() -> Result<(), io::Error> {
-    let root = sysctl::Mib::default();
-    for item in root.iter()? {
-        let mib = item?;
-        println!("{}", mib.name()?);
-    }
-
-    Ok(())
-}
 
 fn main() -> Result<(), io::Error> {
-    // walk()?;
-    
     #[cfg(target_os = "linux")]
     let key = "net.ipv4.conf.all.forwarding";
 
