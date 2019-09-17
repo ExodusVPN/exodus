@@ -5,10 +5,9 @@ use crate::packet;
 use crate::socket::NetlinkSocket;
 
 use libc::IF_NAMESIZE;
-// use smoltcp::wire::IpCidr;
 
 use std::io;
-use std::net::{IpAddr, }; // Ipv4Addr, Ipv6Addr
+use std::net::IpAddr;
 
 pub mod link;
 pub mod neigh;
@@ -440,7 +439,7 @@ impl RouteController {
             error!("{}", err_pkt);
             return Err(err_pkt.err());
         }
-        
+
         Ok(())
     }
     
