@@ -48,7 +48,9 @@ Linux 系统:
 *   ✅ netlink link list (相当于 `ip link list` )
 *   ✅ netlink neigh list (相当于 `ip neigh list` )
 *   ✅ netlink addr list (相当于 `ip addr list` )
-*   ✅ netlink route list/del/add (相当于 `ip route list/del/add` )
+*   ✅ 系统路由表缓存下载 (`相当于 `ip route list` )
+*   ✅ 系统路由表删除操作 (`相当于 `ip route del` )
+*   ✅ 系统路由表增加操作 (`相当于 `ip route add` )
 *   ❌ 系统防火墙规则设定 (相当于 `iptables/nftables ...` )
 
 macOS 系统:
