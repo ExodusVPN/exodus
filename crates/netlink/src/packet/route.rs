@@ -209,7 +209,6 @@ impl RouteTable {
     pub const RT_TABLE_DEFAULT: Self = Self(253); // the default table
     pub const RT_TABLE_MAIN: Self    = Self(254); // the main table
     pub const RT_TABLE_LOCAL: Self   = Self(255); // the local table
-    // pub const RT_TABLE_MAX: Self     = Self(0xFFFFFFFF);
 }
 
 impl Into<u8> for RouteTable {

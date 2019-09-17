@@ -91,7 +91,7 @@ impl<'a, 'b> Iterator for Routes<'a, 'b> {
         };
 
         let address_family = packet.family();
-        let table = packet.table();
+        let mut table = packet.table();
         let protocol = packet.protocol();
         let scope = packet.scope();
         let kind = packet.kind();
@@ -130,7 +130,11 @@ impl<'a, 'b> Iterator for Routes<'a, 'b> {
             let attr_kind = RouteAttrType(attr.kind());
             let attr_data = attr.payload();
             
-            if attr_kind == RouteAttrType::RTA_DST {
+            // println!("Route Attr: type={:15} data={:?}", format!("{:?}", attr_kind), attr_data);
+            
+            if attr_kind == RouteAttrType::RTA_TABLE {
+                table = RouteTable(attr_data[0]);
+            } else if attr_kind == RouteAttrType::RTA_DST {
                 if address_family == AddressFamily::AF_INET {
                     let octets = NetworkEndian::read_u32(&attr_data);
                     let dst_addr: IpAddr = Ipv4Addr::from(octets).into();

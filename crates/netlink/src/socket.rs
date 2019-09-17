@@ -154,6 +154,45 @@ impl NetlinkSocket {
 
         Ok(amt as usize)
     }
+
+    pub fn sendmsg<T: AsRef<[u8]> + ?Sized>(&mut self, buf: &T) -> Result<usize, io::Error> {
+        let buffer = buf.as_ref();
+        let ptr = buffer.as_ptr() as *const libc::c_void;
+        let len = buffer.len();
+        
+        let nladdr = sockaddr_nl {
+            nl_family: AF_NETLINK as u16,
+            nl_pad   : 0,
+            nl_pid   : 0,
+            nl_groups: 0,
+        };
+
+        let nladdr_ptr = &nladdr as *const sockaddr_nl as  *const libc::sockaddr;
+        let sa_len = std::mem::size_of::<sockaddr_nl>() as u32;
+        
+        let iov = [
+            libc::iovec {
+                iov_base: ptr as *mut _,
+                iov_len: len,
+            },
+        ];
+        let iov_ptr = iov.as_ptr() as *mut _;
+        let m = libc::msghdr {
+            msg_name: nladdr_ptr as *mut _,
+            msg_namelen: sa_len,
+            msg_iov: iov_ptr,
+            msg_iovlen: 1,
+            msg_control: std::ptr::null_mut(),
+            msg_controllen: 0,
+            msg_flags: 0,
+        };
+        
+        if unsafe { libc::sendmsg(self.fd, &m as *const _, 0) } < 0 {
+            return Err(io::Error::last_os_error());
+        }
+
+        Ok(len)
+    }
 }
 
 

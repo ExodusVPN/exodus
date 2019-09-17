@@ -251,9 +251,9 @@ bitflags! {
         const NLM_F_DUMP_INTR     = 16; // Dump was inconsistent due to sequence 
         const NLM_F_DUMP_FILTERED = 32; // Dump was filtered as 
         // Modifiers to GET request
-        const NLM_F_ROOT   = 0x100;                    // specify tree root
-        const NLM_F_MATCH  = 0x200;                    // return all matching
-        const NLM_F_ATOMIC = 0x400;                    // atomic GET
+        const NLM_F_ROOT   = 0x100;     // specify tree root
+        const NLM_F_MATCH  = 0x200;     // return all matching
+        const NLM_F_ATOMIC = 0x400;     // atomic GET
         const NLM_F_DUMP   = Self::NLM_F_ROOT.bits | Self::NLM_F_MATCH.bits;
         // Modifiers to NEW request
         const NLM_F_REPLACE = 0x100;   // Override existing

@@ -207,17 +207,15 @@ impl Into<u8> for AddressFamily {
 
 bitflags! {
     pub struct NeighbourState: u16 {
-        const NUD_INCOMPLETE =  0x1; // Still attempting to resolve.
-        const NUD_REACHABLE  =  0x2; // A confirmed working cache entry.
+        const NUD_INCOMPLETE =  0x1; // a currently resolving cache entry
+        const NUD_REACHABLE  =  0x2; // a confirmed working cache entry
         const NUD_STALE      =  0x4; // an expired cache entry.
-        const NUD_DELAY      =  0x8; // Neighbor no longer reachable.
-                                 // Traffic sent, waiting for confirmation.
-        const NUD_PROBE      = 0x10; // A cache entry that is currently
-                                 // being re-solicited.
-        const NUD_FAILED     = 0x20; // An invalid cache entry.
+        const NUD_DELAY      =  0x8; // an entry waiting for a timer
+        const NUD_PROBE      = 0x10; // a cache entry that is currently reprobed
+        const NUD_FAILED     = 0x20; // an invalid cache entry
         // Dummy states
-        const NUD_NOARP      = 0x40; // A device that does not do neighbour discovery
-        const NUD_PERMANENT  = 0x80; // Permanently set entries
+        const NUD_NOARP      = 0x40; // a device with no destination cache
+        const NUD_PERMANENT  = 0x80; // a static entry
         const NUD_NONE       = 0x00;
     }
 }
@@ -228,10 +226,10 @@ bitflags! {
         const NTF_USE         =  0x1;
         const NTF_SELF        =  0x2;
         const NTF_MASTER      =  0x4;
-        const NTF_PROXY       =  0x8;
+        const NTF_PROXY       =  0x8; // a proxy arp entry
         const NTF_EXT_LEARNED = 0x10;
         const NTF_OFFLOADED   = 0x20;
-        const NTF_ROUTER      = 0x80;
+        const NTF_ROUTER      = 0x80; // an IPv6 router
     }
 }
 
@@ -239,10 +237,10 @@ bitflags! {
 pub struct NeighbourAttrType(pub u16);
 
 impl NeighbourAttrType {
-    pub const NDA_UNSPEC: Self       = Self(0);
-    pub const NDA_DST: Self          = Self(1);
-    pub const NDA_LLADDR: Self       = Self(2);
-    pub const NDA_CACHEINFO: Self    = Self(3);
+    pub const NDA_UNSPEC: Self       = Self(0); // unknown type
+    pub const NDA_DST: Self          = Self(1); // a neighbor cache n/w layer destination address
+    pub const NDA_LLADDR: Self       = Self(2); // a neighbor cache link layer address
+    pub const NDA_CACHEINFO: Self    = Self(3); // cache statistics.
     pub const NDA_PROBES: Self       = Self(4);
     pub const NDA_VLAN: Self         = Self(5);
     pub const NDA_PORT: Self         = Self(6);
