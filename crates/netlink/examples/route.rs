@@ -79,11 +79,20 @@ fn add(dst_addr: IpAddr, prefix_len: u8, gateway: Option<IpAddr>, ifindex: Optio
     socket.add_route(dst_addr, prefix_len, gateway, ifindex, &mut buffer)
 }
 
+fn get(dst_addr: IpAddr, prefix_len: u8) -> Result<netlink::route::route::Route, io::Error> {
+    let mut buffer = netlink::packet::alloc();
+    let mut socket = netlink::route::RouteController::new()?;
+    socket.get_route(dst_addr, prefix_len, &mut buffer)
+}
+
 fn main() -> Result<(), io::Error> {
-    list()?;
-    
     let addr: IpAddr = [1, 1, 1, 1].into();
     let prefix_len = 32u8;
+
+    println!("$ route get {}/{}", addr, prefix_len);
+    println!("{:?}\n\n", get(addr, prefix_len)?);
+
+    list()?;
 
     let ifindex = 2; // libc::if_nametoindex() -> c_int;
     println!("$ route add {}/{} dev LINK#{}", addr, prefix_len, ifindex);
@@ -95,5 +104,6 @@ fn main() -> Result<(), io::Error> {
     del(addr, prefix_len)?;
     
     list()?;
+
     Ok(())
 }
