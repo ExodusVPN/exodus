@@ -1,11 +1,20 @@
 use libc;
 use smoltcp::wire::IpCidr;
+use smoltcp::wire::Ipv4Cidr;
+use smoltcp::wire::Ipv6Cidr;
+use smoltcp::wire::IpAddress;
+use smoltcp::wire::Ipv4Address;
+use smoltcp::wire::Ipv6Address;
 use smoltcp::wire::EthernetAddress;
 
 
 use std::io;
 use std::ptr;
 use std::mem;
+use std::net::IpAddr;
+use std::net::Ipv4Addr;
+use std::net::Ipv6Addr;
+use std::convert::TryFrom;
 
 
 pub const RTF_LLDATA: libc::c_int = 0x400;
@@ -261,6 +270,91 @@ impl std::fmt::Display for Addr {
     }
 }
 
+pub fn ipv6_cidr_from_netmask(address: Ipv6Addr, netmask: Ipv6Addr) -> Result<Ipv6Cidr, smoltcp::Error> {
+    const IPV6_SEGMENT_BITS: u8 = 16;
+
+    let mask = netmask.segments();
+    let mut mask_iter = mask.into_iter();
+
+    let mut prefix_len = 0u8;
+    for &segment in &mut mask_iter {
+        if segment == 0xffff {
+            prefix_len += IPV6_SEGMENT_BITS;
+        } else if segment == 0 {
+            break;
+        } else {
+            let prefix_bits = (!segment).leading_zeros() as u8;
+            if segment << prefix_bits != 0 {
+                return Err(smoltcp::Error::Illegal);
+            }
+            prefix_len += prefix_bits;
+            break;
+        }
+    }
+
+    for &segment in mask_iter {
+        if segment != 0 {
+            return Err(smoltcp::Error::Illegal);
+        }
+    }
+
+    Ok(Ipv6Cidr::new(Ipv6Address::from(address), prefix_len))
+}
+
+pub fn ipv4_cidr_from_netmask(address: Ipv4Addr, netmask: Ipv4Addr) -> Result<Ipv4Cidr, smoltcp::Error> {
+    Ipv4Cidr::from_netmask(address.into(), netmask.into())
+}
+
+pub fn ip_cidr_from_netmask(addr: IpAddr, netmask: IpAddr) -> Result<IpCidr, smoltcp::Error> {
+    match (addr, netmask) {
+        (IpAddr::V4(v4_addr), IpAddr::V4(v4_netmask)) => {
+            let v4_cidr = ipv4_cidr_from_netmask(v4_addr, v4_netmask)?;
+            Ok(IpCidr::Ipv4(v4_cidr))
+        },
+        (IpAddr::V6(v6_addr), IpAddr::V6(v6_netmask)) => {
+            let v6_cidr = ipv6_cidr_from_netmask(v6_addr, v6_netmask)?;
+            Ok(IpCidr::Ipv6(v6_cidr))
+        },
+        _ => Err(smoltcp::Error::Illegal),
+    }
+}
+
+pub fn netmask_from_ipcidr(cidr: IpCidr) -> IpAddr {
+    match cidr {
+        IpCidr::Ipv4(v4_cidr) => {
+            IpAddr::from(v4_cidr.netmask().0)
+        },
+        IpCidr::Ipv6(v6_cidr) => {
+            if v6_cidr.prefix_len() == 0 {
+                return IpAddr::from(Ipv6Addr::from(Ipv6Address::UNSPECIFIED.0));
+            }
+
+            let number = std::u128::MAX << (128 - v6_cidr.prefix_len());
+            let data = [
+                ((number >> 120) & 0xff) as u8,
+                ((number >> 112) & 0xff) as u8,
+                ((number >> 104) & 0xff) as u8,
+                ((number >>  96) & 0xff) as u8,
+                ((number >>  88) & 0xff) as u8,
+                ((number >>  80) & 0xff) as u8,
+                ((number >>  72) & 0xff) as u8,
+                ((number >>  64) & 0xff) as u8,
+                ((number >>  56) & 0xff) as u8,
+                ((number >>  48) & 0xff) as u8,
+                ((number >>  40) & 0xff) as u8,
+                ((number >>  32) & 0xff) as u8,
+                ((number >>  24) & 0xff) as u8,
+                ((number >>  16) & 0xff) as u8,
+                ((number >>   8) & 0xff) as u8,
+                ((number >>   0) & 0xff) as u8,
+            ];
+
+            IpAddr::from(Ipv6Addr::from(data))
+        },
+        _ => unreachable!(),
+    }
+}
+
 unsafe fn sa_to_ipaddr(sa: *const libc::sockaddr) -> Addr {
     let sa_family = (*sa).sa_family as i32;
     match sa_family {
@@ -313,6 +407,14 @@ impl RouteTableMessage {
     }
 }
 
+impl TryFrom<&[u8]> for RouteTableMessage {
+    type Error = io::Error;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        unimplemented!()
+    }
+}
+
 pub struct RouteTableMessageIter<'a> {
     buffer: &'a mut [u8],
     offset: usize,
@@ -345,7 +447,7 @@ impl<'a> Iterator for RouteTableMessageIter<'a> {
             let mut dst = None;
             #[allow(unused_assignments)]
             let mut gateway = None;
-            let mut dst_val = None;
+            let mut dst_netmask = None;
 
             if rtm_hdr.rtm_addrs & ( 1 << libc::RTAX_DST ) == 0 {
                 // Need a destination
@@ -376,39 +478,55 @@ impl<'a> Iterator for RouteTableMessageIter<'a> {
             rtm_payload = &mut rtm_payload[align(sa_len)..];
 
             if rtm_hdr.rtm_addrs & ( 1 << libc::RTAX_NETMASK ) != 0 {
-                let sa = mem::transmute::<*const u8, &libc::sockaddr>(rtm_payload.as_ptr());
-                let sa_len    = sa.sa_len as usize;
-                dst_val = Some(rtm_payload[0] as usize);
-                #[allow(unused_assignments)]
-                {
-                    rtm_payload = &mut rtm_payload[align(sa_len)..];
+                let dst_netmask_len = rtm_payload[0] as usize;
+                match dst {
+                    Some(IpAddr::V4(_)) => {
+                        if dst_netmask_len > 0 {
+                            let mut octets = [0u8; 4];
+                            let dst_netmask_octets_len = std::cmp::min(dst_netmask_len - 1, 4);
+                            (&mut octets[..dst_netmask_octets_len]).copy_from_slice(&rtm_payload[1..dst_netmask_octets_len + 1]);
+                            dst_netmask = Some(IpAddr::from(Ipv4Addr::from(octets)));
+                        } else {
+                            dst_netmask = Some(IpAddr::from(Ipv4Addr::UNSPECIFIED))
+                        }
+                    },
+                    Some(IpAddr::V6(_)) => {
+                        if dst_netmask_len > 0 {
+                            let mut octets = [0u8; 16];
+                            let dst_netmask_octets_len = std::cmp::min(dst_netmask_len - 1, 16);
+                            (&mut octets[..dst_netmask_octets_len]).copy_from_slice(&rtm_payload[1..dst_netmask_octets_len + 1]);
+                            dst_netmask = Some(IpAddr::from(Ipv6Addr::from(octets)));
+                        } else {
+                            dst_netmask = Some(IpAddr::from(Ipv6Addr::UNSPECIFIED));
+                        }
+                    },
+                    _ => unreachable!(),
                 }
+
+                rtm_payload = &mut rtm_payload[align(dst_netmask_len)..];
+                // #[allow(unused_assignments)]
             }
 
-            let dst_cidr = match dst {
-                Some(addr) => {
-                    let prefix_len = if dst_val.is_some() {
-                        let dst_val = dst_val.unwrap();
-                        (dst_val * 4) - (align(dst_val) - dst_val) * 4
+            let dst_addr = dst.unwrap();
+            let dst_cidr = match dst_netmask {
+                Some(dst_netmask) => {
+                    if dst_netmask.is_unspecified() {
+                        IpCidr::new(dst_addr.into(), 0)
                     } else {
-                        if addr.is_unspecified() { 
-                            32
-                        } else if addr.is_ipv4() {
-                            32
-                        } else if addr.is_ipv6() {
-                            128
-                        } else {
-                            unreachable!();
-                        }
-                    };
-                    Some(IpCidr::new(addr.into(), prefix_len as u8))
+                        ip_cidr_from_netmask(dst_addr, dst_netmask).unwrap()
+                    }
                 },
-                None => None,
+                None => {
+                    match dst_addr {
+                        IpAddr::V4(_) => IpCidr::new(dst_addr.into(), 32),
+                        IpAddr::V6(_) => IpCidr::new(dst_addr.into(), 128),
+                    }
+                }
             };
 
             Some(RouteTableMessage {
                 hdr: *rtm_hdr,
-                dst: dst_cidr.unwrap(),
+                dst: dst_cidr,
                 gateway: gateway.unwrap(),
             })
         }
@@ -450,21 +568,19 @@ pub fn list<'a>(buffer: &'a mut Vec<u8>) -> Result<RouteTableMessageIter<'a>, io
     Ok(RouteTableMessageIter { buffer: buffer, offset: 0 })
 }
 
-
-// rtm_type   : RTM_ADD RTM_CHANGE RTM_GET RTM_DELETE
-// rtm_flags  : 
-//      flags = RTF_STATIC | RTF_UP
-//      flags |= RTF_HOST
-//      flags |= RTF_GATEWAY
-// rtm_version: RTM_VERSION
-// rtm_seq    : 0
-// 
-
-pub fn get(dst: std::net::IpAddr) -> Result<Option<RouteTableMessage>, io::Error> {
-    // route -n get default
-    // route -n get "www.baidu.com"
+pub fn get(dst_addr: std::net::IpAddr, prefix_len: u8) -> Result<Option<RouteTableMessage>, io::Error> {
     // route -n get 8.8.8.8
-    const ATTRS_LEN: usize = 64;
+    // route -n get 8.8.8.0/24
+    if dst_addr.is_ipv4() {
+        assert!(prefix_len <= 32);
+    } else if dst_addr.is_ipv6() {
+        assert!(prefix_len <= 128);
+    }
+    
+    let dst_cidr = IpCidr::new(dst_addr.into(), prefix_len);
+    let dst_netmask = netmask_from_ipcidr(dst_cidr);
+
+    const ATTRS_LEN: usize = 128;
 
     #[allow(non_snake_case)]
     #[repr(C)]
@@ -474,14 +590,17 @@ pub fn get(dst: std::net::IpAddr) -> Result<Option<RouteTableMessage>, io::Error
         pub attrs: [u8; ATTRS_LEN],
     }
 
+    // RTF_IFSCOPE
+    // let flags = libc::RTF_STATIC | libc::RTF_UP | libc::RTF_HOST | libc::RTF_GATEWAY; // 2055
+    let flags = libc::RTF_STATIC | libc::RTF_UP | libc::RTF_GATEWAY; // 2051
     let mut rtmsg = m_rtmsg {
         hdr: rt_msghdr {
             rtm_msglen: 128,
             rtm_version: libc::RTM_VERSION as u8,
             rtm_type: libc::RTM_GET as u8,
             rtm_index: 0,
-            rtm_flags: 2055,
-            rtm_addrs: libc::RTA_DST | libc::RTA_IFP, // 1 | 16 = 17
+            rtm_flags: flags,
+            rtm_addrs: libc::RTA_DST | libc::RTA_IFP | libc::RTA_NETMASK, // 1 | 16 = 17 RTA_NETMASK
             rtm_pid: 0,
             rtm_seq: 1,
             rtm_errno: 0,
@@ -492,8 +611,10 @@ pub fn get(dst: std::net::IpAddr) -> Result<Option<RouteTableMessage>, io::Error
         attrs: [0u8; ATTRS_LEN],
     };
 
+    let mut attr_offset = 0;
+
     // write dst socketaddr_in/socketaddr_in6
-    let sa_len = match dst {
+    match dst_addr {
         std::net::IpAddr::V4(v4_addr) => {
             let sa_len = std::mem::size_of::<libc::sockaddr_in>();
             let sa_in = libc::sockaddr_in {
@@ -510,7 +631,7 @@ pub fn get(dst: std::net::IpAddr) -> Result<Option<RouteTableMessage>, io::Error
             let sa_bytes = unsafe { std::slice::from_raw_parts(sa_ptr, sa_len) };
             (&mut rtmsg.attrs[..sa_len]).copy_from_slice(sa_bytes);
 
-            sa_len
+            attr_offset += sa_len;
         },
         std::net::IpAddr::V6(v6_addr) => {
             let sa_len = std::mem::size_of::<libc::sockaddr_in6>();
@@ -529,9 +650,59 @@ pub fn get(dst: std::net::IpAddr) -> Result<Option<RouteTableMessage>, io::Error
             let sa_bytes = unsafe { std::slice::from_raw_parts(sa_ptr, sa_len) };
             (&mut rtmsg.attrs[..sa_len]).copy_from_slice(sa_bytes);
 
-            sa_len
+            attr_offset += sa_len;
         },
     };
+    
+    // RTA_NETMASK
+    if prefix_len == 0 {
+        rtmsg.attrs[attr_offset + 0] = 0;
+        rtmsg.attrs[attr_offset + 1] = 0;
+        rtmsg.attrs[attr_offset + 2] = 0;
+        rtmsg.attrs[attr_offset + 3] = 0;
+
+        attr_offset += 4;
+    } else {
+        match dst_netmask {
+            std::net::IpAddr::V4(v4_addr) => {
+                let sa_len = std::mem::size_of::<libc::sockaddr_in>();
+                let sa_in = libc::sockaddr_in {
+                    sin_len: sa_len as u8,
+                    sin_family: libc::AF_INET as u8,
+                    sin_port: 0,
+                    sin_addr: libc::in_addr {
+                        s_addr: u32::from(v4_addr),
+                    },
+                    sin_zero: [0i8; 8],
+                };
+
+                let sa_ptr = &sa_in as *const libc::sockaddr_in as *const u8;
+                let sa_bytes = unsafe { std::slice::from_raw_parts(sa_ptr, sa_len) };
+                (&mut rtmsg.attrs[attr_offset..attr_offset + sa_len]).copy_from_slice(sa_bytes);
+
+                attr_offset += sa_len;
+            },
+            std::net::IpAddr::V6(v6_addr) => {
+                let sa_len = std::mem::size_of::<libc::sockaddr_in6>();
+                let sa_in = libc::sockaddr_in6 {
+                    sin6_len: sa_len as u8,
+                    sin6_family: libc::AF_INET6 as u8,
+                    sin6_port: 0,
+                    sin6_flowinfo: 0,
+                    sin6_addr: libc::in6_addr {
+                        s6_addr: v6_addr.octets(),
+                    },
+                    sin6_scope_id: 0,
+                };
+
+                let sa_ptr = &sa_in as *const libc::sockaddr_in6 as *const u8;
+                let sa_bytes = unsafe { std::slice::from_raw_parts(sa_ptr, sa_len) };
+                (&mut rtmsg.attrs[attr_offset..attr_offset + sa_len]).copy_from_slice(sa_bytes);
+
+                attr_offset += sa_len;
+            },
+        };
+    }
 
     // write socketaddr_dl
     // 20 bytes
@@ -549,10 +720,10 @@ pub fn get(dst: std::net::IpAddr) -> Result<Option<RouteTableMessage>, io::Error
     
     let sa_ptr = &sa_dl as *const libc::sockaddr_dl as *const u8;
     let sa_bytes = unsafe { std::slice::from_raw_parts(sa_ptr, sdl_len) };
-    (&mut rtmsg.attrs[sa_len..sa_len + sdl_len]).copy_from_slice(sa_bytes);
+    (&mut rtmsg.attrs[attr_offset..attr_offset + sdl_len]).copy_from_slice(sa_bytes);
 
     // LEN: 128 or 140
-    let msg_len = std::mem::size_of::<rt_msghdr>() + sa_len + sdl_len;
+    let msg_len = std::mem::size_of::<rt_msghdr>() + attr_offset + sdl_len;
     rtmsg.hdr.rtm_msglen = msg_len as u16;
 
     let fd = unsafe { libc::socket(libc::PF_ROUTE, libc::SOCK_RAW, 0) };
@@ -565,37 +736,415 @@ pub fn get(dst: std::net::IpAddr) -> Result<Option<RouteTableMessage>, io::Error
     if unsafe { libc::write(fd, ptr, len) } < 0 {
         return Err(io::Error::last_os_error());
     }
-
+    
     let amt = unsafe { libc::read(fd, ptr as *mut libc::c_void, std::mem::size_of::<m_rtmsg>()) };
     if amt < RTM_MSGHDR_LEN as isize {
         return Err(io::Error::last_os_error());
     }
-
+    
     // TODO: check rtm.rtm_seq && rtm.rtm_pid ?
-    let payload = &rtmsg.attrs[..amt as usize - RTM_MSGHDR_LEN];
+    let mut payload = &mut rtmsg.attrs[..amt as usize - RTM_MSGHDR_LEN];
     
-    println!("{:?}", rtmsg.hdr);
-    println!("payload: {:?}", payload);
-    
-    // TODO: parse
-    // [
-    //     16, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,    // DST
-    //     16, 2, 0, 0, 192, 168, 199, 1, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // Gateway
-    //     20, 18, 5, 0, 6, 3, 6, 0, 101, 110, 48, 24, 101, 144, 221, 76, 149, 0, 0, 0, // IFP (ifondex & macaddr)
-    //     16, 2, 0, 0, 192, 168, 199, 200, // IFA ? or RTA_AUTHOR ?
-    // ]
-    Ok(None)
+    let record = unsafe {
+        // RTA_DST
+        let sa = mem::transmute::<*const u8, &libc::sockaddr>(payload.as_ptr());
+        let sa_len    = sa.sa_len as usize;
+        payload = &mut payload[align(sa_len)..];
+
+        // RTA_GATEWAY
+        let sa = mem::transmute::<*const u8, &libc::sockaddr>(payload.as_ptr());
+        let sa_len    = sa.sa_len as usize;
+        let gateway = sa_to_ipaddr(sa as *const libc::sockaddr);
+        payload = &mut payload[align(sa_len)..];
+
+        Some(RouteTableMessage {
+            hdr: rtmsg.hdr,
+            dst: dst_cidr,
+            gateway: gateway,
+        })
+    };
+
+    Ok(record)
 }
 
-pub fn add() -> Result<(), io::Error> {
-    // sudo route add <server_ip> 192.168.199.1
-    // sudo route add default 172.16.10.13
-    unimplemented!()
+pub fn add(dst_addr: std::net::IpAddr, prefix_len: u8, gateway: Option<std::net::IpAddr>, ifindex: Option<u32>) -> Result<(), io::Error> {
+    // sudo route add "8.8.8.8/24" 192.168.199.1
+    // sudo route add "8.8.8.8/24" -interface en0
+    assert!(prefix_len > 0);
+    if dst_addr.is_ipv4() {
+        assert!(prefix_len <= 32);
+    } else if dst_addr.is_ipv6() {
+        assert!(prefix_len <= 128);
+    }
     
+    if gateway.is_none() && ifindex.is_none() {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "`gateway` and `ifindex` cannot both be empty."));
+    }
+    if gateway.is_some() && ifindex.is_some() {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "`gateway` and `ifindex` cannot both be empty."));
+    }
+
+    let dst_cidr = IpCidr::new(dst_addr.into(), prefix_len);
+    let dst_netmask = netmask_from_ipcidr(dst_cidr);
+
+    const ATTRS_LEN: usize = 128;
+
+    #[allow(non_snake_case)]
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    pub struct m_rtmsg {
+        pub hdr: rt_msghdr,
+        pub attrs: [u8; ATTRS_LEN],
+    }
+
+    let mut flags = libc::RTF_STATIC | libc::RTF_UP; // 2049
+    if gateway.is_some() {
+        flags |= libc::RTF_GATEWAY; // 2051
+    }
+
+    let mut rtmsg = m_rtmsg {
+        hdr: rt_msghdr {
+            rtm_msglen: 128,
+            rtm_version: libc::RTM_VERSION as u8,
+            rtm_type: libc::RTM_ADD as u8,
+            rtm_index: 0,
+            rtm_flags: flags,
+            rtm_addrs: libc::RTA_DST | libc::RTA_NETMASK | libc::RTA_GATEWAY, // 7
+            rtm_pid: 0,
+            rtm_seq: 1,
+            rtm_errno: 0,
+            rtm_use: 0,
+            rtm_inits: 0,
+            rtm_rmx: rt_metrics::default(),
+        },
+        attrs: [0u8; ATTRS_LEN],
+    };
+
+    let mut attr_offset = 0;
+
+    // RTA_DST
+    match dst_addr {
+        std::net::IpAddr::V4(v4_addr) => {
+            let sa_len = std::mem::size_of::<libc::sockaddr_in>();
+            let sa_in = libc::sockaddr_in {
+                sin_len: sa_len as u8,
+                sin_family: libc::AF_INET as u8,
+                sin_port: 0,
+                sin_addr: libc::in_addr {
+                    s_addr: u32::from(v4_addr),
+                },
+                sin_zero: [0i8; 8],
+            };
+
+            let sa_ptr = &sa_in as *const libc::sockaddr_in as *const u8;
+            let sa_bytes = unsafe { std::slice::from_raw_parts(sa_ptr, sa_len) };
+            (&mut rtmsg.attrs[..sa_len]).copy_from_slice(sa_bytes);
+
+            attr_offset += sa_len;
+        },
+        std::net::IpAddr::V6(v6_addr) => {
+            let sa_len = std::mem::size_of::<libc::sockaddr_in6>();
+            let sa_in = libc::sockaddr_in6 {
+                sin6_len: sa_len as u8,
+                sin6_family: libc::AF_INET6 as u8,
+                sin6_port: 0,
+                sin6_flowinfo: 0,
+                sin6_addr: libc::in6_addr {
+                    s6_addr: v6_addr.octets(),
+                },
+                sin6_scope_id: 0,
+            };
+
+            let sa_ptr = &sa_in as *const libc::sockaddr_in6 as *const u8;
+            let sa_bytes = unsafe { std::slice::from_raw_parts(sa_ptr, sa_len) };
+            (&mut rtmsg.attrs[..sa_len]).copy_from_slice(sa_bytes);
+
+            attr_offset += sa_len;
+        },
+    };
+    
+    // RTA_GATEWAY
+    match (gateway, ifindex) {
+        (Some(gateway_addr), None) => {
+            match gateway_addr {
+                std::net::IpAddr::V4(v4_addr) => {
+                    let sa_len = std::mem::size_of::<libc::sockaddr_in>();
+                    let sa_in = libc::sockaddr_in {
+                        sin_len: sa_len as u8,
+                        sin_family: libc::AF_INET as u8,
+                        sin_port: 0,
+                        sin_addr: libc::in_addr {
+                            s_addr: u32::from(v4_addr),
+                        },
+                        sin_zero: [0i8; 8],
+                    };
+
+                    let sa_ptr = &sa_in as *const libc::sockaddr_in as *const u8;
+                    let sa_bytes = unsafe { std::slice::from_raw_parts(sa_ptr, sa_len) };
+                    (&mut rtmsg.attrs[attr_offset..attr_offset + sa_len]).copy_from_slice(sa_bytes);
+
+                    attr_offset += sa_len;
+                },
+                std::net::IpAddr::V6(v6_addr) => {
+                    let sa_len = std::mem::size_of::<libc::sockaddr_in6>();
+                    let sa_in = libc::sockaddr_in6 {
+                        sin6_len: sa_len as u8,
+                        sin6_family: libc::AF_INET6 as u8,
+                        sin6_port: 0,
+                        sin6_flowinfo: 0,
+                        sin6_addr: libc::in6_addr {
+                            s6_addr: v6_addr.octets(),
+                        },
+                        sin6_scope_id: 0,
+                    };
+
+                    let sa_ptr = &sa_in as *const libc::sockaddr_in6 as *const u8;
+                    let sa_bytes = unsafe { std::slice::from_raw_parts(sa_ptr, sa_len) };
+                    (&mut rtmsg.attrs[attr_offset..attr_offset + sa_len]).copy_from_slice(sa_bytes);
+
+                    attr_offset += sa_len;
+                },
+            };
+        },
+        (None, Some(ifindex)) => {
+            // 20 bytes
+            let sdl_len = std::mem::size_of::<libc::sockaddr_dl>();
+            let sa_dl = libc::sockaddr_dl {
+                sdl_len: sdl_len as u8,
+                sdl_family: libc::AF_LINK as u8,
+                sdl_index: ifindex as u16, // Interface Index
+                sdl_type: 0,
+                sdl_nlen: 0,
+                sdl_alen: 0,
+                sdl_slen: 0,
+                sdl_data: [ 0i8; 12 ],
+            };
+            
+            let sa_ptr = &sa_dl as *const libc::sockaddr_dl as *const u8;
+            let sa_bytes = unsafe { std::slice::from_raw_parts(sa_ptr, sdl_len) };
+            (&mut rtmsg.attrs[attr_offset..attr_offset + sdl_len]).copy_from_slice(sa_bytes);
+
+            attr_offset += sdl_len;
+        },
+        _ => unreachable!(),
+    }
+
+    // RTA_NETMASK
+    match dst_netmask {
+        std::net::IpAddr::V4(v4_addr) => {
+            let sa_len = std::mem::size_of::<libc::sockaddr_in>();
+            let sa_in = libc::sockaddr_in {
+                sin_len: sa_len as u8,
+                sin_family: libc::AF_INET as u8,
+                sin_port: 0,
+                sin_addr: libc::in_addr {
+                    s_addr: u32::from(v4_addr),
+                },
+                sin_zero: [0i8; 8],
+            };
+
+            let sa_ptr = &sa_in as *const libc::sockaddr_in as *const u8;
+            let sa_bytes = unsafe { std::slice::from_raw_parts(sa_ptr, sa_len) };
+            (&mut rtmsg.attrs[attr_offset..attr_offset + sa_len]).copy_from_slice(sa_bytes);
+
+            attr_offset += sa_len;
+        },
+        std::net::IpAddr::V6(v6_addr) => {
+            let sa_len = std::mem::size_of::<libc::sockaddr_in6>();
+            let sa_in = libc::sockaddr_in6 {
+                sin6_len: sa_len as u8,
+                sin6_family: libc::AF_INET6 as u8,
+                sin6_port: 0,
+                sin6_flowinfo: 0,
+                sin6_addr: libc::in6_addr {
+                    s6_addr: v6_addr.octets(),
+                },
+                sin6_scope_id: 0,
+            };
+
+            let sa_ptr = &sa_in as *const libc::sockaddr_in6 as *const u8;
+            let sa_bytes = unsafe { std::slice::from_raw_parts(sa_ptr, sa_len) };
+            (&mut rtmsg.attrs[attr_offset..attr_offset + sa_len]).copy_from_slice(sa_bytes);
+
+            attr_offset += sa_len;
+        },
+    };
+
+
+    let msg_len = std::mem::size_of::<rt_msghdr>() + attr_offset;
+    rtmsg.hdr.rtm_msglen = msg_len as u16;
+
+    let fd = unsafe { libc::socket(libc::PF_ROUTE, libc::SOCK_RAW, 0) };
+    if fd < 0 {
+        return Err(io::Error::last_os_error());
+    }
+
+    let ptr = &rtmsg as *const m_rtmsg as *const libc::c_void;
+    let len = rtmsg.hdr.rtm_msglen as usize;
+    if unsafe { libc::write(fd, ptr, len) } < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    
+    let amt = unsafe { libc::read(fd, ptr as *mut libc::c_void, std::mem::size_of::<m_rtmsg>()) };
+    if amt < RTM_MSGHDR_LEN as isize {
+        return Err(io::Error::last_os_error());
+    }
+    
+    // TODO: check rtm.rtm_seq && rtm.rtm_pid ?
+    let mut payload = &mut rtmsg.attrs[..amt as usize - RTM_MSGHDR_LEN];
+
+    Ok(())
 }
 
-pub fn delete(_dst: std::net::IpAddr) -> Result<(), io::Error> {
+pub fn delete(dst_addr: std::net::IpAddr, prefix_len: u8) -> Result<(), io::Error> {
     // sudo route delete 8.8.8.8
     // sudo route delete 8.8.0.0/16
-    unimplemented!()
+    assert!(prefix_len > 0);
+    if dst_addr.is_ipv4() {
+        assert!(prefix_len <= 32);
+    } else if dst_addr.is_ipv6() {
+        assert!(prefix_len <= 128);
+    }
+    
+    let dst_cidr = IpCidr::new(dst_addr.into(), prefix_len);
+    let dst_netmask = netmask_from_ipcidr(dst_cidr);
+
+    const ATTRS_LEN: usize = 128;
+
+    #[allow(non_snake_case)]
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    pub struct m_rtmsg {
+        pub hdr: rt_msghdr,
+        pub attrs: [u8; ATTRS_LEN],
+    }
+
+    // RTF_IFSCOPE
+    let flags = libc::RTF_STATIC | libc::RTF_UP | libc::RTF_GATEWAY; // 2051
+    let mut rtmsg = m_rtmsg {
+        hdr: rt_msghdr {
+            rtm_msglen: 128,
+            rtm_version: libc::RTM_VERSION as u8,
+            rtm_type: libc::RTM_DELETE as u8,
+            rtm_index: 0,
+            rtm_flags: flags,
+            rtm_addrs: libc::RTA_DST | libc::RTA_NETMASK, // 5
+            rtm_pid: 0,
+            rtm_seq: 1,
+            rtm_errno: 0,
+            rtm_use: 0,
+            rtm_inits: 0,
+            rtm_rmx: rt_metrics::default(),
+        },
+        attrs: [0u8; ATTRS_LEN],
+    };
+
+    let mut attr_offset = 0;
+
+    // RTA_DST
+    match dst_addr {
+        std::net::IpAddr::V4(v4_addr) => {
+            let sa_len = std::mem::size_of::<libc::sockaddr_in>();
+            let sa_in = libc::sockaddr_in {
+                sin_len: sa_len as u8,
+                sin_family: libc::AF_INET as u8,
+                sin_port: 0,
+                sin_addr: libc::in_addr {
+                    s_addr: u32::from(v4_addr),
+                },
+                sin_zero: [0i8; 8],
+            };
+
+            let sa_ptr = &sa_in as *const libc::sockaddr_in as *const u8;
+            let sa_bytes = unsafe { std::slice::from_raw_parts(sa_ptr, sa_len) };
+            (&mut rtmsg.attrs[..sa_len]).copy_from_slice(sa_bytes);
+
+            attr_offset += sa_len;
+        },
+        std::net::IpAddr::V6(v6_addr) => {
+            let sa_len = std::mem::size_of::<libc::sockaddr_in6>();
+            let sa_in = libc::sockaddr_in6 {
+                sin6_len: sa_len as u8,
+                sin6_family: libc::AF_INET6 as u8,
+                sin6_port: 0,
+                sin6_flowinfo: 0,
+                sin6_addr: libc::in6_addr {
+                    s6_addr: v6_addr.octets(),
+                },
+                sin6_scope_id: 0,
+            };
+
+            let sa_ptr = &sa_in as *const libc::sockaddr_in6 as *const u8;
+            let sa_bytes = unsafe { std::slice::from_raw_parts(sa_ptr, sa_len) };
+            (&mut rtmsg.attrs[..sa_len]).copy_from_slice(sa_bytes);
+
+            attr_offset += sa_len;
+        },
+    };
+    
+    // RTA_NETMASK
+    match dst_netmask {
+        std::net::IpAddr::V4(v4_addr) => {
+            let sa_len = std::mem::size_of::<libc::sockaddr_in>();
+            let sa_in = libc::sockaddr_in {
+                sin_len: sa_len as u8,
+                sin_family: libc::AF_INET as u8,
+                sin_port: 0,
+                sin_addr: libc::in_addr {
+                    s_addr: u32::from(v4_addr),
+                },
+                sin_zero: [0i8; 8],
+            };
+
+            let sa_ptr = &sa_in as *const libc::sockaddr_in as *const u8;
+            let sa_bytes = unsafe { std::slice::from_raw_parts(sa_ptr, sa_len) };
+            (&mut rtmsg.attrs[attr_offset..attr_offset + sa_len]).copy_from_slice(sa_bytes);
+
+            attr_offset += sa_len;
+        },
+        std::net::IpAddr::V6(v6_addr) => {
+            let sa_len = std::mem::size_of::<libc::sockaddr_in6>();
+            let sa_in = libc::sockaddr_in6 {
+                sin6_len: sa_len as u8,
+                sin6_family: libc::AF_INET6 as u8,
+                sin6_port: 0,
+                sin6_flowinfo: 0,
+                sin6_addr: libc::in6_addr {
+                    s6_addr: v6_addr.octets(),
+                },
+                sin6_scope_id: 0,
+            };
+
+            let sa_ptr = &sa_in as *const libc::sockaddr_in6 as *const u8;
+            let sa_bytes = unsafe { std::slice::from_raw_parts(sa_ptr, sa_len) };
+            (&mut rtmsg.attrs[attr_offset..attr_offset + sa_len]).copy_from_slice(sa_bytes);
+
+            attr_offset += sa_len;
+        },
+    };
+
+
+    let msg_len = std::mem::size_of::<rt_msghdr>() + attr_offset;
+    rtmsg.hdr.rtm_msglen = msg_len as u16;
+
+    let fd = unsafe { libc::socket(libc::PF_ROUTE, libc::SOCK_RAW, 0) };
+    if fd < 0 {
+        return Err(io::Error::last_os_error());
+    }
+
+    let ptr = &rtmsg as *const m_rtmsg as *const libc::c_void;
+    let len = rtmsg.hdr.rtm_msglen as usize;
+    if unsafe { libc::write(fd, ptr, len) } < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    
+    let amt = unsafe { libc::read(fd, ptr as *mut libc::c_void, std::mem::size_of::<m_rtmsg>()) };
+    if amt < RTM_MSGHDR_LEN as isize {
+        return Err(io::Error::last_os_error());
+    }
+    
+    // TODO: check rtm.rtm_seq && rtm.rtm_pid ?
+    let mut payload = &mut rtmsg.attrs[..amt as usize - RTM_MSGHDR_LEN];
+
+    Ok(())
 }

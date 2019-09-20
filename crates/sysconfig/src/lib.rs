@@ -1,3 +1,5 @@
+#[macro_use]
+extern crate log;
 #[cfg(unix)]
 extern crate libc;
 #[cfg(unix)]
