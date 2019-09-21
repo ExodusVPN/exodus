@@ -23,7 +23,7 @@ pub const RTF_LLDATA: libc::c_int = 0x400;
 pub const RTF_DEAD: libc::c_int   = 0x20000000;
 pub const RTPRF_OURS: libc::c_int = libc::RTF_PROTO3;
 
-const RTM_MSGHDR_LEN: usize = std::mem::size_of::<rt_msghdr>(); // 92
+pub(crate) const RTM_MSGHDR_LEN: usize = std::mem::size_of::<rt_msghdr>(); // 92
 
 // 92 bytes
 #[allow(non_snake_case)]
@@ -236,7 +236,7 @@ impl Default for sockaddr_dl {
 }
 
 #[inline]
-const fn align(len: usize) -> usize {
+pub(crate) const fn align(len: usize) -> usize {
     const NLA_ALIGNTO: usize = 4;
     (len + NLA_ALIGNTO - 1) & !(NLA_ALIGNTO - 1)
 }
@@ -272,22 +272,25 @@ impl std::fmt::Display for Addr {
     }
 }
 
-unsafe fn sa_to_ipaddr(sa: *const libc::sockaddr) -> Addr {
+pub(crate) unsafe fn sa_to_ipaddr(sa: *const libc::sockaddr) -> Addr {
     let sa_family = (*sa).sa_family as i32;
     match sa_family {
         libc::AF_INET => {
+            // 2
             let sa_in = sa as *const libc::sockaddr_in;
             let sa_in_addr = (*sa_in).sin_addr.s_addr.to_ne_bytes();
             let ipv4_addr = std::net::Ipv4Addr::from(sa_in_addr);            
             Addr::V4(ipv4_addr)
         },
         libc::AF_INET6 => {
+            // 30
             let sa_in = sa as *const libc::sockaddr_in6;
             let sa_in_addr = (*sa_in).sin6_addr.s6_addr;
             let ipv6_addr = std::net::Ipv6Addr::from(sa_in_addr);
             Addr::V6(ipv6_addr)
         },
         libc::AF_LINK => {
+            // 18
             let sa_dl = sa as *const libc::sockaddr_dl;
             let ifindex = (*sa_dl).sdl_index;
             let mac;
