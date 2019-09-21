@@ -45,7 +45,7 @@ Private IPv4 addresses:
 Linux 系统:
 
 *   ✅ IP 转发控制 (相当于 `sysctl net.ipv4.conf.all.forwarding = 1` )
-*   🔜 系统 DNS 设定 (相当于 `echo "nameserver 8.8.8.8" >> /etc/resolv.conf` )
+*   ✅ 系统 DNS 设定 (相当于 `echo "nameserver 8.8.8.8" >> /etc/resolv.conf` )
 *   ✅ netlink link list (相当于 `ip link list` )
 *   ✅ netlink neigh list (相当于 `ip neigh list` )
 *   ✅ netlink addr list (相当于 `ip addr list` )
