@@ -10,6 +10,52 @@ use std::convert::TryFrom;
 // Username/Password Authentication for SOCKS V5
 // https://tools.ietf.org/html/rfc1929
 // 
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+pub enum Error {
+    Internal, // general SOCKS server failure
+    NotAllowed,
+    NetworkUnreachable,
+    HostUnreachable,
+    ConnectionRefused,
+    TimedOut, // TTL expired
+    CommandNotSupported,
+    AddressTypeNotSupported,
+}
+
+impl Into<io::Error> for Error {
+    fn into(self) -> io::Error {
+        use self::Error::*;
+
+        match self {
+            Internal => io::Error::new(io::ErrorKind::Other, "general SOCKS server failure"),
+            NotAllowed => io::Error::new(io::ErrorKind::Other, "connection not allowed by ruleset"),
+            NetworkUnreachable => io::Error::new(io::ErrorKind::Other, "Network unreachable"),
+            HostUnreachable => io::Error::new(io::ErrorKind::Other, "Host unreachable"),
+            ConnectionRefused => io::ErrorKind::ConnectionRefused.into(),
+            TimedOut => io::ErrorKind::TimedOut.into(),
+            CommandNotSupported => io::Error::new(io::ErrorKind::Other, "Command not supported"),
+            AddressTypeNotSupported => io::Error::new(io::ErrorKind::Other, "Address type not supported"),
+        }
+    }
+}
+
+impl From<io::Error> for Reply {
+    fn from(e: io::Error) -> Self {
+        match e.kind() {
+            io::ErrorKind::TimedOut => Reply::TTL_EXPIRED,
+            io::ErrorKind::ConnectionRefused => Reply::CONNECTION_REFUSED,
+            io::ErrorKind::Other => {
+                if e.raw_os_error() == Some(0) {
+                    Reply::SUCCEEDED
+                } else {
+                    Reply::GENERAL_SERVER_FAILURE
+                }
+            },
+            _ => Reply::GENERAL_SERVER_FAILURE,
+        }
+    }
+}
+
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct Version(pub u8);
@@ -23,6 +69,12 @@ impl Version {
             &Version::V4 | &Version::V5 => false,
             _ => true,
         }
+    }
+}
+
+impl Default for Version {
+    fn default() -> Self {
+        Version::V5
     }
 }
 
@@ -256,15 +308,15 @@ impl Reply {
 
     pub fn is_unknow(&self) -> bool {
         match self {
-            &Reply::SUCCEEDED
-            | &Reply::GENERAL_SERVER_FAILURE
-            | &Reply::CONNECTION_NOT_ALLOWED_BY_RULESET
-            | &Reply::NETWORK_UNREACHABLE
-            | &Reply::HOST_UNREACHABLE
-            | &Reply::CONNECTION_REFUSED
-            | &Reply::TTL_EXPIRED
-            | &Reply::COMMAND_NOT_SUPPORTED
-            | &Reply::ADDRESS_TYPE_NOT_SUPPORTED => false,
+            &Self::SUCCEEDED
+            | &Self::GENERAL_SERVER_FAILURE
+            | &Self::CONNECTION_NOT_ALLOWED_BY_RULESET
+            | &Self::NETWORK_UNREACHABLE
+            | &Self::HOST_UNREACHABLE
+            | &Self::CONNECTION_REFUSED
+            | &Self::TTL_EXPIRED
+            | &Self::COMMAND_NOT_SUPPORTED
+            | &Self::ADDRESS_TYPE_NOT_SUPPORTED => false,
             _ => true,
         }
     }
@@ -279,13 +331,34 @@ impl Reply {
     
     pub fn is_ok(&self) -> bool {
         match self {
-            &Reply::SUCCEEDED => true,
+            &Self::SUCCEEDED => true,
             _ => false,
         }
     }
 
     pub fn is_err(&self) -> bool {
         !self.is_ok()
+    }
+
+    pub fn err(&self) -> Option<io::Error> {
+        if self.is_ok() {
+            return None;
+        }
+
+        use std::io::{Error, ErrorKind};
+
+        match self {
+            &Self::SUCCEEDED => None,
+            &Self::GENERAL_SERVER_FAILURE => Some(Error::new(ErrorKind::Other, "general SOCKS server failure")),
+            &Self::CONNECTION_NOT_ALLOWED_BY_RULESET => Some(Error::new(ErrorKind::Other, "connection not allowed by ruleset")),
+            &Self::NETWORK_UNREACHABLE => Some(Error::new(ErrorKind::Other, "Network unreachable")),
+            &Self::HOST_UNREACHABLE => Some(Error::new(ErrorKind::Other, "Host unreachable")),
+            &Self::CONNECTION_REFUSED => Some(ErrorKind::ConnectionRefused.into()),
+            &Self::TTL_EXPIRED        => Some(ErrorKind::TimedOut.into()),
+            &Self::COMMAND_NOT_SUPPORTED => Some(Error::new(ErrorKind::Other, "Command not supported")),
+            &Self::ADDRESS_TYPE_NOT_SUPPORTED => Some(Error::new(ErrorKind::Other, "Address type not supported")),
+            _ => Some(Error::new(ErrorKind::Other, format!("Unknow SOCKS5 Server ERROR: {}", self.0))),
+        }
     }
 }
 
@@ -298,15 +371,15 @@ impl Into<u8> for Reply {
 impl std::fmt::Debug for Reply {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            &Reply::SUCCEEDED => write!(f, "SUCCEEDED"),
-            &Reply::GENERAL_SERVER_FAILURE => write!(f, "GENERAL_SERVER_FAILURE"),
-            &Reply::CONNECTION_NOT_ALLOWED_BY_RULESET => write!(f, "CONNECTION_NOT_ALLOWED_BY_RULESET"),
-            &Reply::NETWORK_UNREACHABLE => write!(f, "NETWORK_UNREACHABLE"),
-            &Reply::HOST_UNREACHABLE => write!(f, "HOST_UNREACHABLE"),
-            &Reply::CONNECTION_REFUSED => write!(f, "CONNECTION_REFUSED"),
-            &Reply::TTL_EXPIRED => write!(f, "TTL_EXPIRED"),
-            &Reply::COMMAND_NOT_SUPPORTED => write!(f, "COMMAND_NOT_SUPPORTED"),
-            &Reply::ADDRESS_TYPE_NOT_SUPPORTED => write!(f, "ADDRESS_TYPE_NOT_SUPPORTED"),
+            &Self::SUCCEEDED => write!(f, "SUCCEEDED"),
+            &Self::GENERAL_SERVER_FAILURE => write!(f, "GENERAL_SERVER_FAILURE"),
+            &Self::CONNECTION_NOT_ALLOWED_BY_RULESET => write!(f, "CONNECTION_NOT_ALLOWED_BY_RULESET"),
+            &Self::NETWORK_UNREACHABLE => write!(f, "NETWORK_UNREACHABLE"),
+            &Self::HOST_UNREACHABLE => write!(f, "HOST_UNREACHABLE"),
+            &Self::CONNECTION_REFUSED => write!(f, "CONNECTION_REFUSED"),
+            &Self::TTL_EXPIRED => write!(f, "TTL_EXPIRED"),
+            &Self::COMMAND_NOT_SUPPORTED => write!(f, "COMMAND_NOT_SUPPORTED"),
+            &Self::ADDRESS_TYPE_NOT_SUPPORTED => write!(f, "ADDRESS_TYPE_NOT_SUPPORTED"),
             _ => write!(f, "UNKNOW_REPLY({})", self.0),
         }
     }
