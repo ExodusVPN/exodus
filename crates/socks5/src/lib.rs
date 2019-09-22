@@ -57,12 +57,20 @@ impl From<io::Error> for Reply {
 }
 
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+#[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct Version(pub u8);
 
 impl Version {
     pub const V4: Self = Self(0x04);
     pub const V5: Self = Self(0x05);
+
+    pub fn is_v4(&self) -> bool {
+        self.0 == Self::V4.0
+    }
+
+    pub fn is_v5(&self) -> bool {
+        self.0 == Self::V5.0
+    }
 
     pub fn is_unknow(&self) -> bool {
         match self {
@@ -94,7 +102,7 @@ impl std::fmt::Debug for Version {
     }
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+#[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct Method(pub u8);
 
 impl Method {
@@ -138,7 +146,7 @@ impl std::fmt::Debug for Method {
     }
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+#[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct Cmd(pub u8);
 
 impl Cmd {
@@ -172,7 +180,7 @@ impl std::fmt::Debug for Cmd {
 }
 
 #[repr(u8)]
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum AddressKind {
     V4,          // IP V4 address: X'01'
     V6,          // IP V6 address: X'04'
@@ -279,6 +287,14 @@ impl<'a> Request<'a> {
     pub fn len(&self) -> usize {
         4 + self.dst_addr.len() + 2
     }
+
+    pub fn is_v4(&self) -> bool {
+        self.version.is_v4()
+    }
+
+    pub fn is_v5(&self) -> bool {
+        self.version.is_v5()
+    }
 }
 
 
@@ -292,7 +308,7 @@ impl<'a> Request<'a> {
 // o  X'07' Command not supported
 // o  X'08' Address type not supported
 // o  X'09' to X'FF' unassigned
-#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+#[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct Reply(pub u8);
 
 impl Reply {
@@ -391,6 +407,7 @@ impl std::fmt::Debug for Reply {
 // +----+-----+-------+------+----------+----------+
 // | 1  |  1  | X'00' |  1   | Variable |    2     |
 // +----+-----+-------+------+----------+----------+
+#[derive(Debug, Clone, Copy)]
 pub struct Response<'a> {
     pub version: Version,
     pub reply: Reply,
@@ -408,7 +425,17 @@ impl<'a> Response<'a> {
     pub fn len(&self) -> usize {
         4 + self.bind_addr.len() + 2
     }
+
+    pub fn is_v4(&self) -> bool {
+        self.version.is_v4()
+    }
+
+    pub fn is_v5(&self) -> bool {
+        self.version.is_v5()
+    }
 }
+
+
 
 
 // https://tools.ietf.org/html/rfc1928#section-7
@@ -429,3 +456,155 @@ impl<'a> Response<'a> {
 //     o  DST.PORT      desired destination port
 //     o  DATA          user data
 // 
+
+
+// Username/Password Authentication
+// https://tools.ietf.org/html/rfc1929#section-2
+// 
+// Once the SOCKS V5 server has started, and the client has selected the
+// Username/Password Authentication protocol, the Username/Password
+// subnegotiation begins.  This begins with the client producing a
+// Username/Password request:
+// 
+//     +----+------+----------+------+----------+
+//     |VER | ULEN |  UNAME   | PLEN |  PASSWD  |
+//     +----+------+----------+------+----------+
+//     | 1  |  1   | 1 to 255 |  1   | 1 to 255 |
+//     +----+------+----------+------+----------+
+// 
+// The VER field contains the current version of the subnegotiation,
+// which is X'01'. The ULEN field contains the length of the UNAME field
+// that follows. The UNAME field contains the username as known to the
+// source operating system. The PLEN field contains the length of the
+// PASSWD field that follows. The PASSWD field contains the password
+// association with the given UNAME.
+// 
+// The server verifies the supplied UNAME and PASSWD, and sends the
+// following response:
+// 
+//     +----+--------+
+//     |VER | STATUS |
+//     +----+--------+
+//     | 1  |   1    |
+//     +----+--------+
+// 
+// A STATUS field of X'00' indicates success. If the server returns a
+// `failure' (STATUS value other than X'00') status, it MUST close the
+// connection.
+// 
+
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub struct Ack {
+    pub version: Version,
+    pub status: u8,
+}
+
+impl Ack {
+    pub fn is_v4(&self) -> bool {
+        self.version.is_v4()
+    }
+
+    pub fn is_v5(&self) -> bool {
+        self.version.is_v5()
+    }
+
+    pub fn is_ok(&self) -> bool {
+        self.status == 0
+    }
+
+    pub fn is_err(&self) -> bool {
+        self.status != 0
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct PasswordAuthentication<T> {
+    version: Version,
+    ulen: u8,
+    username: T,
+    plen: u8,
+    password: T,
+}
+
+impl<T: AsRef<str>> PasswordAuthentication<T> {
+    pub fn new(username: T, password: T) -> Self {
+        let version = Version::V5;
+        let ulen = username.as_ref().len();
+        let plen = password.as_ref().len();
+
+        assert!(ulen <= std::u8::MAX as usize);
+        assert!(plen <= std::u8::MAX as usize);
+
+        let ulen = ulen as u8;
+        let plen = plen as u8;
+
+        Self { version, username, ulen, password, plen, }
+    }
+
+    pub fn len(&self) -> usize {
+        3 + self.username.as_ref().len() + self.password.as_ref().len()
+    }
+
+    pub fn is_v4(&self) -> bool {
+        self.version.is_v4()
+    }
+
+    pub fn is_v5(&self) -> bool {
+        self.version.is_v5()
+    }
+
+    pub fn username(&self) -> &str {
+        &self.username.as_ref()
+    }
+
+    pub fn password(&self) -> &str {
+        &self.password.as_ref()
+    }
+
+    pub fn serialize(&self, buffer: &mut [u8]) -> Result<usize, io::Error> {
+        let mut offset = 0usize;
+        
+        buffer[offset] = self.version.into();
+        offset += 1;
+        
+        buffer[offset] = self.ulen;
+        offset += 1;
+        
+        let uend = offset + self.ulen as usize;
+        (&mut buffer[offset..uend]).copy_from_slice(self.username.as_ref().as_bytes());
+        offset += self.ulen as usize;
+        
+        buffer[offset] = self.plen;
+        offset += 1;
+        
+        let pend = offset + self.plen as usize;
+        (&mut buffer[offset..pend]).copy_from_slice(self.password.as_ref().as_bytes());
+        offset += self.plen as usize;
+        
+        Ok(offset)
+    }
+}
+
+impl<'a> PasswordAuthentication<&'a str> {
+    pub fn deserialize(buffer: &'a [u8]) -> Result<PasswordAuthentication<&'a str>, io::Error> {
+        let mut offset = 0usize;
+
+        let version = Version(buffer[offset]);
+        offset += 1;
+        let ulen = buffer[offset];
+        offset += 1;
+
+        let username = std::str::from_utf8(&buffer[offset..offset + ulen as usize])
+            .map_err(|_| io::Error::new(io::ErrorKind::Other, "invalid UTF-8 sequence"))?;
+        offset += ulen as usize;
+        
+        let plen = buffer[offset];
+        offset += 1;
+
+        let password = std::str::from_utf8(&buffer[offset..offset + plen as usize])
+            .map_err(|_| io::Error::new(io::ErrorKind::Other, "invalid UTF-8 sequence"))?;
+        offset += plen as usize;
+
+        Ok(Self { version, ulen, username, plen, password, })
+    }
+}
