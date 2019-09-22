@@ -162,6 +162,90 @@ impl std::fmt::Debug for Method {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub struct Methods {
+    bits: u32,
+    len: usize,
+}
+
+impl Methods {
+    pub fn new() -> Self {
+        Self { bits: 0, len: 0, }
+    }
+
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    pub fn bits(&self) -> u32 {
+        self.bits
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    pub fn is_enabled(&self, method: Method) -> bool {
+        let bit = method.0 as u32;
+         (self.bits & (1 << bit)) != 0
+    }
+
+    pub fn set(&mut self, method: Method, value: bool) -> &mut Self {
+        let bit = method.0 as u32;
+        if value {
+            self.bits |= 1 << bit;
+            self.len += 1;
+        } else {
+            self.bits &= !(1 << bit);
+            self.len -= 1;
+        }
+
+        self
+    }
+
+    pub fn enable(&mut self, method: Method) {
+        let bit = method.0 as u32;
+
+        self.bits |= 1 << bit;
+        self.len += 1;
+    }
+
+    pub fn disable(&mut self, method: Method) {
+        let bit = method.0 as u32;
+
+        self.bits &= !(1 << bit);
+        self.len -= 1;
+    }
+
+    pub fn iter<'a>(&'a self) -> MethodsIter<'a> {
+        MethodsIter { methods: self, idx: 0, }
+    }
+}
+
+pub struct MethodsIter<'a> {
+    methods: &'a Methods,
+    idx: u16,
+}
+
+impl<'a> Iterator for MethodsIter<'a> {
+    type Item = Method;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.idx >= std::u8::MAX as u16 {
+            return None;
+        }
+
+        let m = Method(self.idx as u8);
+        self.idx += 1;
+        if self.methods.is_enabled(m) {
+            return Some(m);
+        } else {
+            return self.next();
+        }
+    }
+}
+
+
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct Cmd(pub u8);
 
@@ -326,6 +410,7 @@ impl<'a> Address<'a> {
 }
 
 
+
 // https://tools.ietf.org/html/rfc1928#section-3
 // +----+----------+----------+
 // |VER | NMETHODS | METHODS  |
@@ -336,9 +421,7 @@ impl<'a> Address<'a> {
 pub struct Handshake {
     pub version: Version,
     pub methods_len: u8,
-    // TODO: 方法总数最大为 256 个
-    //       所以我们可以采用 u32 整数来取代 Vec<Method> 数据类型
-    pub methods: Vec<Method>,
+    pub methods: Methods, // 最多有 256 个方法
 }
 
 // +----+--------+
@@ -745,4 +828,21 @@ impl<'a> PasswordAuthentication<&'a str> {
 
         Ok(Self { version, ulen, username, plen, password, })
     }
+}
+
+
+#[test]
+fn test_methods() {
+    let mut methods = Methods::new();
+    methods.set(Method::NO_AUTH, true);
+    assert_eq!(methods.is_enabled(Method::NO_AUTH), true);
+    assert_eq!(methods.len(), 1);
+
+    methods.set(Method::USERNAME, true);
+    assert_eq!(methods.is_enabled(Method::USERNAME), true);
+    assert_eq!(methods.len(), 2);
+
+    methods.set(Method::USERNAME, false);
+    assert_eq!(methods.is_enabled(Method::USERNAME), false);
+    assert_eq!(methods.len(), 1);
 }
