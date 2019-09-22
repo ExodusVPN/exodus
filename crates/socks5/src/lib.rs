@@ -201,14 +201,14 @@ impl Into<u8> for AddressKind {
 }
 
 impl TryFrom<u8> for AddressKind {
-    type Error = ();
+    type Error = io::Error;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             0x01 => Ok(AddressKind::V4),
             0x03 => Ok(AddressKind::DomainName),
             0x04 => Ok(AddressKind::V6),
-            _ => Err(())
+            _ => Err(io::Error::new(io::ErrorKind::Other, "Address type not supported"))
         }
     }
 }
@@ -257,6 +257,56 @@ impl<'a> Address<'a> {
             _ => false,
         }
     }
+
+    pub fn serialize(&self, buffer: &mut [u8]) -> Result<usize, io::Error> {
+        match self {
+            &Address::V4(addr) => {
+                let octets = addr.octets();
+                buffer[0] = octets[0];
+                buffer[1] = octets[1];
+                buffer[2] = octets[2];
+                buffer[3] = octets[3];
+
+                Ok(4)
+            },
+            &Address::V6(addr) => {
+                let octets = addr.octets();
+                (&mut buffer[..16]).copy_from_slice(&octets);
+
+                Ok(16)
+            },
+            &Address::DomainName(s) => {
+                let len = s.len();
+                assert!(len <= std::u8::MAX as usize);
+
+                buffer[0] = len as u8;
+                (&mut buffer[1..len + 1]).copy_from_slice(&s.as_bytes());
+
+                Ok(1 + len)
+            },
+        }
+    }
+
+    pub fn deserialize(kind: AddressKind, buffer: &'a [u8]) -> Result<Address<'a>, io::Error> {
+        match kind {
+            AddressKind::V4 => {
+                let octets = [ buffer[0], buffer[1], buffer[2], buffer[3] ];
+                Ok(Address::V4(Ipv4Addr::from(octets)))
+            },
+            AddressKind::V6 => {
+                let mut octets = [0u8; 16];
+                octets.copy_from_slice(buffer);
+
+                Ok(Address::V6(Ipv6Addr::from(octets)))
+            },
+            AddressKind::DomainName => {
+                let len = buffer[0];
+                let domain_name = std::str::from_utf8(&buffer[1..len as usize + 1])
+                    .map_err(|_| io::Error::new(io::ErrorKind::Other, "invalid UTF-8 sequence"))?;
+                Ok(Address::DomainName(domain_name))
+            },
+        }
+    }
 }
 
 
@@ -294,6 +344,36 @@ impl<'a> Request<'a> {
 
     pub fn is_v5(&self) -> bool {
         self.version.is_v5()
+    }
+
+    pub fn serialize(&self, buffer: &mut [u8]) -> Result<usize, io::Error> {
+        buffer[0] = self.version.into();
+        buffer[1] = self.cmd.into();
+        buffer[2] = 0;
+        buffer[3] = self.atyp.into();
+        let amt = self.dst_addr.serialize(&mut buffer[4..])?;
+
+        let offset = 4 + amt;
+
+        let octets = self.dst_port.to_be_bytes();
+        buffer[offset + 0] = octets[0];
+        buffer[offset + 1] = octets[1];
+
+        Ok(offset + 2)
+    }
+
+    pub fn deserialize(buffer: &'a [u8]) -> Result<Request<'a>, io::Error> {
+        let version = Version(buffer[0]);
+        let cmd = Cmd(buffer[1]);
+        let rsv = buffer[2];
+        let atyp = AddressKind::try_from(buffer[3])?;
+        let dst_addr = Address::deserialize(atyp, &buffer[4..])?;
+        let dst_addr_len = dst_addr.len();
+
+        let offset = 4 + dst_addr_len;
+        let dst_port = u16::from_be_bytes([ buffer[offset], buffer[offset + 1] ]);
+
+        Ok(Self { version, cmd, rsv, atyp, dst_addr, dst_port, })
     }
 }
 
@@ -425,6 +505,36 @@ impl<'a> Response<'a> {
 
     pub fn is_v5(&self) -> bool {
         self.version.is_v5()
+    }
+
+    pub fn serialize(&self, buffer: &mut [u8]) -> Result<usize, io::Error> {
+        buffer[0] = self.version.into();
+        buffer[1] = self.reply.into();
+        buffer[2] = 0;
+        buffer[3] = self.atyp.into();
+        let amt = self.bind_addr.serialize(&mut buffer[4..])?;
+
+        let offset = 4 + amt;
+
+        let octets = self.bind_port.to_be_bytes();
+        buffer[offset + 0] = octets[0];
+        buffer[offset + 1] = octets[1];
+        
+        Ok(offset + 2)
+    }
+
+    pub fn deserialize(buffer: &'a [u8]) -> Result<Response<'a>, io::Error> {
+        let version = Version(buffer[0]);
+        let reply = Reply(buffer[1]);
+        let rsv = buffer[2];
+        let atyp = AddressKind::try_from(buffer[3])?;
+        let bind_addr = Address::deserialize(atyp, &buffer[4..])?;
+        let bind_addr_len = bind_addr.len();
+
+        let offset = 4 + bind_addr_len;
+        let bind_port = u16::from_be_bytes([ buffer[offset], buffer[offset + 1] ]);
+
+        Ok(Self { version, reply, rsv, atyp, bind_addr, bind_port, })
     }
 }
 
