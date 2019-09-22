@@ -323,17 +323,10 @@ impl Reply {
     pub const ADDRESS_TYPE_NOT_SUPPORTED: Self        = Self(0x08);
 
     pub fn is_unknow(&self) -> bool {
-        match self {
-            &Self::SUCCEEDED
-            | &Self::GENERAL_SERVER_FAILURE
-            | &Self::CONNECTION_NOT_ALLOWED_BY_RULESET
-            | &Self::NETWORK_UNREACHABLE
-            | &Self::HOST_UNREACHABLE
-            | &Self::CONNECTION_REFUSED
-            | &Self::TTL_EXPIRED
-            | &Self::COMMAND_NOT_SUPPORTED
-            | &Self::ADDRESS_TYPE_NOT_SUPPORTED => false,
-            _ => true,
+        if self.0 > Self::ADDRESS_TYPE_NOT_SUPPORTED.0 {
+            true
+        } else {
+            false
         }
     }
 
@@ -346,8 +339,8 @@ impl Reply {
     }
     
     pub fn is_ok(&self) -> bool {
-        match self {
-            &Self::SUCCEEDED => true,
+        match *self {
+            Self::SUCCEEDED => true,
             _ => false,
         }
     }
@@ -363,16 +356,16 @@ impl Reply {
 
         use std::io::{Error, ErrorKind};
 
-        match self {
-            &Self::SUCCEEDED => None,
-            &Self::GENERAL_SERVER_FAILURE => Some(Error::new(ErrorKind::Other, "general SOCKS server failure")),
-            &Self::CONNECTION_NOT_ALLOWED_BY_RULESET => Some(Error::new(ErrorKind::Other, "connection not allowed by ruleset")),
-            &Self::NETWORK_UNREACHABLE => Some(Error::new(ErrorKind::Other, "Network unreachable")),
-            &Self::HOST_UNREACHABLE => Some(Error::new(ErrorKind::Other, "Host unreachable")),
-            &Self::CONNECTION_REFUSED => Some(ErrorKind::ConnectionRefused.into()),
-            &Self::TTL_EXPIRED        => Some(ErrorKind::TimedOut.into()),
-            &Self::COMMAND_NOT_SUPPORTED => Some(Error::new(ErrorKind::Other, "Command not supported")),
-            &Self::ADDRESS_TYPE_NOT_SUPPORTED => Some(Error::new(ErrorKind::Other, "Address type not supported")),
+        match *self {
+            Self::SUCCEEDED => None,
+            Self::GENERAL_SERVER_FAILURE => Some(Error::new(ErrorKind::Other, "general SOCKS server failure")),
+            Self::CONNECTION_NOT_ALLOWED_BY_RULESET => Some(Error::new(ErrorKind::Other, "connection not allowed by ruleset")),
+            Self::NETWORK_UNREACHABLE => Some(Error::new(ErrorKind::Other, "Network unreachable")),
+            Self::HOST_UNREACHABLE => Some(Error::new(ErrorKind::Other, "Host unreachable")),
+            Self::CONNECTION_REFUSED => Some(ErrorKind::ConnectionRefused.into()),
+            Self::TTL_EXPIRED        => Some(ErrorKind::TimedOut.into()),
+            Self::COMMAND_NOT_SUPPORTED => Some(Error::new(ErrorKind::Other, "Command not supported")),
+            Self::ADDRESS_TYPE_NOT_SUPPORTED => Some(Error::new(ErrorKind::Other, "Address type not supported")),
             _ => Some(Error::new(ErrorKind::Other, format!("Unknow SOCKS5 Server ERROR: {}", self.0))),
         }
     }
@@ -519,7 +512,7 @@ impl Ack {
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct PasswordAuthentication<T> {
-    version: Version,
+    version: u8, // NOTE: 这不是 SOCKS5 Version, 而是认证包的版本，目前固定为 0x01.
     ulen: u8,
     username: T,
     plen: u8,
@@ -528,7 +521,7 @@ pub struct PasswordAuthentication<T> {
 
 impl<T: AsRef<str>> PasswordAuthentication<T> {
     pub fn new(username: T, password: T) -> Self {
-        let version = Version::V5;
+        let version = 0x01;
         let ulen = username.as_ref().len();
         let plen = password.as_ref().len();
 
@@ -545,14 +538,6 @@ impl<T: AsRef<str>> PasswordAuthentication<T> {
         3 + self.username.as_ref().len() + self.password.as_ref().len()
     }
 
-    pub fn is_v4(&self) -> bool {
-        self.version.is_v4()
-    }
-
-    pub fn is_v5(&self) -> bool {
-        self.version.is_v5()
-    }
-
     pub fn username(&self) -> &str {
         &self.username.as_ref()
     }
@@ -563,24 +548,24 @@ impl<T: AsRef<str>> PasswordAuthentication<T> {
 
     pub fn serialize(&self, buffer: &mut [u8]) -> Result<usize, io::Error> {
         let mut offset = 0usize;
-        
-        buffer[offset] = self.version.into();
+
+        buffer[offset] = self.version;
         offset += 1;
-        
+
         buffer[offset] = self.ulen;
         offset += 1;
-        
+
         let uend = offset + self.ulen as usize;
         (&mut buffer[offset..uend]).copy_from_slice(self.username.as_ref().as_bytes());
         offset += self.ulen as usize;
-        
+
         buffer[offset] = self.plen;
         offset += 1;
-        
+
         let pend = offset + self.plen as usize;
         (&mut buffer[offset..pend]).copy_from_slice(self.password.as_ref().as_bytes());
         offset += self.plen as usize;
-        
+
         Ok(offset)
     }
 }
@@ -589,7 +574,7 @@ impl<'a> PasswordAuthentication<&'a str> {
     pub fn deserialize(buffer: &'a [u8]) -> Result<PasswordAuthentication<&'a str>, io::Error> {
         let mut offset = 0usize;
 
-        let version = Version(buffer[offset]);
+        let version = buffer[offset];
         offset += 1;
         let ulen = buffer[offset];
         offset += 1;
