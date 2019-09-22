@@ -1,7 +1,23 @@
-// use std::fmt;
 use std::io::{self, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::convert::TryFrom;
+
+// 
+// SOCKS5 协议通信流程
+// 
+// Client: Handshake
+// Server: HandshakeAck
+// 
+// NOTE: 可选步骤
+// Client: PasswordAuthentication
+// Server: PasswordAuthenticationAck
+// 
+// Client: Request
+// Server: Response (RquestAck)
+// 
+// Client <--> Server
+// UDP 转发 或者 TCP 转发
+// 
 
 
 // SOCKS Protocol Version 5
@@ -310,6 +326,31 @@ impl<'a> Address<'a> {
 }
 
 
+// https://tools.ietf.org/html/rfc1928#section-3
+// +----+----------+----------+
+// |VER | NMETHODS | METHODS  |
+// +----+----------+----------+
+// | 1  |    1     | 1 to 255 |
+// +----+----------+----------+
+#[derive(Debug, Clone, Copy)]
+pub struct Handshake {
+    pub version: Version,
+    pub methods_len: u8,
+    pub methods: Vec<Method>,
+}
+
+// +----+--------+
+// |VER | METHOD |
+// +----+--------+
+// | 1  |   1    |
+// +----+--------+
+#[derive(Debug, Clone, Copy)]
+pub struct HandshakeAck {
+    pub version: Version,
+    pub method: Method,
+}
+
+
 // https://tools.ietf.org/html/rfc1928#section-4
 // +----+-----+-------+------+----------+----------+
 // |VER | CMD |  RSV  | ATYP | DST.ADDR | DST.PORT |
@@ -597,12 +638,12 @@ impl<'a> Response<'a> {
 // 
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-pub struct Ack {
+pub struct PasswordAuthenticationAck {
     pub version: Version,
     pub status: u8,
 }
 
-impl Ack {
+impl PasswordAuthenticationAck {
     pub fn is_v4(&self) -> bool {
         self.version.is_v4()
     }
