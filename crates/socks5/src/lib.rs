@@ -6,9 +6,14 @@ use std::convert::TryFrom;
 
 // SOCKS Protocol Version 5
 // https://tools.ietf.org/html/rfc1928
+// 
+// Username/Password Authentication for SOCKS V5
+// https://tools.ietf.org/html/rfc1929
+// 
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct Version(pub u8);
+
 impl Version {
     pub const V4: Self = Self(0x04);
     pub const V5: Self = Self(0x05);
@@ -149,7 +154,7 @@ impl TryFrom<u8> for AddressKind {
 }
 
 // https://tools.ietf.org/html/rfc1928#section-5
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Address<'a> {
     V4(Ipv4Addr),
     V6(Ipv6Addr),
@@ -326,7 +331,7 @@ impl<'a> Response<'a> {
     pub const MIN_SIZE: usize = 8;
     pub const IPV4_SIZE: usize = 10;
     pub const IPV6_SIZE: usize = 22;
-    
+
     pub fn len(&self) -> usize {
         4 + self.bind_addr.len() + 2
     }
