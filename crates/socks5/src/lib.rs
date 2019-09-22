@@ -336,6 +336,8 @@ impl<'a> Address<'a> {
 pub struct Handshake {
     pub version: Version,
     pub methods_len: u8,
+    // TODO: 方法总数最大为 256 个
+    //       所以我们可以采用 u32 整数来取代 Vec<Method> 数据类型
     pub methods: Vec<Method>,
 }
 
