@@ -33,13 +33,11 @@ pub enum SocksError {
     NetworkUnreachable,
     HostUnreachable,
     ConnectionRefused,
-    TimedOut, // TTL expired
+    TimedOut,       // TTL expired
     CommandNotSupported,
     AddressTypeNotSupported,
-
-    VersionNotSupported,         // Only support SOCKS V5.
-    PassAuthVersionNotSupported, // Must be 0x01,
-
+    VersionNotSupported,         // Only support SOCKS V4/V5.
+    PassAuthVersionNotSupported, // Must be 0x01
     // There was not enough data
     /// An incoming packet could not be parsed because some of its fields were out of bounds of the received data.
     Truncated,
@@ -47,6 +45,19 @@ pub enum SocksError {
     Unrecognized,
     InvalidUtf8Sequence,
     RawReplyError(u8),
+}
+
+impl SocksError {
+    pub fn from_raw_reply_error(errno: u8) -> Self {
+        Self::RawReplyError(errno)
+    }
+
+    pub fn raw_reply_error(&self) -> Option<u8> {
+        match *self {
+            SocksError::RawReplyError(n) => Some(n),
+            _ => None,
+        }
+    }
 }
 
 impl Into<io::Error> for SocksError {
@@ -62,7 +73,7 @@ impl Into<io::Error> for SocksError {
             TimedOut => io::ErrorKind::TimedOut.into(),
             CommandNotSupported => io::Error::new(io::ErrorKind::Other, "Command not supported"),
             AddressTypeNotSupported => io::Error::new(io::ErrorKind::Other, "Address type not supported"),
-            VersionNotSupported => io::Error::new(io::ErrorKind::Other, "Address type not supported"),
+            VersionNotSupported => io::Error::new(io::ErrorKind::Other, "SOCKS Protocol version not supported"),
             PassAuthVersionNotSupported => io::Error::new(io::ErrorKind::Other, "Username/Password Authentication protocol version must be 0x01"),
             Truncated => io::Error::new(io::ErrorKind::Other, "An incoming packet could not be parsed because some of its fields were out of bounds of the received data"),
             Unrecognized => io::Error::new(io::ErrorKind::Other, "An incoming packet could not be recognized"),
