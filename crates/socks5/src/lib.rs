@@ -28,16 +28,22 @@ use std::convert::TryFrom;
 // 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub enum SocksError {
-    GeneralFailure, // general SOCKS server failure
-    NotAllowed,     // connection not allowed by ruleset
+    /// general SOCKS server failure
+    GeneralFailure,
+    /// connection not allowed by ruleset
+    NotAllowed,
     NetworkUnreachable,
     HostUnreachable,
     ConnectionRefused,
-    TimedOut,       // TTL expired
+    /// TTL expired
+    TimedOut,
     CommandNotSupported,
     AddressTypeNotSupported,
-    VersionNotSupported,         // Only support SOCKS V4/V5.
-    PassAuthVersionNotSupported, // Must be 0x01
+    /// SOCKS Protocol Version not supported.
+    /// Only support SOCKS V4/V5.
+    VersionNotSupported,
+    /// Username/Password Authentication protocol version Must be 0x01
+    PassAuthVersionNotSupported,
     // There was not enough data
     /// An incoming packet could not be parsed because some of its fields were out of bounds of the received data.
     Truncated,
@@ -794,19 +800,13 @@ impl<'a> RequestAck<'a> {
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct PasswordAuthenticationAck {
-    pub version: Version,
+    // NOTE: 注意这是 密码认证 子协议的版本，并非 SOCKS 协议的版本。
+    //       目前 密码认证 协议版本为: 0x01.
+    pub version: u8,
     pub status: u8,
 }
 
 impl PasswordAuthenticationAck {
-    pub fn is_v4(&self) -> bool {
-        self.version.is_v4()
-    }
-
-    pub fn is_v5(&self) -> bool {
-        self.version.is_v5()
-    }
-
     pub fn is_ok(&self) -> bool {
         self.status == 0
     }
@@ -818,7 +818,9 @@ impl PasswordAuthenticationAck {
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct PasswordAuthentication<T> {
-    version: u8, // NOTE: 这不是 SOCKS5 Version, 而是认证包的版本，目前固定为 0x01.
+    // NOTE: 注意这是 密码认证 子协议的版本，并非 SOCKS 协议的版本。
+    //       目前 密码认证 协议版本为: 0x01.
+    version: u8,
     ulen: u8,
     username: T,
     plen: u8,
@@ -826,13 +828,13 @@ pub struct PasswordAuthentication<T> {
 }
 
 impl<T> PasswordAuthentication<T> {
-    pub const VERSION: u8 = 0x01;
+    pub const VERSION_V1: u8 = 0x01;
 }
 
 impl<T: AsRef<str>> PasswordAuthentication<T> {
 
     pub fn new(username: T, password: T) -> Self {
-        let version = Self::VERSION;
+        let version = Self::VERSION_V1;
         let ulen = username.as_ref().len();
         let plen = password.as_ref().len();
 
@@ -886,7 +888,7 @@ impl<'a> PasswordAuthentication<&'a str> {
         let mut offset = 0usize;
 
         let version = buffer[offset];
-        if version != Self::VERSION {
+        if version != Self::VERSION_V1 {
             return Err(SocksError::PassAuthVersionNotSupported);
         }
         offset += 1;
