@@ -13,7 +13,7 @@ use std::convert::TryFrom;
 // Server: PasswordAuthenticationAck
 // 
 // Client: Request
-// Server: Response (RquestAck)
+// Server: RquestAck ( Response )
 // 
 // Client <--> Server
 // UDP 转发 或者 TCP 转发
@@ -27,23 +27,34 @@ use std::convert::TryFrom;
 // https://tools.ietf.org/html/rfc1929
 // 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
-pub enum Error {
-    Internal, // general SOCKS server failure
-    NotAllowed,
+pub enum SocksError {
+    GeneralFailure, // general SOCKS server failure
+    NotAllowed,     // connection not allowed by ruleset
     NetworkUnreachable,
     HostUnreachable,
     ConnectionRefused,
     TimedOut, // TTL expired
     CommandNotSupported,
     AddressTypeNotSupported,
+
+    VersionNotSupported,         // Only support SOCKS V5.
+    PassAuthVersionNotSupported, // Must be 0x01,
+
+    // There was not enough data
+    /// An incoming packet could not be parsed because some of its fields were out of bounds of the received data.
+    Truncated,
+    /// An incoming packet could not be recognized and was dropped. E.g. an Request packet with an unknown AddressType.
+    Unrecognized,
+    InvalidUtf8Sequence,
+    RawReplyError(u8),
 }
 
-impl Into<io::Error> for Error {
+impl Into<io::Error> for SocksError {
     fn into(self) -> io::Error {
-        use self::Error::*;
+        use self::SocksError::*;
 
         match self {
-            Internal => io::Error::new(io::ErrorKind::Other, "general SOCKS server failure"),
+            GeneralFailure => io::Error::new(io::ErrorKind::Other, "general SOCKS server failure"),
             NotAllowed => io::Error::new(io::ErrorKind::Other, "connection not allowed by ruleset"),
             NetworkUnreachable => io::Error::new(io::ErrorKind::Other, "Network unreachable"),
             HostUnreachable => io::Error::new(io::ErrorKind::Other, "Host unreachable"),
@@ -51,7 +62,13 @@ impl Into<io::Error> for Error {
             TimedOut => io::ErrorKind::TimedOut.into(),
             CommandNotSupported => io::Error::new(io::ErrorKind::Other, "Command not supported"),
             AddressTypeNotSupported => io::Error::new(io::ErrorKind::Other, "Address type not supported"),
-        }
+            VersionNotSupported => io::Error::new(io::ErrorKind::Other, "Address type not supported"),
+            PassAuthVersionNotSupported => io::Error::new(io::ErrorKind::Other, "Username/Password Authentication protocol version must be 0x01"),
+            Truncated => io::Error::new(io::ErrorKind::Other, "An incoming packet could not be parsed because some of its fields were out of bounds of the received data"),
+            Unrecognized => io::Error::new(io::ErrorKind::Other, "An incoming packet could not be recognized"),
+            InvalidUtf8Sequence => io::Error::new(io::ErrorKind::Other, "invalid UTF-8 sequence"),
+            RawReplyError(errno) => io::Error::new(io::ErrorKind::Other, format!("raw reply error code: {}", errno)),
+        }   
     }
 }
 
@@ -73,27 +90,49 @@ impl From<io::Error> for Reply {
 }
 
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy)]
-pub struct Version(pub u8);
+#[repr(u8)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub enum Version {
+    V4,
+    V5,
+}
+
+impl Into<u8> for Version {
+    fn into(self) -> u8 {
+        match self {
+            Self::V4 => 0x04,
+            Self::V5 => 0x05,
+        }
+    }
+}
+
+impl TryFrom<u8> for Version {
+    type Error = SocksError;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0x04 => Ok(Version::V4),
+            0x05 => Ok(Version::V5),
+            _ => Err(SocksError::VersionNotSupported),
+        }
+    }
+}
 
 impl Version {
-    pub const V4: Self = Self(0x04);
-    pub const V5: Self = Self(0x05);
-
     pub fn is_v4(&self) -> bool {
-        self.0 == Self::V4.0
+        match *self {
+            Self::V4 => true,
+            _ => false,
+        }
     }
 
     pub fn is_v5(&self) -> bool {
-        self.0 == Self::V5.0
-    }
-
-    pub fn is_unknow(&self) -> bool {
-        match self {
-            &Version::V4 | &Version::V5 => false,
-            _ => true,
+        match *self {
+            Self::V5 => true,
+            _ => false,
         }
     }
+
 }
 
 impl Default for Version {
@@ -102,21 +141,6 @@ impl Default for Version {
     }
 }
 
-impl Into<u8> for Version {
-    fn into(self) -> u8 {
-        self.0
-    }
-}
-
-impl std::fmt::Debug for Version {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            &Version::V4 => write!(f, "V4"),
-            &Version::V5 => write!(f, "V5"),
-            _ => write!(f, "UNKNOW_VERSION({})", self.0),
-        }
-    }
-}
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct Method(pub u8);
@@ -220,6 +244,31 @@ impl Methods {
     pub fn iter<'a>(&'a self) -> MethodsIter<'a> {
         MethodsIter { methods: self, idx: 0, }
     }
+
+    pub fn serialize(&self, buffer: &mut [u8]) -> Result<usize, io::Error> {
+        assert!(self.len <= std::u8::MAX as usize);
+
+        buffer[0] = self.len as u8;
+        let mut offset = 1;
+
+        for m in self.iter() {
+            buffer[offset] = m.into();
+            offset += 1;
+        }
+
+        Ok(offset)
+    }
+
+    pub fn deserialize(buffer: &[u8]) -> Result<Self, SocksError> {
+        let len = buffer[0];
+        let mut methods = Self::new();
+        for idx in 1..(len+1) {
+            let method = Method(buffer[idx as usize]);
+            methods.enable(method);
+        }
+
+        Ok(methods)
+    }
 }
 
 pub struct MethodsIter<'a> {
@@ -245,39 +294,37 @@ impl<'a> Iterator for MethodsIter<'a> {
     }
 }
 
-
-#[derive(PartialEq, Eq, Hash, Clone, Copy)]
-pub struct Cmd(pub u8);
-
-impl Cmd {
-    pub const CONNECT: Self       = Self(0x01);
-    pub const BIND: Self          = Self(0x02);
-    pub const UDP_ASSOCIATE: Self = Self(0x03);
-
-    pub fn is_unknow(&self) -> bool {
-        match self {
-            &Cmd::CONNECT | &Cmd::BIND | &Cmd::UDP_ASSOCIATE => false,
-            _ => true,
-        }
-    }
+#[repr(u8)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub enum Cmd {
+    Connect,
+    Bind,
+    UdpAssociate,
 }
 
 impl Into<u8> for Cmd {
     fn into(self) -> u8 {
-        self.0
-    }
-}
-
-impl std::fmt::Debug for Cmd {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            &Cmd::CONNECT => write!(f, "CONNECT"),
-            &Cmd::BIND => write!(f, "BIND"),
-            &Cmd::UDP_ASSOCIATE => write!(f, "UDP_ASSOCIATE"),
-            _ => write!(f, "UNKNOW_CMD({})", self.0),
+            Self::Connect      => 0x01,
+            Self::Bind         => 0x02,
+            Self::UdpAssociate => 0x03,
         }
     }
 }
+
+impl TryFrom<u8> for Cmd {
+    type Error = SocksError;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0x01 => Ok(Cmd::Connect),
+            0x02 => Ok(Cmd::Bind),
+            0x03 => Ok(Cmd::UdpAssociate),
+            _ => Err(SocksError::CommandNotSupported),
+        }
+    }
+}
+
 
 #[repr(u8)]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -301,14 +348,14 @@ impl Into<u8> for AddressKind {
 }
 
 impl TryFrom<u8> for AddressKind {
-    type Error = io::Error;
+    type Error = SocksError;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             0x01 => Ok(AddressKind::V4),
             0x03 => Ok(AddressKind::DomainName),
             0x04 => Ok(AddressKind::V6),
-            _ => Err(io::Error::new(io::ErrorKind::Other, "Address type not supported"))
+            _ => Err(SocksError::AddressTypeNotSupported)
         }
     }
 }
@@ -387,7 +434,7 @@ impl<'a> Address<'a> {
         }
     }
 
-    pub fn deserialize(kind: AddressKind, buffer: &'a [u8]) -> Result<Address<'a>, io::Error> {
+    pub fn deserialize(kind: AddressKind, buffer: &'a [u8]) -> Result<Address<'a>, SocksError> {
         match kind {
             AddressKind::V4 => {
                 let octets = [ buffer[0], buffer[1], buffer[2], buffer[3] ];
@@ -402,7 +449,7 @@ impl<'a> Address<'a> {
             AddressKind::DomainName => {
                 let len = buffer[0];
                 let domain_name = std::str::from_utf8(&buffer[1..len as usize + 1])
-                    .map_err(|_| io::Error::new(io::ErrorKind::Other, "invalid UTF-8 sequence"))?;
+                    .map_err(|_| SocksError::InvalidUtf8Sequence)?;
                 Ok(Address::DomainName(domain_name))
             },
         }
@@ -420,8 +467,22 @@ impl<'a> Address<'a> {
 #[derive(Debug, Clone, Copy)]
 pub struct Handshake {
     pub version: Version,
-    pub methods_len: u8,
+    // pub methods_len: u8,
     pub methods: Methods, // 最多有 256 个方法
+}
+
+impl Handshake {
+    pub fn serialize(&self, buffer: &mut [u8]) -> Result<usize, io::Error> {
+        buffer[0] = self.version.into();
+        self.methods.serialize(&mut buffer[1..])
+    }
+
+    pub fn deserialize(buffer: &[u8]) -> Result<Self, SocksError> {
+        let version = Version::try_from(buffer[0])?;
+        let methods = Methods::deserialize(&buffer[1..])?;
+
+        Ok(Self { version, methods })
+    }
 }
 
 // +----+--------+
@@ -488,9 +549,9 @@ impl<'a> Request<'a> {
         Ok(offset + 2)
     }
 
-    pub fn deserialize(buffer: &'a [u8]) -> Result<Request<'a>, io::Error> {
-        let version = Version(buffer[0]);
-        let cmd = Cmd(buffer[1]);
+    pub fn deserialize(buffer: &'a [u8]) -> Result<Request<'a>, SocksError> {
+        let version = Version::try_from(buffer[0])?;
+        let cmd = Cmd::try_from(buffer[1])?;
         let rsv = buffer[2];
         let atyp = AddressKind::try_from(buffer[3])?;
         let dst_addr = Address::deserialize(atyp, &buffer[4..])?;
@@ -555,24 +616,22 @@ impl Reply {
         !self.is_ok()
     }
 
-    pub fn err(&self) -> Option<io::Error> {
+    pub fn err(&self) -> Option<SocksError> {
         if self.is_ok() {
             return None;
         }
 
-        use std::io::{Error, ErrorKind};
-
         match *self {
             Self::SUCCEEDED => None,
-            Self::GENERAL_SERVER_FAILURE => Some(Error::new(ErrorKind::Other, "general SOCKS server failure")),
-            Self::CONNECTION_NOT_ALLOWED_BY_RULESET => Some(Error::new(ErrorKind::Other, "connection not allowed by ruleset")),
-            Self::NETWORK_UNREACHABLE => Some(Error::new(ErrorKind::Other, "Network unreachable")),
-            Self::HOST_UNREACHABLE => Some(Error::new(ErrorKind::Other, "Host unreachable")),
-            Self::CONNECTION_REFUSED => Some(ErrorKind::ConnectionRefused.into()),
-            Self::TTL_EXPIRED        => Some(ErrorKind::TimedOut.into()),
-            Self::COMMAND_NOT_SUPPORTED => Some(Error::new(ErrorKind::Other, "Command not supported")),
-            Self::ADDRESS_TYPE_NOT_SUPPORTED => Some(Error::new(ErrorKind::Other, "Address type not supported")),
-            _ => Some(Error::new(ErrorKind::Other, format!("Unknow SOCKS5 Server ERROR: {}", self.0))),
+            Self::GENERAL_SERVER_FAILURE => Some(SocksError::GeneralFailure),
+            Self::CONNECTION_NOT_ALLOWED_BY_RULESET => Some(SocksError::NotAllowed),
+            Self::NETWORK_UNREACHABLE => Some(SocksError::NetworkUnreachable),
+            Self::HOST_UNREACHABLE => Some(SocksError::HostUnreachable),
+            Self::CONNECTION_REFUSED => Some(SocksError::ConnectionRefused),
+            Self::TTL_EXPIRED        => Some(SocksError::TimedOut),
+            Self::COMMAND_NOT_SUPPORTED => Some(SocksError::CommandNotSupported),
+            Self::ADDRESS_TYPE_NOT_SUPPORTED => Some(SocksError::AddressTypeNotSupported),
+            _ => Some(SocksError::RawReplyError(self.0)),
         }
     }
 }
@@ -607,7 +666,7 @@ impl std::fmt::Debug for Reply {
 // | 1  |  1  | X'00' |  1   | Variable |    2     |
 // +----+-----+-------+------+----------+----------+
 #[derive(Debug, Clone, Copy)]
-pub struct Response<'a> {
+pub struct RequestAck<'a> {
     pub version: Version,
     pub reply: Reply,
     pub rsv: u8,  // 0x00, RESERVED
@@ -616,7 +675,7 @@ pub struct Response<'a> {
     pub bind_port: u16,
 }
 
-impl<'a> Response<'a> {
+impl<'a> RequestAck<'a> {
     pub const MIN_SIZE: usize = 8;
     pub const IPV4_SIZE: usize = 10;
     pub const IPV6_SIZE: usize = 22;
@@ -649,8 +708,8 @@ impl<'a> Response<'a> {
         Ok(offset + 2)
     }
 
-    pub fn deserialize(buffer: &'a [u8]) -> Result<Response<'a>, io::Error> {
-        let version = Version(buffer[0]);
+    pub fn deserialize(buffer: &'a [u8]) -> Result<RequestAck<'a>, SocksError> {
+        let version = Version::try_from(buffer[0])?;
         let reply = Reply(buffer[1]);
         let rsv = buffer[2];
         let atyp = AddressKind::try_from(buffer[3])?;
@@ -755,9 +814,14 @@ pub struct PasswordAuthentication<T> {
     password: T,
 }
 
+impl<T> PasswordAuthentication<T> {
+    pub const VERSION: u8 = 0x01;
+}
+
 impl<T: AsRef<str>> PasswordAuthentication<T> {
+
     pub fn new(username: T, password: T) -> Self {
-        let version = 0x01;
+        let version = Self::VERSION;
         let ulen = username.as_ref().len();
         let plen = password.as_ref().len();
 
@@ -807,23 +871,27 @@ impl<T: AsRef<str>> PasswordAuthentication<T> {
 }
 
 impl<'a> PasswordAuthentication<&'a str> {
-    pub fn deserialize(buffer: &'a [u8]) -> Result<PasswordAuthentication<&'a str>, io::Error> {
+    pub fn deserialize(buffer: &'a [u8]) -> Result<PasswordAuthentication<&'a str>, SocksError> {
         let mut offset = 0usize;
 
         let version = buffer[offset];
+        if version != Self::VERSION {
+            return Err(SocksError::PassAuthVersionNotSupported);
+        }
         offset += 1;
+
         let ulen = buffer[offset];
         offset += 1;
 
         let username = std::str::from_utf8(&buffer[offset..offset + ulen as usize])
-            .map_err(|_| io::Error::new(io::ErrorKind::Other, "invalid UTF-8 sequence"))?;
+            .map_err(|_| SocksError::InvalidUtf8Sequence)?;
         offset += ulen as usize;
         
         let plen = buffer[offset];
         offset += 1;
 
         let password = std::str::from_utf8(&buffer[offset..offset + plen as usize])
-            .map_err(|_| io::Error::new(io::ErrorKind::Other, "invalid UTF-8 sequence"))?;
+            .map_err(|_| SocksError::InvalidUtf8Sequence)?;
         offset += plen as usize;
 
         Ok(Self { version, ulen, username, plen, password, })
