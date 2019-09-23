@@ -148,7 +148,7 @@ pub struct Method(pub u8);
 impl Method {
     pub const NO_AUTH: Self       = Self(0x00); // NO AUTHENTICATION REQUIRED
     pub const GSSAPI: Self        = Self(0x01); // GSSAPI
-    pub const USERNAME: Self      = Self(0x02); // USERNAME/PASSWORD
+    pub const PASS_AUTH: Self      = Self(0x02);// USERNAME/PASSWORD
     pub const NO_ACCEPTABLE: Self = Self(0xFF); // NO ACCEPTABLE METHODS
 
     pub fn is_iana_assigned(&self) -> bool {
@@ -179,7 +179,7 @@ impl std::fmt::Debug for Method {
         match self {
             &Method::NO_AUTH => write!(f, "NO_AUTH"),
             &Method::GSSAPI => write!(f, "GSSAPI"),
-            &Method::USERNAME => write!(f, "USERNAME"),
+            &Method::PASS_AUTH => write!(f, "PASS_AUTH"),
             &Method::NO_ACCEPTABLE => write!(f, "NO_ACCEPTABLE"),
             _ => write!(f, "UNKNOW_METHOD({})", self.0),
         }
@@ -906,11 +906,11 @@ fn test_methods() {
     assert_eq!(methods.is_enabled(Method::NO_AUTH), true);
     assert_eq!(methods.len(), 1);
 
-    methods.set(Method::USERNAME, true);
-    assert_eq!(methods.is_enabled(Method::USERNAME), true);
+    methods.set(Method::PASS_AUTH, true);
+    assert_eq!(methods.is_enabled(Method::PASS_AUTH), true);
     assert_eq!(methods.len(), 2);
 
-    methods.set(Method::USERNAME, false);
-    assert_eq!(methods.is_enabled(Method::USERNAME), false);
+    methods.set(Method::PASS_AUTH, false);
+    assert_eq!(methods.is_enabled(Method::PASS_AUTH), false);
     assert_eq!(methods.len(), 1);
 }
