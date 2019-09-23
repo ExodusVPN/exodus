@@ -148,7 +148,7 @@ pub struct Method(pub u8);
 impl Method {
     pub const NO_AUTH: Self       = Self(0x00); // NO AUTHENTICATION REQUIRED
     pub const GSSAPI: Self        = Self(0x01); // GSSAPI
-    pub const PASS_AUTH: Self      = Self(0x02);// USERNAME/PASSWORD
+    pub const PASS_AUTH: Self     = Self(0x02);// USERNAME/PASSWORD
     pub const NO_ACCEPTABLE: Self = Self(0xFF); // NO ACCEPTABLE METHODS
 
     pub fn is_iana_assigned(&self) -> bool {
