@@ -18,13 +18,48 @@ use std::convert::TryFrom;
 // Client <--> Server
 // UDP 转发 或者 TCP 转发
 // 
-
+// 
+// 代理模式
+// 
+// CONNECT (TCP)
+//      通过 TCP 通道代理 TCP 流量
+//      
+//      1. 客户端发送 CONNECT Request, 地址是 TARGET.ADDR/TARGET.PORT
+//      2. 服务端主动建立一条到 TARGET.ADDR/TARGET.PORT 的连接. 连接地址为 AddrA/PortA.
+//      3. 服务端返回 CONNECT RequestAck，包中 BND.ADDR/BND.PORT 即 AddrA/PortA。
+//      4. 服务端 和 客户端 进入互相转发流程。
+// 
+// BIND (TCP)
+//      通过 TCP 通道代理 TCP 流量
+//      
+//      1. 客户端发送 BIND Request, 地址是 TARGET.ADDR/TARGET.PORT
+//      2. 服务端在本地新建一条TCP连接，监听在 AddrA/PortA 上。
+//      3. 服务端返回 BIND RequestAck，包中 BND.ADDR/BND.PORT 即 AddrA/PortA。
+//      4. 当服务端的 AddrA/PortA 有了第一个连接 (假设为 AddrB/PortB ) 时，服务端再 返回一个 BIND RequestAck，
+//         包中 BND.ADDR/BND.PORT 即 AddrB/PortB。
+//      5. 然后进入 客户端和服务端 互相转发的流程
+// 
+// UDP ASSOCIATE (UDP)
+//      通过 UDP 通道代理 UDP 流量
+// 
+//      1. 客户端发送 UDP-ASSOCIATE Request, 地址是 CLIENT_UDP.ADDR/CLIENT_UDP.PORT
+//      2. 服务端 在本地新建一条 UDP 线路，侦听在 AddrA/PortA 上
+//      3. 服务端返回 UDP-ASSOCIATE RequestAck，包中 BND.ADDR/BND.PORT 即 AddrA/PortA。
+//      4. 客户端 通过 CLIENT_UDP.ADDR/CLIENT_UDP.PORT 向 服务端的 UDP 通道 BND.ADDR/BND.PORT 发送 UDP 报文。
+//         UDP 报文里面需要携带一个特殊 UDP 报文头, 向 服务端 指示了这个 UDP 要发给谁。
+//      5. 当服务端的 UDP 通道收到远端的 UDP 报文时，以同样的方式返回给 客户端的 UDP 地址。
+//      注: CLIENT_UDP.ADDR/CLIENT_UDP.PORT 可以全部用 0 来替代。，
+//          服务端可以针对这个信息进行一些流量规则管控（比如忽略某些地址和端口发送来的UDP数据）。
+// 
 
 // SOCKS Protocol Version 5
 // https://tools.ietf.org/html/rfc1928
 // 
 // Username/Password Authentication for SOCKS V5
 // https://tools.ietf.org/html/rfc1929
+// 
+// Generic Security Service Application Program Interface Version 2, Update 1
+// https://tools.ietf.org/html/rfc2743
 // 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub enum SocksError {
@@ -761,7 +796,62 @@ impl<'a> RequestAck<'a> {
 //     o  DST.PORT      desired destination port
 //     o  DATA          user data
 // 
+#[derive(Debug, Clone, Copy)]
+pub struct UdpDatagram<'a> {
+    pub rsv: u16,
+    pub fragment: u8,
+    pub atyp: AddressKind,
+    pub dst_addr: Address<'a>,
+    pub dst_port: u16,
+    pub data: &'a [u8],
+}
 
+impl<'a> UdpDatagram<'a> {
+    pub const MIN_SIZE: usize = 6 + 1 + 1;
+    pub const IPV4_SIZE: usize = 10;
+    pub const IPV6_SIZE: usize = 22;
+
+    pub fn len(&self) -> usize {
+        4 + self.dst_addr.len() + 2 + self.data.len()
+    }
+
+    pub fn serialize(&self, buffer: &mut [u8]) -> Result<usize, io::Error> {
+        buffer[0] = 0;
+        buffer[1] = 0;
+        buffer[2] = self.fragment;
+        buffer[3] = self.atyp.into();
+        let amt = self.dst_addr.serialize(&mut buffer[4..])?;
+
+        let mut offset = 4 + amt;
+
+        let octets = self.dst_port.to_be_bytes();
+        buffer[offset + 0] = octets[0];
+        buffer[offset + 1] = octets[1];
+        offset += 2;
+
+        (&mut buffer[offset..offset + self.data.len()]).copy_from_slice(self.data);
+
+        offset += self.data.len();
+
+        Ok(offset)
+    }
+
+    pub fn deserialize(buffer: &'a [u8]) -> Result<UdpDatagram<'a>, SocksError> {
+        let rsv = 0;
+        let fragment = buffer[2];
+        let atyp = AddressKind::try_from(buffer[3])?;
+        let dst_addr = Address::deserialize(atyp, &buffer[4..])?;
+        let bind_addr_len = dst_addr.len();
+        let mut offset = 4 + bind_addr_len;
+
+        let dst_port = u16::from_be_bytes([ buffer[offset], buffer[offset + 1] ]);
+        offset += 2;
+
+        let data = &buffer[offset..];
+
+        Ok(Self { rsv, fragment, atyp, dst_addr, dst_port, data })
+    }
+}
 
 // Username/Password Authentication
 // https://tools.ietf.org/html/rfc1929#section-2
