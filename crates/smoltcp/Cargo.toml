@@ -1,0 +1,40 @@
+[package]
+name = "smoltcp"
+version = "0.5.0"
+edition = "2018"
+authors = ["whitequark <whitequark@whitequark.org>"]
+description = "A TCP/IP stack designed for bare-metal, real-time systems without a heap."
+documentation = "https://docs.rs/smoltcp/"
+homepage = "https://github.com/m-labs/smoltcp"
+repository = "https://github.com/m-labs/smoltcp.git"
+readme = "README.md"
+keywords = ["ip", "tcp", "udp", "ethernet", "network"]
+categories = ["embedded", "network-programming"]
+license = "0BSD"
+
+[dependencies]
+log       = { version = "0.4", default-features = false, optional = true }
+managed   = { version = "0.7", default-features = false, features = ["map"] }
+bitflags  = { version = "1.0", default-features = false }
+byteorder = { version = "1.0", default-features = false }
+
+[features]
+default = [
+  "std", "log",
+  "proto-ipv4", "proto-igmp", "proto-ipv6",
+  "socket-raw", "socket-icmp", "socket-udp", "socket-tcp"
+]
+std     = ["managed/std"]
+alloc   = ["managed/alloc"]
+verbose = []
+"proto-ipv4"   = []
+"proto-igmp"   = ["proto-ipv4"]
+"proto-dhcpv4" = ["proto-ipv4", "socket-raw"]
+"proto-ipv6"   = []
+"socket-raw"   = []
+"socket-udp"   = []
+"socket-tcp"   = []
+"socket-icmp"  = []
+
+[profile.release]
+debug = 2
