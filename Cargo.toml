@@ -19,7 +19,7 @@ members = [
 
 [dependencies]
 log        = "0.4"
-env_logger = { version = "0.6", default-features = false, features = [ "termcolor", "atty", "humantime" ] }
+env_logger = { version = "0.7", default-features = false, features = [ "termcolor", "atty", "humantime" ] }
 clap       = "2.33"
 mio        = { version = "0.6", default-features = false }
 ctrlc      = { version = "3.1", features = ["termination"] }
