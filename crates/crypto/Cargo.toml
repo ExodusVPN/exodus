@@ -11,7 +11,7 @@ ed25519-dalek          = "1.0.0-pre.1"
 chacha20-poly1305-aead = "0.1"
 
 [target.'cfg(any(target_arch = "x86_64", target_arch = "x86"))'.dependencies]
-miscreant = { version = "0.4", features = ["default"] }
+miscreant = { version = "0.5", features = ["default"] }
 
 [target.'cfg(not(any(target_arch = "x86_64", target_arch = "x86")))'.dependencies]
 miscreant = { version = "0.4", features = ["default", "soft-aes"] }
