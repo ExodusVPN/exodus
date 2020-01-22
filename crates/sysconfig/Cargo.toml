@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 log     = "0.4"
-smoltcp = { version = "0.5", default-features = false, features = [ "std", "log", "proto-ipv4", "proto-ipv6" ] }
+smoltcp = { version = "0.6", default-features = false, features = [ "std", "log", "proto-ipv4", "proto-ipv6" ] }
 
 [target.'cfg(unix)'.dependencies]
 libc   = "0.2"

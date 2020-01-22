@@ -23,7 +23,7 @@ env_logger = { version = "0.6", default-features = false, features = [ "termcolo
 clap       = "2.33"
 mio        = { version = "0.6", default-features = false }
 ctrlc      = { version = "3.1", features = ["termination"] }
-smoltcp    = { version = "0.5", default-features = false, features = [ "std", "log", "proto-ipv4", "proto-ipv6" ] }
+smoltcp    = { version = "0.6", default-features = false, features = [ "std", "log", "proto-ipv4", "proto-ipv6" ] }
 
 tun         = { path = "crates/tun", features = ["mio"] }
 crypto      = { path = "crates/crypto" }
