@@ -10,7 +10,7 @@ keywords    = ["tun", "network", "tunnel", "bindings"]
 [dependencies]
 libc      = "0.2"
 ioctl-sys = "0.5"
-mio       = { version = "0.6", optional = true }
+mio       = { version = "0.7", optional = true }
 
 [features]
 default = [ ]
