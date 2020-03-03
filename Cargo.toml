@@ -21,7 +21,7 @@ members = [
 log        = "0.4"
 env_logger = { version = "0.6", default-features = false, features = [ "termcolor", "atty", "humantime" ] }
 clap       = "2.33"
-mio        = { version = "0.6", default-features = false }
+mio        = { version = "0.7", default-features = false }
 ctrlc      = { version = "3.1", features = ["termination"] }
 smoltcp    = { version = "0.5", default-features = false, features = [ "std", "log", "proto-ipv4", "proto-ipv6" ] }
 
