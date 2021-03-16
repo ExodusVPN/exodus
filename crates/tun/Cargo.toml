@@ -9,7 +9,7 @@ keywords    = ["tun", "network", "tunnel", "bindings"]
 
 [dependencies]
 libc      = "0.2"
-ioctl-sys = "0.5"
+ioctl-sys = "0.7"
 mio       = { version = "0.6", optional = true }
 
 [features]
